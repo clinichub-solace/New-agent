@@ -427,6 +427,101 @@ class ProcedureCreate(BaseModel):
     location: Optional[str] = None
     notes: Optional[str] = None
 
+# Enhanced Models for Document Upload and Advanced Features
+
+# Patient Documents Model
+class PatientDocument(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    document_name: str
+    document_type: str  # lab_result, imaging, insurance, consent_form, etc.
+    file_data: str  # base64 encoded file data
+    file_extension: str  # pdf, jpg, png, etc.
+    file_size: int  # in bytes
+    uploaded_by: str
+    upload_date: datetime = Field(default_factory=datetime.utcnow)
+    notes: Optional[str] = None
+
+class PatientDocumentCreate(BaseModel):
+    patient_id: str
+    document_name: str
+    document_type: str
+    file_data: str  # base64 encoded
+    file_extension: str
+    file_size: int
+    uploaded_by: str
+    notes: Optional[str] = None
+
+# Enhanced Invoice Item with Inventory Linking
+class EnhancedInvoiceItem(BaseModel):
+    description: str
+    quantity: int = 1
+    unit_price: float
+    total: float
+    inventory_item_id: Optional[str] = None  # Link to inventory
+    service_type: str = "service"  # service, product, lab, injectable
+
+# Enhanced Invoice Model
+class EnhancedInvoice(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    invoice_number: str
+    patient_id: str
+    encounter_id: Optional[str] = None  # Link to encounter
+    items: List[EnhancedInvoiceItem]
+    subtotal: float
+    tax_rate: float = 0.0
+    tax_amount: float = 0.0
+    total_amount: float
+    status: InvoiceStatus = InvoiceStatus.DRAFT
+    issue_date: date = Field(default_factory=date.today)
+    due_date: Optional[date] = None
+    paid_date: Optional[date] = None
+    notes: Optional[str] = None
+    auto_generated: bool = False  # True if generated from SOAP notes
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class EnhancedInvoiceCreate(BaseModel):
+    patient_id: str
+    encounter_id: Optional[str] = None
+    items: List[EnhancedInvoiceItem]
+    tax_rate: float = 0.0
+    due_days: int = 30
+    notes: Optional[str] = None
+    auto_generated: bool = False
+
+# Enhanced SOAP Note with Plan Items
+class PlanItem(BaseModel):
+    item_type: str  # lab, injectable, medication, procedure, follow_up
+    description: str
+    quantity: int = 1
+    unit_price: float = 0.0
+    approved_by_patient: bool = False
+    inventory_item_id: Optional[str] = None
+
+class EnhancedSOAPNote(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    encounter_id: str
+    patient_id: str
+    subjective: str  # Patient's description of symptoms
+    objective: str   # Physical examination findings
+    assessment: str  # Diagnosis and clinical impressions
+    plan: str       # Treatment plan and follow-up (text)
+    plan_items: List[PlanItem] = []  # Structured plan items for billing
+    provider: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class EnhancedSOAPNoteCreate(BaseModel):
+    encounter_id: str
+    patient_id: str
+    subjective: str
+    objective: str
+    assessment: str
+    plan: str
+    plan_items: List[PlanItem] = []
+    provider: str
+
 # Patient Routes
 @api_router.post("/patients", response_model=Patient)
 async def create_patient(patient_data: PatientCreate):
