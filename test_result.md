@@ -182,15 +182,18 @@ backend:
 
   - task: "Comprehensive SOAP Notes System"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented complete SOAP notes system with Subjective, Objective, Assessment, Plan documentation linked to encounters and patients."
+      - working: true
+        agent: "testing"
+        comment: "SOAP Notes API endpoints are working correctly. Successfully created an encounter, created a SOAP note linked to the encounter and patient, retrieved SOAP notes by encounter, and retrieved SOAP notes by patient."
 
   - task: "Encounter/Visit Management System"
     implemented: true
