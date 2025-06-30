@@ -152,15 +152,18 @@ backend:
 
   - task: "Inventory Management System"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Medical inventory system with stock tracking, expiry dates, transaction logging, and low-stock alerts."
+      - working: false
+        agent: "testing"
+        comment: "Inventory item creation and retrieval endpoints are working correctly, but the inventory transaction endpoint is failing with a 422 Unprocessable Entity error. This needs to be fixed."
 
   - task: "Employee Management System"
     implemented: true
