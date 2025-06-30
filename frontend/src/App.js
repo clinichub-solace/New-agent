@@ -2081,7 +2081,702 @@ const SmartFormsModule = ({ setActiveModule }) => {
   );
 };
 
-// Main App Component
+// Comprehensive Employee Management Module
+const EmployeeModule = ({ setActiveModule }) => {
+  const [employees, setEmployees] = useState([]);
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [showEmployeeForm, setShowEmployeeForm] = useState(false);
+  const [showDocumentForm, setShowDocumentForm] = useState(false);
+  const [showTimeEntry, setShowTimeEntry] = useState(false);
+  const [showScheduleForm, setShowScheduleForm] = useState(false);
+  const [employeeDashboard, setEmployeeDashboard] = useState(null);
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
+
+  const fetchEmployees = async () => {
+    try {
+      const response = await axios.get(`${API}/enhanced-employees`);
+      setEmployees(response.data);
+    } catch (error) {
+      console.error("Error fetching employees:", error);
+    }
+  };
+
+  const fetchEmployeeDashboard = async (employeeId) => {
+    try {
+      const response = await axios.get(`${API}/employees/${employeeId}/dashboard`);
+      setEmployeeDashboard(response.data);
+    } catch (error) {
+      console.error("Error fetching employee dashboard:", error);
+    }
+  };
+
+  const handleEmployeeSelect = (employee) => {
+    setSelectedEmployee(employee);
+    fetchEmployeeDashboard(employee.id);
+    setActiveTab('overview');
+  };
+
+  // Employee Creation Form
+  const EmployeeForm = () => {
+    const [formData, setFormData] = useState({
+      first_name: '', last_name: '', email: '', phone: '',
+      role: 'nurse', department: '', hire_date: '',
+      salary: '', hourly_rate: '', employment_type: 'full_time'
+    });
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        const submitData = {
+          ...formData,
+          salary: formData.salary ? parseFloat(formData.salary) : null,
+          hourly_rate: formData.hourly_rate ? parseFloat(formData.hourly_rate) : null
+        };
+        await axios.post(`${API}/enhanced-employees`, submitData);
+        setShowEmployeeForm(false);
+        setFormData({
+          first_name: '', last_name: '', email: '', phone: '',
+          role: 'nurse', department: '', hire_date: '',
+          salary: '', hourly_rate: '', employment_type: 'full_time'
+        });
+        fetchEmployees();
+      } catch (error) {
+        console.error("Error creating employee:", error);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl p-8 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <h3 className="text-xl font-bold mb-4">Add New Employee</h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                type="text"
+                placeholder="First Name *"
+                value={formData.first_name}
+                onChange={(e) => setFormData({...formData, first_name: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Last Name *"
+                value={formData.last_name}
+                onChange={(e) => setFormData({...formData, last_name: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                type="email"
+                placeholder="Email *"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+                required
+              />
+              <input
+                type="tel"
+                placeholder="Phone"
+                value={formData.phone}
+                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <select
+                value={formData.role}
+                onChange={(e) => setFormData({...formData, role: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              >
+                <option value="doctor">Doctor</option>
+                <option value="nurse">Nurse</option>
+                <option value="admin">Admin</option>
+                <option value="receptionist">Receptionist</option>
+                <option value="technician">Technician</option>
+              </select>
+              <input
+                type="text"
+                placeholder="Department"
+                value={formData.department}
+                onChange={(e) => setFormData({...formData, department: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <input
+                type="date"
+                placeholder="Hire Date *"
+                value={formData.hire_date}
+                onChange={(e) => setFormData({...formData, hire_date: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Annual Salary"
+                value={formData.salary}
+                onChange={(e) => setFormData({...formData, salary: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Hourly Rate"
+                value={formData.hourly_rate}
+                onChange={(e) => setFormData({...formData, hourly_rate: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <select
+                value={formData.employment_type}
+                onChange={(e) => setFormData({...formData, employment_type: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              >
+                <option value="full_time">Full Time</option>
+                <option value="part_time">Part Time</option>
+                <option value="contract">Contract</option>
+              </select>
+            </div>
+            <div className="flex justify-end space-x-4 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowEmployeeForm(false)}
+                className="px-6 py-2 border border-gray-300 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-2 bg-indigo-500 text-white rounded-lg"
+              >
+                Add Employee
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  // Time Clock Component
+  const TimeClock = ({ employee }) => {
+    const [currentStatus, setCurrentStatus] = useState('not_clocked_in');
+    const [isLoading, setIsLoading] = useState(false);
+
+    useEffect(() => {
+      if (employee) {
+        fetchCurrentStatus();
+      }
+    }, [employee]);
+
+    const fetchCurrentStatus = async () => {
+      try {
+        const response = await axios.get(`${API}/time-entries/employee/${employee.id}/current-status`);
+        setCurrentStatus(response.data.status);
+      } catch (error) {
+        console.error("Error fetching status:", error);
+      }
+    };
+
+    const clockAction = async (action) => {
+      setIsLoading(true);
+      try {
+        await axios.post(`${API}/time-entries`, {
+          employee_id: employee.id,
+          entry_type: action,
+          location: 'Main Office'
+        });
+        fetchCurrentStatus();
+        fetchEmployeeDashboard(employee.id);
+      } catch (error) {
+        console.error("Error with clock action:", error);
+      }
+      setIsLoading(false);
+    };
+
+    const getStatusColor = () => {
+      switch (currentStatus) {
+        case 'clocked_in': return 'bg-green-500';
+        case 'on_break': return 'bg-yellow-500';
+        case 'clocked_out': return 'bg-gray-500';
+        default: return 'bg-red-500';
+      }
+    };
+
+    const getStatusText = () => {
+      switch (currentStatus) {
+        case 'clocked_in': return 'Clocked In';
+        case 'on_break': return 'On Break';
+        case 'clocked_out': return 'Clocked Out';
+        default: return 'Not Clocked In';
+      }
+    };
+
+    return (
+      <div className="bg-white/5 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Time Clock</h3>
+        <div className="text-center">
+          <div className={`w-20 h-20 ${getStatusColor()} rounded-full flex items-center justify-center mx-auto mb-4`}>
+            <span className="text-white text-2xl">⏰</span>
+          </div>
+          <p className="text-white text-lg font-medium mb-4">{getStatusText()}</p>
+          <div className="grid grid-cols-2 gap-3">
+            {currentStatus === 'not_clocked_in' || currentStatus === 'clocked_out' ? (
+              <button
+                onClick={() => clockAction('clock_in')}
+                disabled={isLoading}
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+              >
+                Clock In
+              </button>
+            ) : (
+              <button
+                onClick={() => clockAction('clock_out')}
+                disabled={isLoading}
+                className="bg-red-500 hover:bg-red-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+              >
+                Clock Out
+              </button>
+            )}
+            
+            {currentStatus === 'clocked_in' ? (
+              <button
+                onClick={() => clockAction('break_start')}
+                disabled={isLoading}
+                className="bg-yellow-500 hover:bg-yellow-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+              >
+                Start Break
+              </button>
+            ) : currentStatus === 'on_break' ? (
+              <button
+                onClick={() => clockAction('break_end')}
+                disabled={isLoading}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+              >
+                End Break
+              </button>
+            ) : (
+              <div></div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  if (selectedEmployee) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {/* Employee Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => setSelectedEmployee(null)}
+                className="text-blue-200 hover:text-white"
+              >
+                ← Back to Employees
+              </button>
+              <div className="flex items-center space-x-4">
+                {selectedEmployee.profile_picture && (
+                  <img 
+                    src={`data:image/jpeg;base64,${selectedEmployee.profile_picture}`}
+                    alt="Profile"
+                    className="w-16 h-16 rounded-full object-cover"
+                  />
+                )}
+                <div>
+                  <h1 className="text-3xl font-bold text-white">
+                    {selectedEmployee.first_name} {selectedEmployee.last_name}
+                  </h1>
+                  <p className="text-blue-200">
+                    {selectedEmployee.role} • {selectedEmployee.department} • {selectedEmployee.employee_id}
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowDocumentForm(true)}
+                className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg"
+              >
+                + Create Document
+              </button>
+              <button
+                onClick={() => setShowScheduleForm(true)}
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg"
+              >
+                + Schedule Shift
+              </button>
+            </div>
+          </div>
+
+          {/* Employee Tabs */}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+            <div className="border-b border-white/20">
+              <nav className="flex space-x-8 px-6">
+                {['overview', 'profile', 'documents', 'schedule', 'timesheet', 'payroll'].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`py-4 px-2 border-b-2 font-medium text-sm capitalize ${
+                      activeTab === tab
+                        ? 'border-indigo-400 text-indigo-400'
+                        : 'border-transparent text-blue-200 hover:text-white'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            <div className="p-6">
+              {activeTab === 'overview' && employeeDashboard && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Time Clock */}
+                    <TimeClock employee={selectedEmployee} />
+
+                    {/* Quick Stats */}
+                    <div className="bg-white/5 rounded-lg p-6">
+                      <h3 className="text-lg font-semibold text-white mb-4">This Week</h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between">
+                          <span className="text-blue-200">Hours Worked:</span>
+                          <span className="text-white font-medium">
+                            {employeeDashboard.week_hours?.total_hours || 0}h
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-blue-200">Regular Hours:</span>
+                          <span className="text-white font-medium">
+                            {employeeDashboard.week_hours?.regular_hours || 0}h
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-blue-200">Overtime Hours:</span>
+                          <span className="text-white font-medium">
+                            {employeeDashboard.week_hours?.overtime_hours || 0}h
+                          </span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-blue-200">Vacation Days Left:</span>
+                          <span className="text-white font-medium">
+                            {selectedEmployee.vacation_days_allocated - selectedEmployee.vacation_days_used}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Upcoming Shifts */}
+                  <div className="bg-white/5 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">Upcoming Shifts</h3>
+                    {employeeDashboard.upcoming_shifts?.length > 0 ? (
+                      <div className="space-y-3">
+                        {employeeDashboard.upcoming_shifts.map((shift) => (
+                          <div key={shift.id} className="flex items-center justify-between p-3 bg-white/10 rounded-lg">
+                            <div>
+                              <p className="text-white font-medium">
+                                {formatDate(shift.shift_date)}
+                              </p>
+                              <p className="text-blue-200 text-sm">
+                                {new Date(shift.start_time).toLocaleTimeString()} - {new Date(shift.end_time).toLocaleTimeString()}
+                              </p>
+                            </div>
+                            <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                              shift.status === 'completed' ? 'bg-green-500' : 
+                              shift.status === 'in_progress' ? 'bg-blue-500' : 'bg-gray-500'
+                            }`}>
+                              {shift.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-blue-200">No upcoming shifts scheduled</p>
+                    )}
+                  </div>
+
+                  {/* Pending Documents */}
+                  <div className="bg-white/5 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">Pending Documents</h3>
+                    {employeeDashboard.pending_documents?.length > 0 ? (
+                      <div className="space-y-3">
+                        {employeeDashboard.pending_documents.map((doc) => (
+                          <div key={doc.id} className="flex items-center justify-between p-3 bg-white/10 rounded-lg">
+                            <div>
+                              <p className="text-white font-medium">{doc.title}</p>
+                              <p className="text-blue-200 text-sm capitalize">
+                                {doc.document_type.replace('_', ' ')}
+                              </p>
+                            </div>
+                            <span className="px-2 py-1 bg-yellow-500 text-white text-xs rounded-full">
+                              {doc.status.replace('_', ' ')}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-blue-200">No pending documents</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'profile' && (
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Personal Information */}
+                    <div className="bg-white/5 rounded-lg p-6">
+                      <h3 className="text-lg font-semibold text-white mb-4">Personal Information</h3>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-blue-200 text-sm">Full Name</label>
+                          <p className="text-white">{selectedEmployee.first_name} {selectedEmployee.last_name}</p>
+                        </div>
+                        <div>
+                          <label className="text-blue-200 text-sm">Email</label>
+                          <p className="text-white">{selectedEmployee.email}</p>
+                        </div>
+                        <div>
+                          <label className="text-blue-200 text-sm">Phone</label>
+                          <p className="text-white">{selectedEmployee.phone || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <label className="text-blue-200 text-sm">Date of Birth</label>
+                          <p className="text-white">{formatDate(selectedEmployee.date_of_birth)}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Employment Details */}
+                    <div className="bg-white/5 rounded-lg p-6">
+                      <h3 className="text-lg font-semibold text-white mb-4">Employment Details</h3>
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-blue-200 text-sm">Employee ID</label>
+                          <p className="text-white">{selectedEmployee.employee_id}</p>
+                        </div>
+                        <div>
+                          <label className="text-blue-200 text-sm">Role</label>
+                          <p className="text-white capitalize">{selectedEmployee.role}</p>
+                        </div>
+                        <div>
+                          <label className="text-blue-200 text-sm">Department</label>
+                          <p className="text-white">{selectedEmployee.department || 'N/A'}</p>
+                        </div>
+                        <div>
+                          <label className="text-blue-200 text-sm">Hire Date</label>
+                          <p className="text-white">{formatDate(selectedEmployee.hire_date)}</p>
+                        </div>
+                        <div>
+                          <label className="text-blue-200 text-sm">Employment Type</label>
+                          <p className="text-white capitalize">{selectedEmployee.employment_type?.replace('_', ' ')}</p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Emergency Contact */}
+                  <div className="bg-white/5 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">Emergency Contact</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div>
+                        <label className="text-blue-200 text-sm">Name</label>
+                        <p className="text-white">{selectedEmployee.emergency_contact_name || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <label className="text-blue-200 text-sm">Phone</label>
+                        <p className="text-white">{selectedEmployee.emergency_contact_phone || 'N/A'}</p>
+                      </div>
+                      <div>
+                        <label className="text-blue-200 text-sm">Relationship</label>
+                        <p className="text-white">{selectedEmployee.emergency_contact_relationship || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Add other tabs content here - documents, schedule, timesheet, payroll */}
+            </div>
+          </div>
+        </div>
+
+        {/* Forms */}
+        {showDocumentForm && <div>Document Form Placeholder</div>}
+        {showScheduleForm && <div>Schedule Form Placeholder</div>}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-200 hover:text-white"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-white">Employee Management</h1>
+          </div>
+          <button
+            onClick={() => setShowEmployeeForm(true)}
+            className="bg-indigo-500 hover:bg-indigo-600 text-white px-6 py-2 rounded-lg font-medium"
+          >
+            + Add Employee
+          </button>
+        </div>
+
+        {/* Employee Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-200 text-sm">Total Employees</p>
+                <p className="text-3xl font-bold text-white">{employees.length}</p>
+              </div>
+              <div className="w-12 h-12 bg-indigo-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">👨‍⚕️</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-200 text-sm">Active Today</p>
+                <p className="text-3xl font-bold text-white">
+                  {employees.filter(emp => emp.is_active).length}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">✅</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-200 text-sm">Departments</p>
+                <p className="text-3xl font-bold text-white">
+                  {[...new Set(employees.map(emp => emp.department).filter(Boolean))].length}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">🏢</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-yellow-200 text-sm">New This Month</p>
+                <p className="text-3xl font-bold text-white">
+                  {employees.filter(emp => {
+                    const hireDate = new Date(emp.hire_date);
+                    const thisMonth = new Date();
+                    return hireDate.getMonth() === thisMonth.getMonth() && 
+                           hireDate.getFullYear() === thisMonth.getFullYear();
+                  }).length}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">🆕</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Employee List */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden border border-white/20">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-white/5 border-b border-white/20">
+                <tr>
+                  <th className="text-left p-4 text-white font-semibold">Employee</th>
+                  <th className="text-left p-4 text-white font-semibold">Role</th>
+                  <th className="text-left p-4 text-white font-semibold">Department</th>
+                  <th className="text-left p-4 text-white font-semibold">Hire Date</th>
+                  <th className="text-left p-4 text-white font-semibold">Employment</th>
+                  <th className="text-left p-4 text-white font-semibold">Status</th>
+                  <th className="text-left p-4 text-white font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {employees.map((employee) => (
+                  <tr key={employee.id} className="border-b border-white/10 hover:bg-white/5">
+                    <td className="p-4">
+                      <div className="flex items-center space-x-3">
+                        {employee.profile_picture ? (
+                          <img 
+                            src={`data:image/jpeg;base64,${employee.profile_picture}`}
+                            alt="Profile"
+                            className="w-10 h-10 rounded-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center">
+                            <span className="text-white font-medium">
+                              {employee.first_name.charAt(0)}{employee.last_name.charAt(0)}
+                            </span>
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-white font-medium">
+                            {employee.first_name} {employee.last_name}
+                          </p>
+                          <p className="text-blue-200 text-sm">{employee.employee_id}</p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="p-4 text-blue-200 capitalize">{employee.role}</td>
+                    <td className="p-4 text-blue-200">{employee.department || 'N/A'}</td>
+                    <td className="p-4 text-blue-200">{formatDate(employee.hire_date)}</td>
+                    <td className="p-4 text-blue-200 capitalize">
+                      {employee.employment_type?.replace('_', ' ')}
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                        employee.is_active ? 'bg-green-500' : 'bg-red-500'
+                      }`}>
+                        {employee.is_active ? 'Active' : 'Inactive'}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <button
+                        onClick={() => handleEmployeeSelect(employee)}
+                        className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Forms */}
+      {showEmployeeForm && <EmployeeForm />}
+    </div>
+  );
+};
 function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
 
