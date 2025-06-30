@@ -251,7 +251,8 @@ async def get_patient(patient_id: str):
 # Smart Form Routes
 @api_router.post("/forms", response_model=SmartForm)
 async def create_form(form: SmartForm):
-    await db.forms.insert_one(form.dict())
+    form_dict = jsonable_encoder(form)
+    await db.forms.insert_one(form_dict)
     return form
 
 @api_router.get("/forms", response_model=List[SmartForm])
