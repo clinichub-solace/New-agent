@@ -233,7 +233,9 @@ async def create_patient(patient_data: PatientCreate):
     # Filter out None values from telecom
     patient.telecom = [t for t in patient.telecom if t is not None]
     
-    await db.patients.insert_one(patient.dict())
+    # Use jsonable_encoder to handle date serialization
+    patient_dict = jsonable_encoder(patient)
+    await db.patients.insert_one(patient_dict)
     return patient
 
 @api_router.get("/patients", response_model=List[Patient])
