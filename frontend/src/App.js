@@ -155,7 +155,7 @@ const Dashboard = ({ setActiveModule }) => {
                       {patient.name?.[0]?.given?.[0]} {patient.name?.[0]?.family}
                     </p>
                     <p className="text-blue-200 text-sm">
-                      {new Date(patient.created_at).toLocaleDateString()}
+                      {formatDate(patient.created_at)}
                     </p>
                   </div>
                   <span className="px-2 py-1 bg-green-500 text-white text-xs rounded-full">
