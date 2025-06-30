@@ -360,6 +360,8 @@ async def create_inventory_transaction(item_id: str, transaction: InventoryTrans
     transaction_dict = jsonable_encoder(transaction)
     await db.inventory_transactions.insert_one(transaction_dict)
     return transaction
+    await db.inventory_transactions.insert_one(transaction_dict)
+    return transaction
 
 # Employee Routes
 @api_router.post("/employees", response_model=Employee)
