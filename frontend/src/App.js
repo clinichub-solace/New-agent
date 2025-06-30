@@ -1369,7 +1369,394 @@ const InvoicesModule = ({ setActiveModule }) => {
   );
 };
 
-// SmartForms Module
+// Comprehensive Inventory Module
+const InventoryModule = ({ setActiveModule }) => {
+  const [inventory, setInventory] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [showItemForm, setShowItemForm] = useState(false);
+  const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [selectedItem, setSelectedItem] = useState(null);
+  const [activeTab, setActiveTab] = useState('items');
+  const [lowStockItems, setLowStockItems] = useState([]);
+
+  useEffect(() => {
+    fetchInventory();
+    fetchTransactions();
+  }, []);
+
+  const fetchInventory = async () => {
+    try {
+      const response = await axios.get(`${API}/inventory`);
+      setInventory(response.data);
+      
+      // Calculate low stock items
+      const lowStock = response.data.filter(item => 
+        item.current_stock <= item.min_stock_level && item.current_stock > 0
+      );
+      setLowStockItems(lowStock);
+    } catch (error) {
+      console.error("Error fetching inventory:", error);
+    }
+  };
+
+  const fetchTransactions = async () => {
+    try {
+      // This would need a new endpoint to get all transactions
+      // For now, we'll use empty array
+      setTransactions([]);
+    } catch (error) {
+      console.error("Error fetching transactions:", error);
+    }
+  };
+
+  const ItemForm = () => {
+    const [itemData, setItemData] = useState({
+      name: '', category: 'medical_supply', sku: '', current_stock: 0,
+      min_stock_level: 10, unit_cost: 0, supplier: '', location: '', notes: ''
+    });
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await axios.post(`${API}/inventory`, {
+          ...itemData,
+          current_stock: parseInt(itemData.current_stock),
+          min_stock_level: parseInt(itemData.min_stock_level),
+          unit_cost: parseFloat(itemData.unit_cost)
+        });
+        setShowItemForm(false);
+        setItemData({
+          name: '', category: 'medical_supply', sku: '', current_stock: 0,
+          min_stock_level: 10, unit_cost: 0, supplier: '', location: '', notes: ''
+        });
+        fetchInventory();
+      } catch (error) {
+        console.error("Error creating item:", error);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <h3 className="text-xl font-bold mb-4">Add Inventory Item</h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <input
+              type="text"
+              placeholder="Item Name *"
+              value={itemData.name}
+              onChange={(e) => setItemData({...itemData, name: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+              required
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <select
+                value={itemData.category}
+                onChange={(e) => setItemData({...itemData, category: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              >
+                <option value="medical_supply">Medical Supply</option>
+                <option value="medication">Medication</option>
+                <option value="injectable">Injectable</option>
+                <option value="lab_supply">Lab Supply</option>
+                <option value="equipment">Equipment</option>
+                <option value="office_supply">Office Supply</option>
+              </select>
+              <input
+                type="text"
+                placeholder="SKU/Code"
+                value={itemData.sku}
+                onChange={(e) => setItemData({...itemData, sku: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <input
+                type="number"
+                placeholder="Current Stock"
+                value={itemData.current_stock}
+                onChange={(e) => setItemData({...itemData, current_stock: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <input
+                type="number"
+                placeholder="Min Stock Level"
+                value={itemData.min_stock_level}
+                onChange={(e) => setItemData({...itemData, min_stock_level: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Unit Cost"
+                value={itemData.unit_cost}
+                onChange={(e) => setItemData({...itemData, unit_cost: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                type="text"
+                placeholder="Supplier"
+                value={itemData.supplier}
+                onChange={(e) => setItemData({...itemData, supplier: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <input
+                type="text"
+                placeholder="Location"
+                value={itemData.location}
+                onChange={(e) => setItemData({...itemData, location: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <textarea
+              placeholder="Notes"
+              value={itemData.notes}
+              onChange={(e) => setItemData({...itemData, notes: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+              rows="3"
+            />
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => setShowItemForm(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-orange-500 text-white rounded-lg"
+              >
+                Add Item
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const TransactionForm = () => {
+    const [transactionData, setTransactionData] = useState({
+      transaction_type: 'in', quantity: 1, notes: '', created_by: 'Admin'
+    });
+
+    const handleTransactionSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await axios.post(`${API}/inventory/${selectedItem.id}/transaction`, {
+          ...transactionData,
+          quantity: parseInt(transactionData.quantity)
+        });
+        setShowTransactionForm(false);
+        setSelectedItem(null);
+        setTransactionData({
+          transaction_type: 'in', quantity: 1, notes: '', created_by: 'Admin'
+        });
+        fetchInventory();
+      } catch (error) {
+        console.error("Error creating transaction:", error);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl p-8 max-w-lg w-full mx-4">
+          <h3 className="text-xl font-bold mb-4">
+            Inventory Transaction: {selectedItem?.name}
+          </h3>
+          <form onSubmit={handleTransactionSubmit} className="space-y-4">
+            <select
+              value={transactionData.transaction_type}
+              onChange={(e) => setTransactionData({...transactionData, transaction_type: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+            >
+              <option value="in">Stock In (Add)</option>
+              <option value="out">Stock Out (Remove)</option>
+              <option value="adjustment">Adjustment</option>
+            </select>
+            <input
+              type="number"
+              placeholder="Quantity"
+              value={transactionData.quantity}
+              onChange={(e) => setTransactionData({...transactionData, quantity: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+              required
+            />
+            <textarea
+              placeholder="Notes/Reason"
+              value={transactionData.notes}
+              onChange={(e) => setTransactionData({...transactionData, notes: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+              rows="3"
+            />
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => setShowTransactionForm(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-green-500 text-white rounded-lg"
+              >
+                Process Transaction
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-200 hover:text-white"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-white">Medical Inventory</h1>
+          </div>
+          <button
+            onClick={() => setShowItemForm(true)}
+            className="bg-orange-500 hover:bg-orange-600 text-white px-6 py-2 rounded-lg font-medium"
+          >
+            + Add Item
+          </button>
+        </div>
+
+        {/* Alerts for Low Stock */}
+        {lowStockItems.length > 0 && (
+          <div className="bg-red-500/20 border border-red-500/50 rounded-xl p-4 mb-6">
+            <h3 className="text-red-200 font-semibold mb-2">⚠️ Low Stock Alert</h3>
+            <p className="text-red-200 text-sm">
+              {lowStockItems.length} item(s) are running low on stock. Please reorder soon.
+            </p>
+          </div>
+        )}
+
+        {/* Inventory Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-200 text-sm">Total Items</p>
+                <p className="text-3xl font-bold text-white">{inventory.length}</p>
+              </div>
+              <div className="w-12 h-12 bg-orange-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">📦</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-red-200 text-sm">Low Stock</p>
+                <p className="text-3xl font-bold text-white">{lowStockItems.length}</p>
+              </div>
+              <div className="w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">⚠️</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-200 text-sm">Total Value</p>
+                <p className="text-3xl font-bold text-white">
+                  ${inventory.reduce((total, item) => total + (item.current_stock * item.unit_cost), 0).toFixed(0)}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">💰</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-200 text-sm">Categories</p>
+                <p className="text-3xl font-bold text-white">
+                  {[...new Set(inventory.map(item => item.category))].length}
+                </p>
+              </div>
+              <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">📋</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Inventory Table */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden border border-white/20">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-white/5 border-b border-white/20">
+                <tr>
+                  <th className="text-left p-4 text-white font-semibold">Item Name</th>
+                  <th className="text-left p-4 text-white font-semibold">Category</th>
+                  <th className="text-left p-4 text-white font-semibold">SKU</th>
+                  <th className="text-left p-4 text-white font-semibold">Current Stock</th>
+                  <th className="text-left p-4 text-white font-semibold">Min Level</th>
+                  <th className="text-left p-4 text-white font-semibold">Unit Cost</th>
+                  <th className="text-left p-4 text-white font-semibold">Status</th>
+                  <th className="text-left p-4 text-white font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {inventory.map((item) => (
+                  <tr key={item.id} className="border-b border-white/10 hover:bg-white/5">
+                    <td className="p-4 text-white font-medium">{item.name}</td>
+                    <td className="p-4 text-blue-200 capitalize">{item.category?.replace('_', ' ')}</td>
+                    <td className="p-4 text-blue-200">{item.sku || 'N/A'}</td>
+                    <td className="p-4 text-white">{item.current_stock}</td>
+                    <td className="p-4 text-blue-200">{item.min_stock_level}</td>
+                    <td className="p-4 text-white">${item.unit_cost?.toFixed(2)}</td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                        item.current_stock === 0 ? 'bg-red-500' :
+                        item.current_stock <= item.min_stock_level ? 'bg-yellow-500' : 'bg-green-500'
+                      }`}>
+                        {item.current_stock === 0 ? 'Out of Stock' :
+                         item.current_stock <= item.min_stock_level ? 'Low Stock' : 'In Stock'}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <button
+                        onClick={() => {
+                          setSelectedItem(item);
+                          setShowTransactionForm(true);
+                        }}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm mr-2"
+                      >
+                        Transaction
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      {/* Forms */}
+      {showItemForm && <ItemForm />}
+      {showTransactionForm && <TransactionForm />}
+    </div>
+  );
+};
 const SmartFormsModule = ({ setActiveModule }) => {
   const [forms, setForms] = useState([]);
   const [showFormBuilder, setShowFormBuilder] = useState(false);
