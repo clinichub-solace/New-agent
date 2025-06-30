@@ -3716,32 +3716,77 @@ const EmployeeModule = ({ setActiveModule }) => {
     </div>
   );
 };
+// Main App Component with Authentication
 function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
 
   const renderModule = () => {
     switch (activeModule) {
       case 'patients':
-        return <PatientsModule setActiveModule={setActiveModule} />;
+        return (
+          <ProtectedRoute permission="patients:read">
+            <AppHeader>
+              <PatientsModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
       case 'forms':
-        return <SmartFormsModule setActiveModule={setActiveModule} />;
+        return (
+          <ProtectedRoute permission="forms:read">
+            <AppHeader>
+              <SmartFormsModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
       case 'inventory':
-        return <InventoryModule setActiveModule={setActiveModule} />;
+        return (
+          <ProtectedRoute permission="inventory:read">
+            <AppHeader>
+              <InventoryModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
       case 'invoices':
-        return <InvoicesModule setActiveModule={setActiveModule} />;
+        return (
+          <ProtectedRoute permission="invoices:read">
+            <AppHeader>
+              <InvoicesModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
       case 'employees':
-        return <EmployeeModule setActiveModule={setActiveModule} />;
+        return (
+          <ProtectedRoute permission="employees:read">
+            <AppHeader>
+              <EmployeeModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
       case 'finance':
-        return <FinanceModule setActiveModule={setActiveModule} />;
+        return (
+          <ProtectedRoute permission="finance:read">
+            <AppHeader>
+              <FinanceModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
       default:
-        return <Dashboard setActiveModule={setActiveModule} />;
+        return (
+          <ProtectedRoute>
+            <AppHeader>
+              <Dashboard setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
     }
   };
 
   return (
-    <div className="App">
-      {renderModule()}
-    </div>
+    <AuthProvider>
+      <div className="App">
+        {renderModule()}
+      </div>
+    </AuthProvider>
   );
 }
 
