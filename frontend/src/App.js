@@ -829,7 +829,7 @@ const PatientsModule = ({ setActiveModule }) => {
                       {patient.telecom?.find(t => t.system === 'email')?.value || 'N/A'}
                     </td>
                     <td className="p-4 text-blue-200">
-                      {patient.birth_date ? new Date(patient.birth_date).toLocalDateString() : 'N/A'}
+                      {formatDate(patient.birth_date)}
                     </td>
                     <td className="p-4 text-blue-200 capitalize">
                       {patient.gender || 'N/A'}
