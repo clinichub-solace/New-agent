@@ -342,10 +342,13 @@ metadata:
 
 test_plan:
   current_focus:
-    - "FHIR-Compliant Patient Management System"
-    - "SmartForm Builder with FHIR Mapping"
-    - "Invoice/Receipt Management System"
-    - "Medical Dashboard with Practice Analytics"
+    - "Comprehensive SOAP Notes System"
+    - "Encounter/Visit Management System"
+    - "Vital Signs Recording System"
+    - "Allergy Management System"
+    - "Medication Management System"
+    - "Enhanced EHR Patient Interface"
+    - "Smart Form Builder Interface"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
