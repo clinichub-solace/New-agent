@@ -1077,10 +1077,10 @@ const InvoicesModule = ({ setActiveModule }) => {
                       </span>
                     </td>
                     <td className="p-4 text-blue-200">
-                      {new Date(invoice.issue_date).toLocaleDateString()}
+                      {formatDate(invoice.issue_date)}
                     </td>
                     <td className="p-4 text-blue-200">
-                      {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'N/A'}
+                      {formatDate(invoice.due_date)}
                     </td>
                   </tr>
                 ))}
