@@ -275,7 +275,8 @@ async def submit_form(form_id: str, submission_data: Dict[str, Any], patient_id:
         # TODO: Add FHIR mapping logic
     )
     
-    await db.form_submissions.insert_one(submission.dict())
+    submission_dict = jsonable_encoder(submission)
+    await db.form_submissions.insert_one(submission_dict)
     return submission
 
 # Invoice Routes
