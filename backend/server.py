@@ -306,7 +306,8 @@ async def create_invoice(invoice_data: InvoiceCreate):
         notes=invoice_data.notes
     )
     
-    await db.invoices.insert_one(invoice.dict())
+    invoice_dict = jsonable_encoder(invoice)
+    await db.invoices.insert_one(invoice_dict)
     return invoice
 
 @api_router.get("/invoices", response_model=List[Invoice])
