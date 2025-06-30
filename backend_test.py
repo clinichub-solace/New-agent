@@ -17,7 +17,7 @@ if not BACKEND_URL:
     print("Error: REACT_APP_BACKEND_URL not found in environment variables")
     sys.exit(1)
 
-# Ensure the URL ends with /api
+# Set the API URL
 API_URL = f"{BACKEND_URL}/api"
 print(f"Using API URL: {API_URL}")
 
