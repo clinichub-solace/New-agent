@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, date
-from enum import Enum
+from enum import Enum, str
 from fastapi.encoders import jsonable_encoder
 
 ROOT_DIR = Path(__file__).parent
