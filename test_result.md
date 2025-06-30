@@ -148,7 +148,7 @@ backend:
         comment: "Complete invoice system with auto-numbering, tax calculations, patient linking, and multiple status tracking."
       - working: false
         agent: "testing"
-        comment: "Invoice creation endpoint is failing with a 500 Internal Server Error. This needs to be fixed before further testing can be done on the invoice management system."
+        comment: "Invoice creation endpoint is failing with a 500 Internal Server Error. The server is not providing detailed error information, suggesting a potential server-side issue in the invoice creation logic. This needs to be fixed before further testing can be done on the invoice management system."
 
   - task: "Inventory Management System"
     implemented: true
