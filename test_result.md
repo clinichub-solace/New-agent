@@ -197,15 +197,18 @@ backend:
 
   - task: "Encounter/Visit Management System"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Complete encounter management with visit types (annual physical, follow-up, emergency, etc.), status tracking, provider assignment, and auto-numbering."
+      - working: true
+        agent: "testing"
+        comment: "Encounter management API endpoints are working correctly. Successfully created an encounter with auto-generated encounter number, retrieved all encounters, retrieved encounters by patient, and updated encounter status through various stages (arrived, in_progress, completed)."
 
   - task: "Vital Signs Recording System"
     implemented: true
