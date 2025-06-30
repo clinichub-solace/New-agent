@@ -286,7 +286,7 @@ frontend:
         agent: "main"
         comment: "Complete patient management UI with FHIR-compliant data entry forms, patient listing, and EHR integration."
 
-  - task: "Invoice/Billing Management Interface"
+  - task: "Enhanced EHR Patient Interface"
     implemented: true
     working: "NA"
     file: "/app/frontend/src/App.js"
@@ -296,7 +296,43 @@ frontend:
     status_history:
       - working: "NA"
         agent: "main"
-        comment: "Professional invoicing interface with dynamic item addition, tax calculations, patient selection, and invoice status tracking."
+        comment: "Complete patient EHR interface with tabbed navigation (overview, encounters, medications, allergies, history), vital signs display, encounter creation, and comprehensive medical data visualization."
+
+  - task: "Smart Form Builder Interface"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Advanced drag-and-drop form builder with field types, smart tags, FHIR mapping, real-time preview, and medical form templates for comprehensive patient data collection."
+
+  - task: "Encounter Management Interface"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Complete encounter interface with visit type selection, provider assignment, chief complaint entry, and encounter status tracking integrated with patient EHR."
+
+  - task: "Vital Signs Recording Interface"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "medium"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Comprehensive vital signs input form with all standard medical measurements, pain scale assessment, and automatic BMI calculation."
 
 metadata:
   created_by: "main_agent"
