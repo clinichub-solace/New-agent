@@ -612,9 +612,18 @@ async def get_dashboard_stats():
     low_stock_items = await db.inventory.count_documents({"$expr": {"$lte": ["$current_stock", "$min_stock_level"]}})
     total_employees = await db.employees.count_documents({"is_active": True})
     
+    # Additional EHR stats
+    total_encounters = await db.encounters.count_documents({})
+    pending_encounters = await db.encounters.count_documents({"status": {"$in": ["planned", "arrived"]}})
+    completed_encounters_today = await db.encounters.count_documents({
+        "status": "completed",
+        "actual_end": {"$gte": datetime.combine(date.today(), datetime.min.time())}
+    })
+    
     # Recent activity
     recent_patients = await db.patients.find().sort("created_at", -1).limit(5).to_list(5)
     recent_invoices = await db.invoices.find().sort("created_at", -1).limit(5).to_list(5)
+    recent_encounters = await db.encounters.find().sort("created_at", -1).limit(5).to_list(5)
     
     return {
         "stats": {
@@ -622,10 +631,196 @@ async def get_dashboard_stats():
             "total_invoices": total_invoices,
             "pending_invoices": pending_invoices,
             "low_stock_items": low_stock_items,
-            "total_employees": total_employees
+            "total_employees": total_employees,
+            "total_encounters": total_encounters,
+            "pending_encounters": pending_encounters,
+            "completed_encounters_today": completed_encounters_today
         },
         "recent_patients": [Patient(**p) for p in recent_patients],
-        "recent_invoices": [Invoice(**i) for i in recent_invoices]
+        "recent_invoices": [Invoice(**i) for i in recent_invoices],
+        "recent_encounters": [Encounter(**e) for e in recent_encounters]
+    }
+
+# Enhanced EHR Routes
+
+# Encounter/Visit Management
+@api_router.post("/encounters", response_model=Encounter)
+async def create_encounter(encounter_data: EncounterCreate):
+    # Generate encounter number
+    count = await db.encounters.count_documents({})
+    encounter_number = f"ENC-{count + 1:06d}"
+    
+    encounter = Encounter(
+        encounter_number=encounter_number,
+        **encounter_data.dict()
+    )
+    
+    encounter_dict = jsonable_encoder(encounter)
+    await db.encounters.insert_one(encounter_dict)
+    return encounter
+
+@api_router.get("/encounters", response_model=List[Encounter])
+async def get_encounters():
+    encounters = await db.encounters.find().sort("scheduled_date", -1).to_list(1000)
+    return [Encounter(**encounter) for encounter in encounters]
+
+@api_router.get("/encounters/patient/{patient_id}", response_model=List[Encounter])
+async def get_patient_encounters(patient_id: str):
+    encounters = await db.encounters.find({"patient_id": patient_id}).sort("scheduled_date", -1).to_list(1000)
+    return [Encounter(**encounter) for encounter in encounters]
+
+@api_router.put("/encounters/{encounter_id}/status")
+async def update_encounter_status(encounter_id: str, status: EncounterStatus):
+    update_data = {"status": status, "updated_at": datetime.utcnow()}
+    
+    if status == EncounterStatus.IN_PROGRESS:
+        update_data["actual_start"] = datetime.utcnow()
+    elif status == EncounterStatus.COMPLETED:
+        update_data["actual_end"] = datetime.utcnow()
+    
+    await db.encounters.update_one(
+        {"id": encounter_id},
+        {"$set": jsonable_encoder(update_data)}
+    )
+    return {"message": "Encounter status updated"}
+
+# SOAP Notes
+@api_router.post("/soap-notes", response_model=SOAPNote)
+async def create_soap_note(soap_data: SOAPNoteCreate):
+    soap_note = SOAPNote(**soap_data.dict())
+    soap_dict = jsonable_encoder(soap_note)
+    await db.soap_notes.insert_one(soap_dict)
+    return soap_note
+
+@api_router.get("/soap-notes/encounter/{encounter_id}", response_model=List[SOAPNote])
+async def get_encounter_soap_notes(encounter_id: str):
+    notes = await db.soap_notes.find({"encounter_id": encounter_id}).to_list(1000)
+    return [SOAPNote(**note) for note in notes]
+
+@api_router.get("/soap-notes/patient/{patient_id}", response_model=List[SOAPNote])
+async def get_patient_soap_notes(patient_id: str):
+    notes = await db.soap_notes.find({"patient_id": patient_id}).sort("created_at", -1).to_list(1000)
+    return [SOAPNote(**note) for note in notes]
+
+# Vital Signs
+@api_router.post("/vital-signs", response_model=VitalSigns)
+async def create_vital_signs(vitals_data: VitalSigns):
+    vitals_dict = jsonable_encoder(vitals_data)
+    await db.vital_signs.insert_one(vitals_dict)
+    return vitals_data
+
+@api_router.get("/vital-signs/patient/{patient_id}", response_model=List[VitalSigns])
+async def get_patient_vital_signs(patient_id: str):
+    vitals = await db.vital_signs.find({"patient_id": patient_id}).sort("recorded_at", -1).to_list(1000)
+    return [VitalSigns(**vital) for vital in vitals]
+
+# Allergies
+@api_router.post("/allergies", response_model=Allergy)
+async def create_allergy(allergy_data: AllergyCreate):
+    allergy = Allergy(**allergy_data.dict())
+    allergy_dict = jsonable_encoder(allergy)
+    await db.allergies.insert_one(allergy_dict)
+    return allergy
+
+@api_router.get("/allergies/patient/{patient_id}", response_model=List[Allergy])
+async def get_patient_allergies(patient_id: str):
+    allergies = await db.allergies.find({"patient_id": patient_id}).to_list(1000)
+    return [Allergy(**allergy) for allergy in allergies]
+
+# Medications
+@api_router.post("/medications", response_model=Medication)
+async def create_medication(medication_data: MedicationCreate):
+    medication = Medication(**medication_data.dict())
+    medication_dict = jsonable_encoder(medication)
+    await db.medications.insert_one(medication_dict)
+    return medication
+
+@api_router.get("/medications/patient/{patient_id}", response_model=List[Medication])
+async def get_patient_medications(patient_id: str):
+    medications = await db.medications.find({"patient_id": patient_id}).to_list(1000)
+    return [Medication(**medication) for medication in medications]
+
+@api_router.put("/medications/{medication_id}/status")
+async def update_medication_status(medication_id: str, status: MedicationStatus):
+    await db.medications.update_one(
+        {"id": medication_id},
+        {"$set": {"status": status, "updated_at": jsonable_encoder(datetime.utcnow())}}
+    )
+    return {"message": "Medication status updated"}
+
+# Medical History
+@api_router.post("/medical-history", response_model=MedicalHistory)
+async def create_medical_history(history_data: MedicalHistoryCreate):
+    history = MedicalHistory(**history_data.dict())
+    history_dict = jsonable_encoder(history)
+    await db.medical_history.insert_one(history_dict)
+    return history
+
+@api_router.get("/medical-history/patient/{patient_id}", response_model=List[MedicalHistory])
+async def get_patient_medical_history(patient_id: str):
+    history = await db.medical_history.find({"patient_id": patient_id}).to_list(1000)
+    return [MedicalHistory(**item) for item in history]
+
+# Diagnoses
+@api_router.post("/diagnoses", response_model=Diagnosis)
+async def create_diagnosis(diagnosis_data: DiagnosisCreate):
+    diagnosis = Diagnosis(**diagnosis_data.dict())
+    diagnosis_dict = jsonable_encoder(diagnosis)
+    await db.diagnoses.insert_one(diagnosis_dict)
+    return diagnosis
+
+@api_router.get("/diagnoses/encounter/{encounter_id}", response_model=List[Diagnosis])
+async def get_encounter_diagnoses(encounter_id: str):
+    diagnoses = await db.diagnoses.find({"encounter_id": encounter_id}).to_list(1000)
+    return [Diagnosis(**diagnosis) for diagnosis in diagnoses]
+
+@api_router.get("/diagnoses/patient/{patient_id}", response_model=List[Diagnosis])
+async def get_patient_diagnoses(patient_id: str):
+    diagnoses = await db.diagnoses.find({"patient_id": patient_id}).sort("created_at", -1).to_list(1000)
+    return [Diagnosis(**diagnosis) for diagnosis in diagnoses]
+
+# Procedures
+@api_router.post("/procedures", response_model=Procedure)
+async def create_procedure(procedure_data: ProcedureCreate):
+    procedure = Procedure(**procedure_data.dict())
+    procedure_dict = jsonable_encoder(procedure)
+    await db.procedures.insert_one(procedure_dict)
+    return procedure
+
+@api_router.get("/procedures/encounter/{encounter_id}", response_model=List[Procedure])
+async def get_encounter_procedures(encounter_id: str):
+    procedures = await db.procedures.find({"encounter_id": encounter_id}).to_list(1000)
+    return [Procedure(**procedure) for procedure in procedures]
+
+@api_router.get("/procedures/patient/{patient_id}", response_model=List[Procedure])
+async def get_patient_procedures(patient_id: str):
+    procedures = await db.procedures.find({"patient_id": patient_id}).sort("created_at", -1).to_list(1000)
+    return [Procedure(**procedure) for procedure in procedures]
+
+# Comprehensive Patient Summary
+@api_router.get("/patients/{patient_id}/summary")
+async def get_patient_summary(patient_id: str):
+    # Get patient basic info
+    patient = await db.patients.find_one({"id": patient_id})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    # Get all related medical data
+    encounters = await db.encounters.find({"patient_id": patient_id}).sort("scheduled_date", -1).limit(10).to_list(10)
+    allergies = await db.allergies.find({"patient_id": patient_id}).to_list(100)
+    medications = await db.medications.find({"patient_id": patient_id, "status": "active"}).to_list(100)
+    medical_history = await db.medical_history.find({"patient_id": patient_id}).to_list(100)
+    recent_vitals = await db.vital_signs.find({"patient_id": patient_id}).sort("recorded_at", -1).limit(1).to_list(1)
+    recent_soap_notes = await db.soap_notes.find({"patient_id": patient_id}).sort("created_at", -1).limit(5).to_list(5)
+    
+    return {
+        "patient": Patient(**patient),
+        "recent_encounters": [Encounter(**e) for e in encounters],
+        "allergies": [Allergy(**a) for a in allergies],
+        "active_medications": [Medication(**m) for m in medications],
+        "medical_history": [MedicalHistory(**h) for h in medical_history],
+        "recent_vitals": [VitalSigns(**v) for v in recent_vitals],
+        "recent_soap_notes": [SOAPNote(**s) for s in recent_soap_notes]
     }
 
 # Include the router in the main app
