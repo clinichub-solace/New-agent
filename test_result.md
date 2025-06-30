@@ -227,15 +227,18 @@ backend:
 
   - task: "Allergy Management System"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Complete allergy tracking with allergen, reaction description, severity levels (mild to life-threatening), and verification status."
+      - working: true
+        agent: "testing"
+        comment: "Allergy management API endpoints are working correctly. Successfully created an allergy record with severity level and retrieved allergies by patient."
 
   - task: "Medication Management System"
     implemented: true
