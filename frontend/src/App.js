@@ -2091,6 +2091,8 @@ function App() {
         return <PatientsModule setActiveModule={setActiveModule} />;
       case 'forms':
         return <SmartFormsModule setActiveModule={setActiveModule} />;
+      case 'inventory':
+        return <InventoryModule setActiveModule={setActiveModule} />;
       case 'invoices':
         return <InvoicesModule setActiveModule={setActiveModule} />;
       default:
