@@ -165,7 +165,91 @@ backend:
         agent: "main"
         comment: "Healthcare employee management with role-based access, payroll integration, and medical practice specific roles."
 
-  - task: "Dashboard Analytics API"
+  - task: "Comprehensive SOAP Notes System"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented complete SOAP notes system with Subjective, Objective, Assessment, Plan documentation linked to encounters and patients."
+
+  - task: "Encounter/Visit Management System"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Complete encounter management with visit types (annual physical, follow-up, emergency, etc.), status tracking, provider assignment, and auto-numbering."
+
+  - task: "Vital Signs Recording System"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Comprehensive vital signs system with height, weight, BMI, blood pressure, heart rate, temperature, oxygen saturation, and pain scale tracking."
+
+  - task: "Allergy Management System"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Complete allergy tracking with allergen, reaction description, severity levels (mild to life-threatening), and verification status."
+
+  - task: "Medication Management System"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Full medication tracking with dosage, frequency, route, prescribing physician, indications, and status management (active/discontinued)."
+
+  - task: "Medical History System"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Medical history management with ICD-10 codes, diagnosis dates, condition status tracking, and provider attribution."
+
+  - task: "Diagnosis and Procedure Coding"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "ICD-10 diagnosis codes and CPT procedure codes integration with encounter-based tracking and billing linkage."
+
+  - task: "Patient Summary API"
     implemented: true
     working: "NA"
     file: "/app/backend/server.py"
@@ -175,7 +259,7 @@ backend:
     status_history:
       - working: "NA"
         agent: "main"
-        comment: "Dashboard stats API providing real-time practice metrics including patient count, invoice status, inventory alerts, and staff overview."
+        comment: "Comprehensive patient summary endpoint providing complete medical overview including encounters, allergies, medications, history, and recent activities."
 
 frontend:
   - task: "Medical Dashboard with Practice Analytics"
