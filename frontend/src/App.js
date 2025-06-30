@@ -946,6 +946,7 @@ const PatientsModule = ({ setActiveModule }) => {
         {/* Forms */}
         {showEncounterForm && <EncounterForm />}
         {showVitalsForm && <VitalsForm />}
+        {showDocumentUpload && <DocumentUploadForm />}
       </div>
     );
   }
