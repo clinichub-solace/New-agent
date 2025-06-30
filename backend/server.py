@@ -863,26 +863,334 @@ async def create_inventory_transaction(item_id: str, transaction: InventoryTrans
         logger.error(f"Error creating inventory transaction: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error creating inventory transaction: {str(e)}")
 
-# Employee Routes
-@api_router.post("/employees", response_model=Employee)
-async def create_employee(employee_data: EmployeeCreate):
-    # Generate employee ID
-    count = await db.employees.count_documents({})
-    employee_id = f"EMP-{count + 1:04d}"
-    
-    employee = Employee(
-        employee_id=employee_id,
-        **employee_data.dict()
-    )
-    
-    employee_dict = jsonable_encoder(employee)
-    await db.employees.insert_one(employee_dict)
-    return employee
+# Enhanced Employee Management Routes
 
-@api_router.get("/employees", response_model=List[Employee])
-async def get_employees():
-    employees = await db.employees.find({"is_active": True}).to_list(1000)
-    return [Employee(**employee) for employee in employees]
+@api_router.post("/enhanced-employees", response_model=EnhancedEmployee)
+async def create_enhanced_employee(employee_data: EnhancedEmployeeCreate):
+    try:
+        # Generate employee ID
+        count = await db.employees.count_documents({})
+        employee_id = f"EMP-{count + 1:04d}"
+        
+        employee = EnhancedEmployee(
+            employee_id=employee_id,
+            **employee_data.dict()
+        )
+        
+        employee_dict = jsonable_encoder(employee)
+        await db.enhanced_employees.insert_one(employee_dict)
+        return employee
+    except Exception as e:
+        logger.error(f"Error creating enhanced employee: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating employee: {str(e)}")
+
+@api_router.get("/enhanced-employees", response_model=List[EnhancedEmployee])
+async def get_enhanced_employees():
+    employees = await db.enhanced_employees.find({"is_active": True}).to_list(1000)
+    return [EnhancedEmployee(**employee) for employee in employees]
+
+@api_router.get("/enhanced-employees/{employee_id}", response_model=EnhancedEmployee)
+async def get_enhanced_employee(employee_id: str):
+    employee = await db.enhanced_employees.find_one({"id": employee_id})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    return EnhancedEmployee(**employee)
+
+@api_router.put("/enhanced-employees/{employee_id}")
+async def update_enhanced_employee(employee_id: str, employee_data: Dict[str, Any]):
+    try:
+        employee_data["updated_at"] = datetime.utcnow()
+        result = await db.enhanced_employees.update_one(
+            {"id": employee_id},
+            {"$set": jsonable_encoder(employee_data)}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        return {"message": "Employee updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating employee: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating employee: {str(e)}")
+
+# Employee Documents Management
+@api_router.post("/employee-documents", response_model=EmployeeDocument)
+async def create_employee_document(document_data: EmployeeDocumentCreate):
+    try:
+        document = EmployeeDocument(**document_data.dict())
+        document_dict = jsonable_encoder(document)
+        await db.employee_documents.insert_one(document_dict)
+        return document
+    except Exception as e:
+        logger.error(f"Error creating employee document: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating document: {str(e)}")
+
+@api_router.get("/employee-documents/employee/{employee_id}", response_model=List[EmployeeDocument])
+async def get_employee_documents(employee_id: str):
+    documents = await db.employee_documents.find({"employee_id": employee_id}).sort("created_at", -1).to_list(1000)
+    return [EmployeeDocument(**doc) for doc in documents]
+
+@api_router.put("/employee-documents/{document_id}/sign")
+async def sign_employee_document(document_id: str, signed_by: str):
+    try:
+        result = await db.employee_documents.update_one(
+            {"id": document_id},
+            {"$set": {
+                "status": "signed",
+                "signed_by": signed_by,
+                "signature_date": jsonable_encoder(datetime.utcnow()),
+                "updated_at": jsonable_encoder(datetime.utcnow())
+            }}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Document not found")
+        return {"message": "Document signed successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error signing document: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error signing document: {str(e)}")
+
+@api_router.put("/employee-documents/{document_id}/approve")
+async def approve_employee_document(document_id: str, approved_by: str):
+    try:
+        result = await db.employee_documents.update_one(
+            {"id": document_id},
+            {"$set": {
+                "status": "approved",
+                "approved_by": approved_by,
+                "approval_date": jsonable_encoder(datetime.utcnow()),
+                "updated_at": jsonable_encoder(datetime.utcnow())
+            }}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Document not found")
+        return {"message": "Document approved successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error approving document: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error approving document: {str(e)}")
+
+# Time Tracking
+@api_router.post("/time-entries", response_model=TimeEntry)
+async def create_time_entry(time_data: TimeEntryCreate):
+    try:
+        # If no timestamp provided, use current time
+        if not time_data.timestamp:
+            time_data.timestamp = datetime.utcnow()
+        
+        time_entry = TimeEntry(**time_data.dict())
+        time_dict = jsonable_encoder(time_entry)
+        await db.time_entries.insert_one(time_dict)
+        return time_entry
+    except Exception as e:
+        logger.error(f"Error creating time entry: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating time entry: {str(e)}")
+
+@api_router.get("/time-entries/employee/{employee_id}", response_model=List[TimeEntry])
+async def get_employee_time_entries(employee_id: str, start_date: Optional[date] = None, end_date: Optional[date] = None):
+    try:
+        query = {"employee_id": employee_id}
+        
+        if start_date and end_date:
+            query["timestamp"] = {
+                "$gte": datetime.combine(start_date, datetime.min.time()),
+                "$lte": datetime.combine(end_date, datetime.max.time())
+            }
+        
+        entries = await db.time_entries.find(query).sort("timestamp", -1).to_list(1000)
+        return [TimeEntry(**entry) for entry in entries]
+    except Exception as e:
+        logger.error(f"Error getting time entries: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting time entries: {str(e)}")
+
+@api_router.get("/time-entries/employee/{employee_id}/current-status")
+async def get_employee_current_status(employee_id: str):
+    try:
+        # Get the latest time entry for the employee today
+        today = date.today()
+        latest_entry = await db.time_entries.find_one(
+            {
+                "employee_id": employee_id,
+                "timestamp": {
+                    "$gte": datetime.combine(today, datetime.min.time()),
+                    "$lte": datetime.combine(today, datetime.max.time())
+                }
+            },
+            sort=[("timestamp", -1)]
+        )
+        
+        if not latest_entry:
+            return {"status": "not_clocked_in", "last_entry": None}
+        
+        entry = TimeEntry(**latest_entry)
+        status = "not_clocked_in"
+        
+        if entry.entry_type == "clock_in":
+            status = "clocked_in"
+        elif entry.entry_type == "clock_out":
+            status = "clocked_out"
+        elif entry.entry_type == "break_start":
+            status = "on_break"
+        elif entry.entry_type == "break_end":
+            status = "clocked_in"
+        
+        return {"status": status, "last_entry": entry}
+    except Exception as e:
+        logger.error(f"Error getting current status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting current status: {str(e)}")
+
+# Work Schedule Management
+@api_router.post("/work-shifts", response_model=WorkShift)
+async def create_work_shift(shift_data: WorkShiftCreate):
+    try:
+        shift = WorkShift(**shift_data.dict())
+        shift_dict = jsonable_encoder(shift)
+        await db.work_shifts.insert_one(shift_dict)
+        return shift
+    except Exception as e:
+        logger.error(f"Error creating work shift: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating shift: {str(e)}")
+
+@api_router.get("/work-shifts/employee/{employee_id}", response_model=List[WorkShift])
+async def get_employee_shifts(employee_id: str, start_date: Optional[date] = None, end_date: Optional[date] = None):
+    try:
+        query = {"employee_id": employee_id}
+        
+        if start_date and end_date:
+            query["shift_date"] = {"$gte": start_date, "$lte": end_date}
+        
+        shifts = await db.work_shifts.find(query).sort("shift_date", 1).to_list(1000)
+        return [WorkShift(**shift) for shift in shifts]
+    except Exception as e:
+        logger.error(f"Error getting employee shifts: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting shifts: {str(e)}")
+
+@api_router.get("/work-shifts/date/{shift_date}", response_model=List[WorkShift])
+async def get_shifts_by_date(shift_date: date):
+    try:
+        shifts = await db.work_shifts.find({"shift_date": shift_date}).sort("start_time", 1).to_list(1000)
+        return [WorkShift(**shift) for shift in shifts]
+    except Exception as e:
+        logger.error(f"Error getting shifts by date: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting shifts: {str(e)}")
+
+@api_router.put("/work-shifts/{shift_id}/status")
+async def update_shift_status(shift_id: str, status: ShiftStatus):
+    try:
+        result = await db.work_shifts.update_one(
+            {"id": shift_id},
+            {"$set": {"status": status}}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Shift not found")
+        return {"message": "Shift status updated"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating shift status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating shift: {str(e)}")
+
+# Payroll and Hours Calculation
+@api_router.get("/employees/{employee_id}/hours-summary")
+async def get_employee_hours_summary(employee_id: str, start_date: date, end_date: date):
+    try:
+        # Get all time entries for the period
+        entries = await db.time_entries.find({
+            "employee_id": employee_id,
+            "timestamp": {
+                "$gte": datetime.combine(start_date, datetime.min.time()),
+                "$lte": datetime.combine(end_date, datetime.max.time())
+            }
+        }).sort("timestamp", 1).to_list(1000)
+        
+        # Calculate hours worked
+        total_hours = 0.0
+        daily_hours = {}
+        current_clock_in = None
+        
+        for entry_data in entries:
+            entry = TimeEntry(**entry_data)
+            entry_date = entry.timestamp.date()
+            
+            if entry.entry_type == "clock_in":
+                current_clock_in = entry.timestamp
+            elif entry.entry_type == "clock_out" and current_clock_in:
+                hours_worked = (entry.timestamp - current_clock_in).total_seconds() / 3600
+                daily_hours[entry_date] = daily_hours.get(entry_date, 0) + hours_worked
+                total_hours += hours_worked
+                current_clock_in = None
+        
+        # Calculate regular vs overtime (assuming 8 hours/day, 40 hours/week is regular)
+        regular_hours = min(total_hours, 40.0)
+        overtime_hours = max(0, total_hours - 40.0)
+        
+        return {
+            "employee_id": employee_id,
+            "period_start": start_date,
+            "period_end": end_date,
+            "total_hours": round(total_hours, 2),
+            "regular_hours": round(regular_hours, 2),
+            "overtime_hours": round(overtime_hours, 2),
+            "daily_breakdown": {str(k): round(v, 2) for k, v in daily_hours.items()}
+        }
+    except Exception as e:
+        logger.error(f"Error calculating hours: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error calculating hours: {str(e)}")
+
+# Employee Dashboard Summary
+@api_router.get("/employees/{employee_id}/dashboard")
+async def get_employee_dashboard(employee_id: str):
+    try:
+        # Get employee info
+        employee = await db.enhanced_employees.find_one({"id": employee_id})
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        
+        # Get current status
+        today = date.today()
+        latest_entry = await db.time_entries.find_one(
+            {
+                "employee_id": employee_id,
+                "timestamp": {
+                    "$gte": datetime.combine(today, datetime.min.time()),
+                    "$lte": datetime.combine(today, datetime.max.time())
+                }
+            },
+            sort=[("timestamp", -1)]
+        )
+        
+        # Get upcoming shifts (next 7 days)
+        upcoming_shifts = await db.work_shifts.find({
+            "employee_id": employee_id,
+            "shift_date": {"$gte": today, "$lte": today.replace(day=today.day + 7)}
+        }).sort("shift_date", 1).to_list(10)
+        
+        # Get pending documents
+        pending_docs = await db.employee_documents.find({
+            "employee_id": employee_id,
+            "status": {"$in": ["pending_signature", "draft"]}
+        }).to_list(100)
+        
+        # Calculate hours this week
+        week_start = today - timedelta(days=today.weekday())
+        week_end = week_start + timedelta(days=6)
+        
+        hours_summary = await get_employee_hours_summary(employee_id, week_start, week_end)
+        
+        return {
+            "employee": EnhancedEmployee(**employee),
+            "current_status": latest_entry,
+            "upcoming_shifts": [WorkShift(**shift) for shift in upcoming_shifts],
+            "pending_documents": [EmployeeDocument(**doc) for doc in pending_docs],
+            "week_hours": hours_summary
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting employee dashboard: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting dashboard: {str(e)}")
 
 # Dashboard Stats
 @api_router.get("/dashboard/stats")
