@@ -919,6 +919,7 @@ async def get_patient_summary(patient_id: str):
     medical_history = await db.medical_history.find({"patient_id": patient_id}).to_list(100)
     recent_vitals = await db.vital_signs.find({"patient_id": patient_id}).sort("recorded_at", -1).limit(1).to_list(1)
     recent_soap_notes = await db.soap_notes.find({"patient_id": patient_id}).sort("created_at", -1).limit(5).to_list(5)
+    documents = await db.patient_documents.find({"patient_id": patient_id}).sort("upload_date", -1).to_list(100)
     
     return {
         "patient": Patient(**patient),
@@ -927,8 +928,213 @@ async def get_patient_summary(patient_id: str):
         "active_medications": [Medication(**m) for m in medications],
         "medical_history": [MedicalHistory(**h) for h in medical_history],
         "recent_vitals": [VitalSigns(**v) for v in recent_vitals],
-        "recent_soap_notes": [SOAPNote(**s) for s in recent_soap_notes]
+        "recent_soap_notes": [SOAPNote(**s) for s in recent_soap_notes],
+        "documents": [PatientDocument(**d) for d in documents]
     }
+
+# Enhanced Features - Document Management
+@api_router.post("/patients/{patient_id}/documents", response_model=PatientDocument)
+async def upload_patient_document(patient_id: str, document: PatientDocumentCreate):
+    try:
+        # Verify patient exists
+        patient = await db.patients.find_one({"id": patient_id})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Create document record
+        doc = PatientDocument(**document.dict())
+        doc_dict = jsonable_encoder(doc)
+        await db.patient_documents.insert_one(doc_dict)
+        return doc
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error uploading document: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error uploading document: {str(e)}")
+
+@api_router.get("/patients/{patient_id}/documents", response_model=List[PatientDocument])
+async def get_patient_documents(patient_id: str):
+    documents = await db.patient_documents.find({"patient_id": patient_id}).sort("upload_date", -1).to_list(1000)
+    return [PatientDocument(**doc) for doc in documents]
+
+@api_router.delete("/documents/{document_id}")
+async def delete_patient_document(document_id: str):
+    result = await db.patient_documents.delete_one({"id": document_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"message": "Document deleted successfully"}
+
+# Enhanced SOAP Notes with Plan Items and Auto-Billing
+@api_router.post("/enhanced-soap-notes", response_model=EnhancedSOAPNote)
+async def create_enhanced_soap_note(soap_data: EnhancedSOAPNoteCreate):
+    try:
+        soap_note = EnhancedSOAPNote(**soap_data.dict())
+        soap_dict = jsonable_encoder(soap_note)
+        await db.enhanced_soap_notes.insert_one(soap_dict)
+        
+        # Auto-generate invoice if plan items are approved
+        approved_items = [item for item in soap_note.plan_items if item.approved_by_patient and item.unit_price > 0]
+        if approved_items:
+            await auto_generate_invoice_from_plan(soap_note.patient_id, soap_note.encounter_id, approved_items)
+        
+        return soap_note
+    except Exception as e:
+        logger.error(f"Error creating enhanced SOAP note: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating SOAP note: {str(e)}")
+
+@api_router.get("/enhanced-soap-notes/encounter/{encounter_id}", response_model=List[EnhancedSOAPNote])
+async def get_enhanced_encounter_soap_notes(encounter_id: str):
+    notes = await db.enhanced_soap_notes.find({"encounter_id": encounter_id}).to_list(1000)
+    return [EnhancedSOAPNote(**note) for note in notes]
+
+# Enhanced Invoice Management with Inventory Integration
+@api_router.post("/enhanced-invoices", response_model=EnhancedInvoice)
+async def create_enhanced_invoice(invoice_data: EnhancedInvoiceCreate):
+    try:
+        # Generate invoice number
+        count = await db.enhanced_invoices.count_documents({})
+        invoice_number = f"INV-{count + 1:06d}"
+        
+        # Calculate totals
+        subtotal = sum(item.total for item in invoice_data.items)
+        tax_amount = subtotal * invoice_data.tax_rate
+        total_amount = subtotal + tax_amount
+        
+        # Set due date
+        due_date = None
+        if invoice_data.due_days:
+            from datetime import timedelta
+            due_date = date.today() + timedelta(days=invoice_data.due_days)
+        
+        invoice = EnhancedInvoice(
+            invoice_number=invoice_number,
+            patient_id=invoice_data.patient_id,
+            encounter_id=invoice_data.encounter_id,
+            items=invoice_data.items,
+            subtotal=subtotal,
+            tax_rate=invoice_data.tax_rate,
+            tax_amount=tax_amount,
+            total_amount=total_amount,
+            due_date=due_date,
+            notes=invoice_data.notes,
+            auto_generated=invoice_data.auto_generated
+        )
+        
+        invoice_dict = jsonable_encoder(invoice)
+        await db.enhanced_invoices.insert_one(invoice_dict)
+        return invoice
+    except Exception as e:
+        logger.error(f"Error creating enhanced invoice: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating invoice: {str(e)}")
+
+@api_router.put("/enhanced-invoices/{invoice_id}/status")
+async def update_enhanced_invoice_status(invoice_id: str, status: InvoiceStatus):
+    try:
+        # Get the invoice
+        invoice = await db.enhanced_invoices.find_one({"id": invoice_id})
+        if not invoice:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+        
+        update_data = {"status": status, "updated_at": datetime.utcnow()}
+        
+        # If invoice is being marked as paid, deduct inventory items
+        if status == InvoiceStatus.PAID and invoice["status"] != "paid":
+            update_data["paid_date"] = date.today()
+            await process_inventory_deductions(invoice["items"])
+        
+        await db.enhanced_invoices.update_one(
+            {"id": invoice_id},
+            {"$set": jsonable_encoder(update_data)}
+        )
+        
+        return {"message": "Invoice status updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating invoice status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating invoice status: {str(e)}")
+
+@api_router.get("/enhanced-invoices", response_model=List[EnhancedInvoice])
+async def get_enhanced_invoices():
+    invoices = await db.enhanced_invoices.find().sort("created_at", -1).to_list(1000)
+    return [EnhancedInvoice(**invoice) for invoice in invoices]
+
+@api_router.get("/enhanced-invoices/patient/{patient_id}", response_model=List[EnhancedInvoice])
+async def get_patient_enhanced_invoices(patient_id: str):
+    invoices = await db.enhanced_invoices.find({"patient_id": patient_id}).sort("created_at", -1).to_list(1000)
+    return [EnhancedInvoice(**invoice) for invoice in invoices]
+
+# Helper Functions for Enhanced Features
+async def auto_generate_invoice_from_plan(patient_id: str, encounter_id: str, plan_items: List[PlanItem]):
+    """Auto-generate invoice from approved SOAP note plan items"""
+    try:
+        invoice_items = []
+        for item in plan_items:
+            invoice_item = EnhancedInvoiceItem(
+                description=f"{item.item_type.title()}: {item.description}",
+                quantity=item.quantity,
+                unit_price=item.unit_price,
+                total=item.quantity * item.unit_price,
+                inventory_item_id=item.inventory_item_id,
+                service_type=item.item_type
+            )
+            invoice_items.append(invoice_item)
+        
+        # Create invoice
+        invoice_data = EnhancedInvoiceCreate(
+            patient_id=patient_id,
+            encounter_id=encounter_id,
+            items=invoice_items,
+            tax_rate=0.08,  # Default tax rate
+            due_days=30,
+            notes="Auto-generated from medical plan",
+            auto_generated=True
+        )
+        
+        await create_enhanced_invoice(invoice_data)
+    except Exception as e:
+        logger.error(f"Error auto-generating invoice: {str(e)}")
+
+async def process_inventory_deductions(invoice_items: List[dict]):
+    """Process inventory deductions when invoice is paid"""
+    try:
+        for item in invoice_items:
+            if item.get("inventory_item_id") and item.get("service_type") in ["product", "injectable"]:
+                # Find inventory item
+                inventory_item = await db.inventory.find_one({"id": item["inventory_item_id"]})
+                if inventory_item:
+                    # Create inventory transaction (deduction)
+                    transaction = InventoryTransaction(
+                        item_id=item["inventory_item_id"],
+                        transaction_type="out",
+                        quantity=item["quantity"],
+                        reference_id=item.get("invoice_id"),
+                        notes=f"Auto-deducted from paid invoice: {item['description']}",
+                        created_by="System"
+                    )
+                    
+                    # Update inventory stock
+                    new_stock = inventory_item["current_stock"] - item["quantity"]
+                    await db.inventory.update_one(
+                        {"id": item["inventory_item_id"]},
+                        {"$set": {"current_stock": max(0, new_stock), "updated_at": jsonable_encoder(datetime.utcnow())}}
+                    )
+                    
+                    # Record transaction
+                    transaction_dict = jsonable_encoder(transaction)
+                    await db.inventory_transactions.insert_one(transaction_dict)
+    except Exception as e:
+        logger.error(f"Error processing inventory deductions: {str(e)}")
+
+# Get Inventory Items for Billing/Plan Integration
+@api_router.get("/inventory/billable", response_model=List[InventoryItem])
+async def get_billable_inventory_items():
+    """Get inventory items that can be billed (injectables, medical supplies, etc.)"""
+    items = await db.inventory.find({
+        "category": {"$in": ["injectable", "medication", "medical_supply", "lab_supply"]},
+        "current_stock": {"$gt": 0}
+    }).to_list(1000)
+    return [InventoryItem(**item) for item in items]
 
 # Include the router in the main app
 app.include_router(api_router)
