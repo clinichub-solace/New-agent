@@ -371,7 +371,8 @@ async def create_employee(employee_data: EmployeeCreate):
         **employee_data.dict()
     )
     
-    await db.employees.insert_one(employee.dict())
+    employee_dict = jsonable_encoder(employee)
+    await db.employees.insert_one(employee_dict)
     return employee
 
 @api_router.get("/employees", response_model=List[Employee])
