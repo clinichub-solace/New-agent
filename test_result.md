@@ -122,15 +122,18 @@ backend:
 
   - task: "SmartForm Builder with FHIR Mapping"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented SmartForm model with drag-and-drop fields, smart tags support, and FHIR mapping capability. Form submission system ready."
+      - working: true
+        agent: "testing"
+        comment: "SmartForm API endpoints are working correctly. Successfully created a form with fields and FHIR mapping, retrieved all forms, and submitted a form with patient data."
 
   - task: "Invoice/Receipt Management System"
     implemented: true
