@@ -512,7 +512,7 @@ const PatientsModule = ({ setActiveModule }) => {
           <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
             <div className="border-b border-white/20">
               <nav className="flex space-x-8 px-6">
-                {['overview', 'encounters', 'medications', 'allergies', 'history'].map((tab) => (
+                {['overview', 'encounters', 'documents', 'medications', 'allergies', 'history'].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab)}
