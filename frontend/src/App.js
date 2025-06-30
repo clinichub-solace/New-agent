@@ -18,6 +18,629 @@ const formatDate = (dateValue) => {
 };
 
 // Components
+
+// Comprehensive Finance Management Module
+const FinanceModule = ({ setActiveModule }) => {
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [vendors, setVendors] = useState([]);
+  const [checks, setChecks] = useState([]);
+  const [transactions, setTransactions] = useState([]);
+  const [vendorInvoices, setVendorInvoices] = useState([]);
+  const [dailySummary, setDailySummary] = useState(null);
+  const [showVendorForm, setShowVendorForm] = useState(false);
+  const [showCheckForm, setShowCheckForm] = useState(false);
+  const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+  useEffect(() => {
+    fetchFinanceData();
+  }, []);
+
+  const fetchFinanceData = async () => {
+    try {
+      const [vendorsRes, checksRes, transactionsRes, invoicesRes] = await Promise.all([
+        axios.get(`${API}/vendors`),
+        axios.get(`${API}/checks`),
+        axios.get(`${API}/financial-transactions`),
+        axios.get(`${API}/vendor-invoices`)
+      ]);
+      
+      setVendors(vendorsRes.data);
+      setChecks(checksRes.data);
+      setTransactions(transactionsRes.data);
+      setVendorInvoices(invoicesRes.data);
+      
+      // Get today's summary
+      const today = new Date().toISOString().split('T')[0];
+      await fetchDailySummary(today);
+    } catch (error) {
+      console.error("Error fetching finance data:", error);
+    }
+  };
+
+  const fetchDailySummary = async (date) => {
+    try {
+      const response = await axios.get(`${API}/financial-summary/${date}`);
+      setDailySummary(response.data);
+    } catch (error) {
+      console.error("Error fetching daily summary:", error);
+    }
+  };
+
+  // Vendor Form Component
+  const VendorForm = () => {
+    const [formData, setFormData] = useState({
+      company_name: '', contact_person: '', email: '', phone: '',
+      address_line1: '', city: '', state: '', zip_code: '',
+      tax_id: '', payment_terms: 'Net 30', preferred_payment_method: 'check'
+    });
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await axios.post(`${API}/vendors`, formData);
+        setShowVendorForm(false);
+        setFormData({
+          company_name: '', contact_person: '', email: '', phone: '',
+          address_line1: '', city: '', state: '', zip_code: '',
+          tax_id: '', payment_terms: 'Net 30', preferred_payment_method: 'check'
+        });
+        fetchFinanceData();
+      } catch (error) {
+        console.error("Error creating vendor:", error);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl p-8 max-w-3xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <h3 className="text-xl font-bold mb-4">Add New Vendor</h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                type="text"
+                placeholder="Company Name *"
+                value={formData.company_name}
+                onChange={(e) => setFormData({...formData, company_name: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+                required
+              />
+              <input
+                type="text"
+                placeholder="Contact Person"
+                value={formData.contact_person}
+                onChange={(e) => setFormData({...formData, contact_person: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                type="email"
+                placeholder="Email"
+                value={formData.email}
+                onChange={(e) => setFormData({...formData, email: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <input
+                type="tel"
+                placeholder="Phone"
+                value={formData.phone}
+                onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+            </div>
+            <input
+              type="text"
+              placeholder="Address *"
+              value={formData.address_line1}
+              onChange={(e) => setFormData({...formData, address_line1: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+              required
+            />
+            <div className="grid grid-cols-3 gap-4">
+              <input
+                type="text"
+                placeholder="City *"
+                value={formData.city}
+                onChange={(e) => setFormData({...formData, city: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+                required
+              />
+              <input
+                type="text"
+                placeholder="State *"
+                value={formData.state}
+                onChange={(e) => setFormData({...formData, state: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+                required
+              />
+              <input
+                type="text"
+                placeholder="ZIP Code *"
+                value={formData.zip_code}
+                onChange={(e) => setFormData({...formData, zip_code: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+                required
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                type="text"
+                placeholder="Tax ID/EIN"
+                value={formData.tax_id}
+                onChange={(e) => setFormData({...formData, tax_id: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <select
+                value={formData.payment_terms}
+                onChange={(e) => setFormData({...formData, payment_terms: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              >
+                <option value="Net 30">Net 30</option>
+                <option value="Net 15">Net 15</option>
+                <option value="Net 7">Net 7</option>
+                <option value="COD">Cash on Delivery</option>
+                <option value="Immediate">Immediate</option>
+              </select>
+            </div>
+            <div className="flex justify-end space-x-4 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowVendorForm(false)}
+                className="px-6 py-2 border border-gray-300 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-2 bg-green-500 text-white rounded-lg"
+              >
+                Add Vendor
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  // Check Form Component
+  const CheckForm = () => {
+    const [formData, setFormData] = useState({
+      payee_type: 'vendor', payee_id: '', payee_name: '', amount: '',
+      memo: '', expense_category: 'office_supplies', check_date: new Date().toISOString().split('T')[0]
+    });
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await axios.post(`${API}/checks`, {
+          ...formData,
+          amount: parseFloat(formData.amount),
+          created_by: 'Admin'
+        });
+        setShowCheckForm(false);
+        setFormData({
+          payee_type: 'vendor', payee_id: '', payee_name: '', amount: '',
+          memo: '', expense_category: 'office_supplies', check_date: new Date().toISOString().split('T')[0]
+        });
+        fetchFinanceData();
+      } catch (error) {
+        console.error("Error creating check:", error);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl p-8 max-w-2xl w-full mx-4">
+          <h3 className="text-xl font-bold mb-4">Create Check</h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <select
+                value={formData.payee_type}
+                onChange={(e) => setFormData({...formData, payee_type: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              >
+                <option value="vendor">Vendor</option>
+                <option value="employee">Employee</option>
+                <option value="other">Other</option>
+              </select>
+              {formData.payee_type === 'vendor' && (
+                <select
+                  value={formData.payee_id}
+                  onChange={(e) => {
+                    const vendor = vendors.find(v => v.id === e.target.value);
+                    setFormData({
+                      ...formData, 
+                      payee_id: e.target.value,
+                      payee_name: vendor ? vendor.company_name : ''
+                    });
+                  }}
+                  className="p-3 border border-gray-300 rounded-lg"
+                >
+                  <option value="">Select Vendor</option>
+                  {vendors.map(vendor => (
+                    <option key={vendor.id} value={vendor.id}>{vendor.company_name}</option>
+                  ))}
+                </select>
+              )}
+              {formData.payee_type !== 'vendor' && (
+                <input
+                  type="text"
+                  placeholder="Payee Name *"
+                  value={formData.payee_name}
+                  onChange={(e) => setFormData({...formData, payee_name: e.target.value})}
+                  className="p-3 border border-gray-300 rounded-lg"
+                  required
+                />
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Amount *"
+                value={formData.amount}
+                onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+                required
+              />
+              <input
+                type="date"
+                value={formData.check_date}
+                onChange={(e) => setFormData({...formData, check_date: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+                required
+              />
+            </div>
+            <select
+              value={formData.expense_category}
+              onChange={(e) => setFormData({...formData, expense_category: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+            >
+              <option value="payroll">Payroll</option>
+              <option value="rent">Rent</option>
+              <option value="utilities">Utilities</option>
+              <option value="medical_supplies">Medical Supplies</option>
+              <option value="insurance">Insurance</option>
+              <option value="marketing">Marketing</option>
+              <option value="maintenance">Maintenance</option>
+              <option value="professional_fees">Professional Fees</option>
+              <option value="office_supplies">Office Supplies</option>
+              <option value="other_expense">Other Expense</option>
+            </select>
+            <input
+              type="text"
+              placeholder="Memo/Description"
+              value={formData.memo}
+              onChange={(e) => setFormData({...formData, memo: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+            />
+            <div className="flex justify-end space-x-4 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowCheckForm(false)}
+                className="px-6 py-2 border border-gray-300 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-2 bg-blue-500 text-white rounded-lg"
+              >
+                Create Check
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  // Transaction Form Component
+  const TransactionForm = () => {
+    const [formData, setFormData] = useState({
+      transaction_type: 'income', amount: '', payment_method: 'cash',
+      description: '', category: 'patient_payment', transaction_date: new Date().toISOString().split('T')[0]
+    });
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await axios.post(`${API}/financial-transactions`, {
+          ...formData,
+          amount: parseFloat(formData.amount),
+          created_by: 'Admin'
+        });
+        setShowTransactionForm(false);
+        setFormData({
+          transaction_type: 'income', amount: '', payment_method: 'cash',
+          description: '', category: 'patient_payment', transaction_date: new Date().toISOString().split('T')[0]
+        });
+        fetchFinanceData();
+        fetchDailySummary(formData.transaction_date);
+      } catch (error) {
+        console.error("Error creating transaction:", error);
+      }
+    };
+
+    const incomeCategories = [
+      'patient_payment', 'insurance_payment', 'consultation_fee', 
+      'procedure_fee', 'medication_sale', 'other_income'
+    ];
+
+    const expenseCategories = [
+      'payroll', 'rent', 'utilities', 'medical_supplies', 'insurance',
+      'marketing', 'maintenance', 'professional_fees', 'office_supplies', 'other_expense'
+    ];
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl p-8 max-w-2xl w-full mx-4">
+          <h3 className="text-xl font-bold mb-4">Add Transaction</h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <select
+                value={formData.transaction_type}
+                onChange={(e) => setFormData({
+                  ...formData, 
+                  transaction_type: e.target.value,
+                  category: e.target.value === 'income' ? 'patient_payment' : 'office_supplies'
+                })}
+                className="p-3 border border-gray-300 rounded-lg"
+              >
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+              </select>
+              <select
+                value={formData.payment_method}
+                onChange={(e) => setFormData({...formData, payment_method: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              >
+                <option value="cash">Cash</option>
+                <option value="credit_card">Credit Card</option>
+                <option value="debit_card">Debit Card</option>
+                <option value="check">Check</option>
+                <option value="bank_transfer">Bank Transfer</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                type="number"
+                step="0.01"
+                placeholder="Amount *"
+                value={formData.amount}
+                onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+                required
+              />
+              <input
+                type="date"
+                value={formData.transaction_date}
+                onChange={(e) => setFormData({...formData, transaction_date: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+                required
+              />
+            </div>
+            <select
+              value={formData.category}
+              onChange={(e) => setFormData({...formData, category: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+            >
+              {(formData.transaction_type === 'income' ? incomeCategories : expenseCategories).map(cat => (
+                <option key={cat} value={cat}>
+                  {cat.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                </option>
+              ))}
+            </select>
+            <input
+              type="text"
+              placeholder="Description *"
+              value={formData.description}
+              onChange={(e) => setFormData({...formData, description: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+              required
+            />
+            <div className="flex justify-end space-x-4 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowTransactionForm(false)}
+                className="px-6 py-2 border border-gray-300 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-6 py-2 bg-green-500 text-white rounded-lg"
+              >
+                Add Transaction
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-200 hover:text-white"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-white">Finance Management</h1>
+          </div>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowTransactionForm(true)}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg"
+            >
+              + Transaction
+            </button>
+            <button
+              onClick={() => setShowCheckForm(true)}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+            >
+              + Write Check
+            </button>
+            <button
+              onClick={() => setShowVendorForm(true)}
+              className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg"
+            >
+              + Add Vendor
+            </button>
+          </div>
+        </div>
+
+        {/* Finance Tabs */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+          <div className="border-b border-white/20">
+            <nav className="flex space-x-8 px-6">
+              {['dashboard', 'transactions', 'checks', 'vendors', 'invoices', 'reports'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`py-4 px-2 border-b-2 font-medium text-sm capitalize ${
+                    activeTab === tab
+                      ? 'border-green-400 text-green-400'
+                      : 'border-transparent text-blue-200 hover:text-white'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          <div className="p-6">
+            {activeTab === 'dashboard' && (
+              <div className="space-y-6">
+                {/* Daily Summary */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                  <div className="bg-white/5 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">Today's Summary</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-blue-200">Income:</span>
+                        <span className="text-green-400 font-medium">
+                          ${dailySummary?.total_income?.toFixed(2) || '0.00'}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-blue-200">Expenses:</span>
+                        <span className="text-red-400 font-medium">
+                          ${dailySummary?.total_expenses?.toFixed(2) || '0.00'}
+                        </span>
+                      </div>
+                      <div className="border-t border-white/20 pt-2">
+                        <div className="flex justify-between">
+                          <span className="text-white font-medium">Net:</span>
+                          <span className={`font-bold ${
+                            (dailySummary?.net_amount || 0) >= 0 ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            ${dailySummary?.net_amount?.toFixed(2) || '0.00'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/5 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">Quick Stats</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-blue-200">Vendors:</span>
+                        <span className="text-white">{vendors.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-blue-200">Unpaid Bills:</span>
+                        <span className="text-yellow-400">{vendorInvoices.filter(inv => inv.payment_status === 'unpaid').length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-blue-200">Pending Checks:</span>
+                        <span className="text-orange-400">{checks.filter(check => check.status === 'draft').length}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/5 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">Payment Methods Today</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-blue-200">Cash:</span>
+                        <span className="text-white">${dailySummary?.cash_income?.toFixed(2) || '0.00'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-blue-200">Credit Card:</span>
+                        <span className="text-white">${dailySummary?.credit_card_income?.toFixed(2) || '0.00'}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-blue-200">Checks:</span>
+                        <span className="text-white">${dailySummary?.check_income?.toFixed(2) || '0.00'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-white/5 rounded-lg p-6">
+                    <h3 className="text-lg font-semibold text-white mb-4">Transaction Count</h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-blue-200">Income:</span>
+                        <span className="text-green-400">{dailySummary?.income_transaction_count || 0}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-blue-200">Expenses:</span>
+                        <span className="text-red-400">{dailySummary?.expense_transaction_count || 0}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent Transactions */}
+                <div className="bg-white/5 rounded-lg p-6">
+                  <h3 className="text-lg font-semibold text-white mb-4">Recent Transactions</h3>
+                  <div className="space-y-3">
+                    {transactions.slice(0, 5).map((transaction) => (
+                      <div key={transaction.id} className="flex items-center justify-between p-3 bg-white/10 rounded-lg">
+                        <div>
+                          <p className="text-white font-medium">{transaction.description}</p>
+                          <p className="text-blue-200 text-sm">
+                            {formatDate(transaction.transaction_date)} • {transaction.payment_method.replace('_', ' ')}
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <p className={`font-bold ${
+                            transaction.transaction_type === 'income' ? 'text-green-400' : 'text-red-400'
+                          }`}>
+                            {transaction.transaction_type === 'income' ? '+' : '-'}${transaction.amount.toFixed(2)}
+                          </p>
+                          <p className="text-blue-200 text-sm capitalize">
+                            {transaction.category?.replace('_', ' ')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Forms */}
+      {showVendorForm && <VendorForm />}
+      {showCheckForm && <CheckForm />}
+      {showTransactionForm && <TransactionForm />}
+    </div>
+  );
+};
 const Dashboard = ({ setActiveModule }) => {
   const [stats, setStats] = useState({});
   const [recentPatients, setRecentPatients] = useState([]);
