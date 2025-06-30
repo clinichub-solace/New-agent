@@ -616,13 +616,29 @@ const PatientsModule = ({ setActiveModule }) => {
 
               {activeTab === 'encounters' && patientSummary && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-white">Recent Encounters</h3>
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-white">Patient Encounters</h3>
+                    <button
+                      onClick={() => setShowEncounterForm(true)}
+                      className="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-lg text-sm"
+                    >
+                      + New Encounter
+                    </button>
+                  </div>
                   {patientSummary.recent_encounters?.map((encounter) => (
                     <div key={encounter.id} className="bg-white/5 rounded-lg p-4">
                       <div className="flex justify-between items-start">
-                        <div>
-                          <p className="text-white font-medium">{encounter.encounter_number}</p>
-                          <p className="text-blue-200 capitalize">{encounter.encounter_type.replace('_', ' ')}</p>
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3 mb-2">
+                            <p className="text-white font-medium">{encounter.encounter_number}</p>
+                            <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                              encounter.status === 'completed' ? 'bg-green-500' : 
+                              encounter.status === 'in_progress' ? 'bg-blue-500' : 'bg-gray-500'
+                            }`}>
+                              {encounter.status}
+                            </span>
+                          </div>
+                          <p className="text-blue-200 capitalize">{encounter.encounter_type?.replace('_', ' ')}</p>
                           <p className="text-blue-200 text-sm">
                             {formatDate(encounter.scheduled_date)} - {encounter.provider}
                           </p>
@@ -630,11 +646,140 @@ const PatientsModule = ({ setActiveModule }) => {
                             <p className="text-blue-200 text-sm mt-1">CC: {encounter.chief_complaint}</p>
                           )}
                         </div>
+                        <div className="flex space-x-2">
+                          <button className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
+                            View Details
+                          </button>
+                          {encounter.status !== 'completed' && (
+                            <button className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">
+                              Complete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === 'documents' && patientSummary && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-white">Patient Documents</h3>
+                    <button
+                      onClick={() => setShowDocumentUpload(true)}
+                      className="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm"
+                    >
+                      + Upload Document
+                    </button>
+                  </div>
+                  {patientSummary.documents?.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {patientSummary.documents.map((doc) => (
+                        <div key={doc.id} className="bg-white/5 rounded-lg p-4">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="text-white font-medium">{doc.document_name}</p>
+                              <p className="text-blue-200 text-sm capitalize">{doc.document_type.replace('_', ' ')}</p>
+                              <p className="text-blue-200 text-xs">
+                                Uploaded: {formatDate(doc.upload_date)} by {doc.uploaded_by}
+                              </p>
+                              <p className="text-blue-200 text-xs">
+                                Size: {(doc.file_size / 1024).toFixed(1)} KB | Type: {doc.file_extension.toUpperCase()}
+                              </p>
+                            </div>
+                            <div className="flex space-x-2">
+                              <button 
+                                onClick={() => viewDocument(doc)}
+                                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                              >
+                                View
+                              </button>
+                              <button 
+                                onClick={() => deleteDocument(doc.id)}
+                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-blue-200">No documents uploaded yet</p>
+                  )}
+                </div>
+              )}
+
+              {/* Keep existing medications, allergies, history tabs */}
+              {activeTab === 'medications' && patientSummary && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-white">All Medications</h3>
+                  {patientSummary.active_medications?.map((med) => (
+                    <div key={med.id} className="bg-white/5 rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-white font-medium">{med.medication_name}</p>
+                          <p className="text-blue-200">{med.dosage} - {med.frequency} - {med.route}</p>
+                          <p className="text-blue-200 text-sm">Prescribed by: {med.prescribing_physician}</p>
+                          <p className="text-blue-200 text-sm">Indication: {med.indication}</p>
+                          <p className="text-blue-200 text-sm">Start Date: {formatDate(med.start_date)}</p>
+                        </div>
                         <span className={`px-2 py-1 text-white text-xs rounded-full ${
-                          encounter.status === 'completed' ? 'bg-green-500' : 
-                          encounter.status === 'in_progress' ? 'bg-blue-500' : 'bg-gray-500'
+                          med.status === 'active' ? 'bg-green-500' : 'bg-gray-500'
                         }`}>
-                          {encounter.status}
+                          {med.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === 'allergies' && patientSummary && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-white">All Allergies</h3>
+                  {patientSummary.allergies?.map((allergy) => (
+                    <div key={allergy.id} className="bg-white/5 rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-white font-medium">{allergy.allergen}</p>
+                          <p className="text-blue-200">Reaction: {allergy.reaction}</p>
+                          <p className="text-blue-200 text-sm">Onset: {formatDate(allergy.onset_date)}</p>
+                          <p className="text-blue-200 text-sm">Documented by: {allergy.created_by}</p>
+                          {allergy.notes && <p className="text-blue-200 text-sm">Notes: {allergy.notes}</p>}
+                        </div>
+                        <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                          allergy.severity === 'severe' || allergy.severity === 'life_threatening'
+                            ? 'bg-red-500' : allergy.severity === 'moderate' ? 'bg-orange-500' : 'bg-yellow-500'
+                        }`}>
+                          {allergy.severity}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {activeTab === 'history' && patientSummary && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-white">Medical History</h3>
+                  {patientSummary.medical_history?.map((history) => (
+                    <div key={history.id} className="bg-white/5 rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-white font-medium">{history.condition}</p>
+                          {history.icd10_code && <p className="text-blue-200">ICD-10: {history.icd10_code}</p>}
+                          <p className="text-blue-200 text-sm">Diagnosed: {formatDate(history.diagnosis_date)}</p>
+                          <p className="text-blue-200 text-sm">Diagnosed by: {history.diagnosed_by}</p>
+                          {history.notes && <p className="text-blue-200 text-sm">Notes: {history.notes}</p>}
+                        </div>
+                        <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                          history.status === 'active' ? 'bg-red-500' : 
+                          history.status === 'resolved' ? 'bg-green-500' : 'bg-blue-500'
+                        }`}>
+                          {history.status}
                         </span>
                       </div>
                     </div>
