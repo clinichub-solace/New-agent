@@ -508,7 +508,7 @@ const PatientsModule = ({ setActiveModule }) => {
                   {selectedPatient.name?.[0]?.given?.[0]} {selectedPatient.name?.[0]?.family}
                 </h1>
                 <p className="text-blue-200">
-                  DOB: {selectedPatient.birth_date ? new Date(selectedPatient.birth_date).toLocaleDateString() : 'N/A'} |
+                  DOB: {formatDate(selectedPatient.birth_date)} |
                   Gender: {selectedPatient.gender || 'N/A'} |
                   Status: {selectedPatient.status}
                 </p>
