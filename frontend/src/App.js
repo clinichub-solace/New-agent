@@ -1081,6 +1081,331 @@ const InvoicesModule = ({ setActiveModule }) => {
   );
 };
 
+// SmartForms Module
+const SmartFormsModule = ({ setActiveModule }) => {
+  const [forms, setForms] = useState([]);
+  const [showFormBuilder, setShowFormBuilder] = useState(false);
+  const [formFields, setFormFields] = useState([]);
+  const [formTitle, setFormTitle] = useState('');
+  const [formDescription, setFormDescription] = useState('');
+
+  useEffect(() => {
+    fetchForms();
+  }, []);
+
+  const fetchForms = async () => {
+    try {
+      const response = await axios.get(`${API}/forms`);
+      setForms(response.data);
+    } catch (error) {
+      console.error("Error fetching forms:", error);
+    }
+  };
+
+  const addField = (type) => {
+    const newField = {
+      id: Date.now().toString(),
+      type,
+      label: `${type.charAt(0).toUpperCase() + type.slice(1)} Field`,
+      placeholder: '',
+      required: false,
+      options: type === 'select' ? ['Option 1', 'Option 2'] : [],
+      smart_tag: ''
+    };
+    setFormFields([...formFields, newField]);
+  };
+
+  const updateField = (fieldId, updates) => {
+    setFormFields(formFields.map(field => 
+      field.id === fieldId ? { ...field, ...updates } : field
+    ));
+  };
+
+  const removeField = (fieldId) => {
+    setFormFields(formFields.filter(field => field.id !== fieldId));
+  };
+
+  const saveForm = async () => {
+    try {
+      const formData = {
+        title: formTitle,
+        description: formDescription,
+        fields: formFields,
+        status: 'active'
+      };
+      
+      await axios.post(`${API}/forms`, formData);
+      setShowFormBuilder(false);
+      setFormTitle('');
+      setFormDescription('');
+      setFormFields([]);
+      fetchForms();
+    } catch (error) {
+      console.error("Error saving form:", error);
+    }
+  };
+
+  const smartTags = [
+    '{patient_name}', '{patient_dob}', '{patient_gender}', '{current_date}',
+    '{provider_name}', '{clinic_name}', '{encounter_date}', '{chief_complaint}'
+  ];
+
+  const fieldTypes = [
+    { type: 'text', label: 'Text Input', icon: '📝' },
+    { type: 'textarea', label: 'Text Area', icon: '📄' },
+    { type: 'number', label: 'Number', icon: '🔢' },
+    { type: 'date', label: 'Date', icon: '📅' },
+    { type: 'select', label: 'Dropdown', icon: '📋' },
+    { type: 'checkbox', label: 'Checkbox', icon: '☑️' }
+  ];
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-200 hover:text-white"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-white">Smart Forms</h1>
+          </div>
+          <button
+            onClick={() => setShowFormBuilder(true)}
+            className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium"
+          >
+            + Create Form
+          </button>
+        </div>
+
+        {showFormBuilder && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-8">
+                <h2 className="text-2xl font-bold mb-6">Smart Form Builder</h2>
+                
+                {/* Form Details */}
+                <div className="mb-6 space-y-4">
+                  <input
+                    type="text"
+                    placeholder="Form Title"
+                    value={formTitle}
+                    onChange={(e) => setFormTitle(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg text-lg font-semibold"
+                  />
+                  <textarea
+                    placeholder="Form Description"
+                    value={formDescription}
+                    onChange={(e) => setFormDescription(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    rows="3"
+                  />
+                </div>
+
+                <div className="grid grid-cols-3 gap-6">
+                  {/* Field Types Panel */}
+                  <div className="col-span-1">
+                    <h3 className="text-lg font-semibold mb-4">Field Types</h3>
+                    <div className="space-y-2">
+                      {fieldTypes.map((fieldType) => (
+                        <button
+                          key={fieldType.type}
+                          onClick={() => addField(fieldType.type)}
+                          className="w-full p-3 bg-gray-100 hover:bg-gray-200 rounded-lg text-left flex items-center space-x-3"
+                        >
+                          <span className="text-xl">{fieldType.icon}</span>
+                          <span>{fieldType.label}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-6">
+                      <h4 className="font-semibold mb-2">Smart Tags</h4>
+                      <div className="space-y-1">
+                        {smartTags.map((tag) => (
+                          <div key={tag} className="text-sm text-blue-600 font-mono">
+                            {tag}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Form Builder */}
+                  <div className="col-span-2">
+                    <h3 className="text-lg font-semibold mb-4">Form Preview</h3>
+                    <div className="border border-gray-300 rounded-lg p-6 min-h-96 bg-gray-50">
+                      {formFields.length === 0 ? (
+                        <div className="text-center text-gray-500 py-12">
+                          <p>Drag field types from the left to build your form</p>
+                        </div>
+                      ) : (
+                        <div className="space-y-4">
+                          {formFields.map((field, index) => (
+                            <div key={field.id} className="bg-white p-4 rounded-lg border">
+                              <div className="flex justify-between items-start mb-3">
+                                <input
+                                  type="text"
+                                  value={field.label}
+                                  onChange={(e) => updateField(field.id, { label: e.target.value })}
+                                  className="font-semibold text-lg border-b border-gray-300 bg-transparent"
+                                />
+                                <button
+                                  onClick={() => removeField(field.id)}
+                                  className="text-red-500 hover:text-red-700"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 gap-4 mb-3">
+                                <input
+                                  type="text"
+                                  placeholder="Placeholder text"
+                                  value={field.placeholder}
+                                  onChange={(e) => updateField(field.id, { placeholder: e.target.value })}
+                                  className="p-2 border border-gray-300 rounded"
+                                />
+                                <input
+                                  type="text"
+                                  placeholder="Smart tag (optional)"
+                                  value={field.smart_tag}
+                                  onChange={(e) => updateField(field.id, { smart_tag: e.target.value })}
+                                  className="p-2 border border-gray-300 rounded font-mono text-sm"
+                                />
+                              </div>
+
+                              <div className="flex items-center space-x-4">
+                                <label className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    checked={field.required}
+                                    onChange={(e) => updateField(field.id, { required: e.target.checked })}
+                                    className="mr-2"
+                                  />
+                                  Required
+                                </label>
+                                
+                                {field.type === 'select' && (
+                                  <input
+                                    type="text"
+                                    placeholder="Options (comma-separated)"
+                                    value={field.options.join(', ')}
+                                    onChange={(e) => updateField(field.id, { 
+                                      options: e.target.value.split(',').map(opt => opt.trim()).filter(opt => opt)
+                                    })}
+                                    className="p-2 border border-gray-300 rounded flex-1"
+                                  />
+                                )}
+                              </div>
+
+                              {/* Field Preview */}
+                              <div className="mt-4 p-3 bg-gray-50 rounded">
+                                <label className="block text-sm font-medium mb-1">
+                                  {field.label} {field.required && <span className="text-red-500">*</span>}
+                                </label>
+                                {field.type === 'textarea' ? (
+                                  <textarea
+                                    placeholder={field.placeholder}
+                                    className="w-full p-2 border border-gray-300 rounded"
+                                    rows="3"
+                                    disabled
+                                  />
+                                ) : field.type === 'select' ? (
+                                  <select className="w-full p-2 border border-gray-300 rounded" disabled>
+                                    <option>Select an option</option>
+                                    {field.options.map((option, idx) => (
+                                      <option key={idx} value={option}>{option}</option>
+                                    ))}
+                                  </select>
+                                ) : (
+                                  <input
+                                    type={field.type}
+                                    placeholder={field.placeholder}
+                                    className="w-full p-2 border border-gray-300 rounded"
+                                    disabled
+                                  />
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-4 mt-6 pt-6 border-t">
+                  <button
+                    onClick={() => setShowFormBuilder(false)}
+                    className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={saveForm}
+                    disabled={!formTitle || formFields.length === 0}
+                    className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:opacity-50"
+                  >
+                    Save Form
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Forms List */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden border border-white/20">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-white/5 border-b border-white/20">
+                <tr>
+                  <th className="text-left p-4 text-white font-semibold">Form Title</th>
+                  <th className="text-left p-4 text-white font-semibold">Description</th>
+                  <th className="text-left p-4 text-white font-semibold">Fields</th>
+                  <th className="text-left p-4 text-white font-semibold">Status</th>
+                  <th className="text-left p-4 text-white font-semibold">Created</th>
+                  <th className="text-left p-4 text-white font-semibold">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {forms.map((form) => (
+                  <tr key={form.id} className="border-b border-white/10 hover:bg-white/5">
+                    <td className="p-4 text-white font-medium">{form.title}</td>
+                    <td className="p-4 text-blue-200">{form.description || 'No description'}</td>
+                    <td className="p-4 text-blue-200">{form.fields?.length || 0} fields</td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                        form.status === 'active' ? 'bg-green-500' : 'bg-gray-500'
+                      }`}>
+                        {form.status}
+                      </span>
+                    </td>
+                    <td className="p-4 text-blue-200">
+                      {new Date(form.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="p-4">
+                      <button className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm mr-2">
+                        Edit
+                      </button>
+                      <button className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">
+                        Use
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Main App Component
 function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
@@ -1089,6 +1414,8 @@ function App() {
     switch (activeModule) {
       case 'patients':
         return <PatientsModule setActiveModule={setActiveModule} />;
+      case 'forms':
+        return <SmartFormsModule setActiveModule={setActiveModule} />;
       case 'invoices':
         return <InvoicesModule setActiveModule={setActiveModule} />;
       default:
