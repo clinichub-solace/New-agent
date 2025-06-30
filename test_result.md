@@ -272,15 +272,18 @@ backend:
 
   - task: "Diagnosis and Procedure Coding"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "ICD-10 diagnosis codes and CPT procedure codes integration with encounter-based tracking and billing linkage."
+      - working: true
+        agent: "testing"
+        comment: "Diagnosis and procedure coding API endpoints are working correctly. Successfully created a diagnosis with ICD-10 code, created a procedure with CPT code, retrieved diagnoses by encounter and patient, and retrieved procedures by encounter and patient."
 
   - task: "Patient Summary API"
     implemented: true
