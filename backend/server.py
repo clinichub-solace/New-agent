@@ -351,11 +351,12 @@ async def create_inventory_transaction(item_id: str, transaction: InventoryTrans
     
     await db.inventory.update_one(
         {"id": item_id},
-        {"$set": {"current_stock": new_stock, "updated_at": datetime.utcnow()}}
+        {"$set": {"current_stock": new_stock, "updated_at": jsonable_encoder(datetime.utcnow())}}
     )
     
     transaction.item_id = item_id
-    await db.inventory_transactions.insert_one(transaction.dict())
+    transaction_dict = jsonable_encoder(transaction)
+    await db.inventory_transactions.insert_one(transaction_dict)
     return transaction
 
 # Employee Routes
