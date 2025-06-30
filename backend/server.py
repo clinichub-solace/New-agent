@@ -93,6 +93,20 @@ class MedicationStatus(str, Enum):
     DISCONTINUED = "discontinued"
     COMPLETED = "completed"
 
+# Authentication and User Management Enums
+class UserRole(str, Enum):
+    ADMIN = "admin"
+    DOCTOR = "doctor"
+    NURSE = "nurse"
+    RECEPTIONIST = "receptionist"
+    MANAGER = "manager"
+    TECHNICIAN = "technician"
+
+class UserStatus(str, Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    SUSPENDED = "suspended"
+
 # FHIR-Compliant Patient Model
 class PatientAddress(BaseModel):
     line: List[str] = []
