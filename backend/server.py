@@ -202,7 +202,7 @@ class InventoryItem(BaseModel):
 
 class InventoryTransaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    item_id: str
+    item_id: Optional[str] = None  # Made optional since it's set from URL
     transaction_type: str  # in, out, adjustment
     quantity: int
     reference_id: Optional[str] = None  # patient_id, invoice_id, etc.
