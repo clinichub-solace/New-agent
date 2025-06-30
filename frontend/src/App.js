@@ -2790,6 +2790,8 @@ function App() {
         return <InventoryModule setActiveModule={setActiveModule} />;
       case 'invoices':
         return <InvoicesModule setActiveModule={setActiveModule} />;
+      case 'employees':
+        return <EmployeeModule setActiveModule={setActiveModule} />;
       default:
         return <Dashboard setActiveModule={setActiveModule} />;
     }
