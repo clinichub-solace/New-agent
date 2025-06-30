@@ -396,20 +396,259 @@ class WorkShiftCreate(BaseModel):
     notes: Optional[str] = None
     created_by: str
 
-# Payroll Calculation
-class PayrollPeriod(BaseModel):
+# Finance Module Models
+
+# Finance-related Enums
+class PaymentMethod(str, Enum):
+    CASH = "cash"
+    CREDIT_CARD = "credit_card"
+    DEBIT_CARD = "debit_card"
+    CHECK = "check"
+    BANK_TRANSFER = "bank_transfer"
+    ACH = "ach"
+
+class TransactionType(str, Enum):
+    INCOME = "income"
+    EXPENSE = "expense"
+    TRANSFER = "transfer"
+
+class IncomeCategory(str, Enum):
+    PATIENT_PAYMENT = "patient_payment"
+    INSURANCE_PAYMENT = "insurance_payment"
+    CONSULTATION_FEE = "consultation_fee"
+    PROCEDURE_FEE = "procedure_fee"
+    MEDICATION_SALE = "medication_sale"
+    OTHER_INCOME = "other_income"
+
+class ExpenseCategory(str, Enum):
+    PAYROLL = "payroll"
+    RENT = "rent"
+    UTILITIES = "utilities"
+    MEDICAL_SUPPLIES = "medical_supplies"
+    INSURANCE = "insurance"
+    MARKETING = "marketing"
+    MAINTENANCE = "maintenance"
+    PROFESSIONAL_FEES = "professional_fees"
+    OFFICE_SUPPLIES = "office_supplies"
+    OTHER_EXPENSE = "other_expense"
+
+class CheckStatus(str, Enum):
+    DRAFT = "draft"
+    PRINTED = "printed"
+    ISSUED = "issued"
+    CASHED = "cashed"
+    VOID = "void"
+    CANCELLED = "cancelled"
+
+class VendorStatus(str, Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    SUSPENDED = "suspended"
+
+# Vendor Management
+class Vendor(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    employee_id: str
-    period_start: date
-    period_end: date
-    regular_hours: float = 0.0
-    overtime_hours: float = 0.0
-    regular_pay: float = 0.0
-    overtime_pay: float = 0.0
-    total_pay: float = 0.0
-    deductions: float = 0.0
-    net_pay: float = 0.0
-    status: str = "draft"  # draft, approved, paid
+    vendor_code: str
+    company_name: str
+    contact_person: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    
+    # Address Information
+    address_line1: str
+    address_line2: Optional[str] = None
+    city: str
+    state: str
+    zip_code: str
+    country: str = "United States"
+    
+    # Business Information
+    tax_id: Optional[str] = None  # EIN or SSN
+    payment_terms: str = "Net 30"  # Net 30, Net 15, COD, etc.
+    preferred_payment_method: PaymentMethod = PaymentMethod.CHECK
+    
+    # Banking Information (for ACH/Wire transfers)
+    bank_name: Optional[str] = None
+    routing_number: Optional[str] = None
+    account_number: Optional[str] = None
+    
+    # Status and Notes
+    status: VendorStatus = VendorStatus.ACTIVE
+    credit_limit: Optional[float] = None
+    notes: Optional[str] = None
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class VendorCreate(BaseModel):
+    company_name: str
+    contact_person: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    address_line1: str
+    address_line2: Optional[str] = None
+    city: str
+    state: str
+    zip_code: str
+    tax_id: Optional[str] = None
+    payment_terms: str = "Net 30"
+    preferred_payment_method: PaymentMethod = PaymentMethod.CHECK
+
+# Check Management
+class Check(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    check_number: str
+    payee_type: str = "vendor"  # vendor, employee, other
+    payee_id: Optional[str] = None  # vendor_id or employee_id
+    payee_name: str
+    amount: float
+    memo: Optional[str] = None
+    
+    # Check Details
+    check_date: date = Field(default_factory=date.today)
+    void_date: Optional[date] = None
+    printed_date: Optional[datetime] = None
+    issued_date: Optional[datetime] = None
+    cashed_date: Optional[datetime] = None
+    
+    # Status and References
+    status: CheckStatus = CheckStatus.DRAFT
+    expense_category: Optional[ExpenseCategory] = None
+    reference_invoice_id: Optional[str] = None
+    reference_payroll_id: Optional[str] = None
+    
+    # Approval Workflow
+    created_by: str
+    approved_by: Optional[str] = None
+    approval_date: Optional[datetime] = None
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class CheckCreate(BaseModel):
+    payee_type: str = "vendor"
+    payee_id: Optional[str] = None
+    payee_name: str
+    amount: float
+    memo: Optional[str] = None
+    check_date: Optional[date] = None
+    expense_category: Optional[ExpenseCategory] = None
+    reference_invoice_id: Optional[str] = None
+    created_by: str
+
+# Financial Transactions
+class FinancialTransaction(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    transaction_number: str
+    transaction_type: TransactionType
+    amount: float
+    payment_method: PaymentMethod
+    
+    # Transaction Details
+    transaction_date: date = Field(default_factory=date.today)
+    description: str
+    category: Optional[str] = None  # IncomeCategory or ExpenseCategory
+    
+    # References
+    patient_id: Optional[str] = None
+    vendor_id: Optional[str] = None
+    invoice_id: Optional[str] = None
+    check_id: Optional[str] = None
+    
+    # Banking Details
+    bank_account: Optional[str] = None
+    reference_number: Optional[str] = None  # Check number, transaction ID, etc.
+    
+    # Reconciliation
+    reconciled: bool = False
+    reconciled_date: Optional[date] = None
+    
+    created_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class FinancialTransactionCreate(BaseModel):
+    transaction_type: TransactionType
+    amount: float
+    payment_method: PaymentMethod
+    transaction_date: Optional[date] = None
+    description: str
+    category: Optional[str] = None
+    patient_id: Optional[str] = None
+    vendor_id: Optional[str] = None
+    invoice_id: Optional[str] = None
+    bank_account: Optional[str] = None
+    reference_number: Optional[str] = None
+    created_by: str
+
+# Vendor Invoices (Bills from vendors)
+class VendorInvoice(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    invoice_number: str
+    vendor_id: str
+    invoice_date: date
+    due_date: date
+    amount: float
+    tax_amount: float = 0.0
+    total_amount: float
+    
+    # Invoice Details
+    description: str
+    expense_category: ExpenseCategory
+    purchase_order_number: Optional[str] = None
+    
+    # Payment Status
+    payment_status: str = "unpaid"  # unpaid, partial, paid
+    amount_paid: float = 0.0
+    payment_date: Optional[date] = None
+    check_id: Optional[str] = None
+    
+    # Document Management
+    invoice_file: Optional[str] = None  # base64 encoded
+    
+    created_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class VendorInvoiceCreate(BaseModel):
+    invoice_number: str
+    vendor_id: str
+    invoice_date: date
+    due_date: date
+    amount: float
+    tax_amount: float = 0.0
+    description: str
+    expense_category: ExpenseCategory
+    purchase_order_number: Optional[str] = None
+    invoice_file: Optional[str] = None
+    created_by: str
+
+# Daily Financial Summary
+class DailyFinancialSummary(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    summary_date: date = Field(default_factory=date.today)
+    
+    # Income Breakdown
+    cash_income: float = 0.0
+    credit_card_income: float = 0.0
+    check_income: float = 0.0
+    other_income: float = 0.0
+    total_income: float = 0.0
+    
+    # Expense Breakdown
+    cash_expenses: float = 0.0
+    check_expenses: float = 0.0
+    credit_card_expenses: float = 0.0
+    other_expenses: float = 0.0
+    total_expenses: float = 0.0
+    
+    # Net Summary
+    net_amount: float = 0.0
+    
+    # Transaction Counts
+    income_transaction_count: int = 0
+    expense_transaction_count: int = 0
+    
+    created_by: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 # Enhanced EHR Models
