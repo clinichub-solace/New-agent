@@ -677,6 +677,118 @@ class DailyFinancialSummary(BaseModel):
     created_by: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+# User and Authentication Models
+class User(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    username: str
+    email: str
+    first_name: str
+    last_name: str
+    role: UserRole
+    status: UserStatus = UserStatus.ACTIVE
+    
+    # Security
+    password_hash: str
+    last_login: Optional[datetime] = None
+    failed_login_attempts: int = 0
+    locked_until: Optional[datetime] = None
+    
+    # Profile
+    profile_picture: Optional[str] = None
+    phone: Optional[str] = None
+    employee_id: Optional[str] = None  # Link to employee record
+    
+    # Permissions - role-based access control
+    permissions: List[str] = []
+    
+    # Audit
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: Optional[str] = None
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    password: str
+    first_name: str
+    last_name: str
+    role: UserRole
+    phone: Optional[str] = None
+    employee_id: Optional[str] = None
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    expires_in: int
+    user: Dict[str, Any]
+
+class UserUpdate(BaseModel):
+    email: Optional[str] = None
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+    phone: Optional[str] = None
+    status: Optional[UserStatus] = None
+    role: Optional[UserRole] = None
+
+# Role Permissions Configuration
+ROLE_PERMISSIONS = {
+    UserRole.ADMIN: [
+        "patients:read", "patients:write", "patients:delete",
+        "ehr:read", "ehr:write", "ehr:delete",
+        "forms:read", "forms:write", "forms:delete",
+        "inventory:read", "inventory:write", "inventory:delete",
+        "invoices:read", "invoices:write", "invoices:delete",
+        "employees:read", "employees:write", "employees:delete",
+        "finance:read", "finance:write", "finance:delete",
+        "users:read", "users:write", "users:delete",
+        "reports:read", "settings:read", "settings:write"
+    ],
+    UserRole.DOCTOR: [
+        "patients:read", "patients:write",
+        "ehr:read", "ehr:write",
+        "forms:read", "forms:write",
+        "inventory:read",
+        "invoices:read", "invoices:write",
+        "finance:read",
+        "reports:read"
+    ],
+    UserRole.NURSE: [
+        "patients:read", "patients:write",
+        "ehr:read", "ehr:write",
+        "forms:read", "forms:write",
+        "inventory:read", "inventory:write",
+        "invoices:read",
+        "finance:read",
+        "reports:read"
+    ],
+    UserRole.RECEPTIONIST: [
+        "patients:read", "patients:write",
+        "ehr:read",
+        "forms:read",
+        "invoices:read", "invoices:write",
+        "finance:read"
+    ],
+    UserRole.MANAGER: [
+        "patients:read",
+        "ehr:read",
+        "inventory:read", "inventory:write",
+        "invoices:read", "invoices:write",
+        "employees:read", "employees:write",
+        "finance:read", "finance:write",
+        "reports:read"
+    ],
+    UserRole.TECHNICIAN: [
+        "patients:read",
+        "ehr:read", "ehr:write",
+        "forms:read",
+        "inventory:read", "inventory:write"
+    ]
+}
+
 # Enhanced EHR Models
 
 # Vital Signs Model
