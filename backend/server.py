@@ -238,6 +238,195 @@ class EmployeeCreate(BaseModel):
     salary: Optional[float] = None
     hourly_rate: Optional[float] = None
 
+# Enhanced EHR Models
+
+# Vital Signs Model
+class VitalSigns(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    encounter_id: Optional[str] = None
+    height: Optional[float] = None  # in cm
+    weight: Optional[float] = None  # in kg
+    bmi: Optional[float] = None
+    systolic_bp: Optional[int] = None  # mmHg
+    diastolic_bp: Optional[int] = None  # mmHg
+    heart_rate: Optional[int] = None  # bpm
+    respiratory_rate: Optional[int] = None  # breaths per minute
+    temperature: Optional[float] = None  # in Celsius
+    oxygen_saturation: Optional[int] = None  # percentage
+    pain_scale: Optional[int] = None  # 0-10 scale
+    recorded_by: str
+    recorded_at: datetime = Field(default_factory=datetime.utcnow)
+
+# Allergy Model
+class Allergy(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    allergen: str
+    reaction: str
+    severity: AllergySeverity
+    onset_date: Optional[date] = None
+    notes: Optional[str] = None
+    verified: bool = False
+    created_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class AllergyCreate(BaseModel):
+    patient_id: str
+    allergen: str
+    reaction: str
+    severity: AllergySeverity
+    onset_date: Optional[date] = None
+    notes: Optional[str] = None
+    created_by: str
+
+# Medication Model
+class Medication(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    medication_name: str
+    dosage: str
+    frequency: str
+    route: str  # oral, injection, topical, etc.
+    start_date: date
+    end_date: Optional[date] = None
+    prescribing_physician: str
+    indication: str
+    status: MedicationStatus = MedicationStatus.ACTIVE
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class MedicationCreate(BaseModel):
+    patient_id: str
+    medication_name: str
+    dosage: str
+    frequency: str
+    route: str
+    start_date: date
+    end_date: Optional[date] = None
+    prescribing_physician: str
+    indication: str
+    notes: Optional[str] = None
+
+# Medical History Model
+class MedicalHistory(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    condition: str
+    icd10_code: Optional[str] = None
+    diagnosis_date: Optional[date] = None
+    status: str  # active, resolved, chronic
+    notes: Optional[str] = None
+    diagnosed_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class MedicalHistoryCreate(BaseModel):
+    patient_id: str
+    condition: str
+    icd10_code: Optional[str] = None
+    diagnosis_date: Optional[date] = None
+    status: str
+    notes: Optional[str] = None
+    diagnosed_by: str
+
+# Encounter/Visit Model
+class Encounter(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    encounter_number: str
+    patient_id: str
+    encounter_type: EncounterType
+    status: EncounterStatus = EncounterStatus.PLANNED
+    scheduled_date: datetime
+    actual_start: Optional[datetime] = None
+    actual_end: Optional[datetime] = None
+    provider: str
+    location: Optional[str] = None
+    chief_complaint: Optional[str] = None
+    reason_for_visit: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class EncounterCreate(BaseModel):
+    patient_id: str
+    encounter_type: EncounterType
+    scheduled_date: datetime
+    provider: str
+    location: Optional[str] = None
+    chief_complaint: Optional[str] = None
+    reason_for_visit: Optional[str] = None
+
+# SOAP Notes Model
+class SOAPNote(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    encounter_id: str
+    patient_id: str
+    subjective: str  # Patient's description of symptoms
+    objective: str   # Physical examination findings
+    assessment: str  # Diagnosis and clinical impressions
+    plan: str       # Treatment plan and follow-up
+    provider: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class SOAPNoteCreate(BaseModel):
+    encounter_id: str
+    patient_id: str
+    subjective: str
+    objective: str
+    assessment: str
+    plan: str
+    provider: str
+
+# Diagnosis Model
+class Diagnosis(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    encounter_id: str
+    patient_id: str
+    diagnosis_code: str  # ICD-10 code
+    diagnosis_description: str
+    diagnosis_type: str  # primary, secondary, etc.
+    status: str  # active, resolved, etc.
+    onset_date: Optional[date] = None
+    provider: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class DiagnosisCreate(BaseModel):
+    encounter_id: str
+    patient_id: str
+    diagnosis_code: str
+    diagnosis_description: str
+    diagnosis_type: str
+    status: str
+    onset_date: Optional[date] = None
+    provider: str
+
+# Procedure Model
+class Procedure(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    encounter_id: str
+    patient_id: str
+    procedure_code: str  # CPT code
+    procedure_description: str
+    procedure_date: date
+    provider: str
+    location: Optional[str] = None
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class ProcedureCreate(BaseModel):
+    encounter_id: str
+    patient_id: str
+    procedure_code: str
+    procedure_description: str
+    procedure_date: date
+    provider: str
+    location: Optional[str] = None
+    notes: Optional[str] = None
+
 # Patient Routes
 @api_router.post("/patients", response_model=Patient)
 async def create_patient(patient_data: PatientCreate):
