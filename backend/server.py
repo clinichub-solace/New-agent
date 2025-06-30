@@ -211,7 +211,41 @@ class InventoryTransaction(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
 # Employee Models
-class Employee(BaseModel):
+# Enhanced Employee Management Models
+
+# Employee Document Types
+class EmployeeDocumentType(str, Enum):
+    WARNING = "warning"
+    VACATION_REQUEST = "vacation_request"
+    SICK_LEAVE = "sick_leave"
+    PERFORMANCE_REVIEW = "performance_review"
+    POLICY_ACKNOWLEDGMENT = "policy_acknowledgment"
+    TRAINING_CERTIFICATE = "training_certificate"
+    CONTRACT = "contract"
+    DISCIPLINARY_ACTION = "disciplinary_action"
+
+class EmployeeDocumentStatus(str, Enum):
+    DRAFT = "draft"
+    PENDING_SIGNATURE = "pending_signature"
+    SIGNED = "signed"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    ARCHIVED = "archived"
+
+class TimeEntryType(str, Enum):
+    CLOCK_IN = "clock_in"
+    CLOCK_OUT = "clock_out"
+    BREAK_START = "break_start"
+    BREAK_END = "break_end"
+
+class ShiftStatus(str, Enum):
+    SCHEDULED = "scheduled"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    MISSED = "missed"
+
+# Enhanced Employee Profile
+class EnhancedEmployee(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     employee_id: str
     first_name: str
@@ -219,24 +253,164 @@ class Employee(BaseModel):
     email: str
     phone: Optional[str] = None
     role: EmployeeRole
+    department: Optional[str] = None
     hire_date: date
+    termination_date: Optional[date] = None
     salary: Optional[float] = None
     hourly_rate: Optional[float] = None
+    
+    # Personal Information
+    date_of_birth: Optional[date] = None
+    ssn_last_four: Optional[str] = None  # Only last 4 digits for security
     address: Optional[str] = None
-    emergency_contact: Optional[Dict[str, str]] = None
+    city: Optional[str] = None
+    state: Optional[str] = None
+    zip_code: Optional[str] = None
+    
+    # Emergency Contact
+    emergency_contact_name: Optional[str] = None
+    emergency_contact_phone: Optional[str] = None
+    emergency_contact_relationship: Optional[str] = None
+    
+    # Employment Details
+    manager_id: Optional[str] = None
+    work_location: Optional[str] = None
+    employment_type: str = "full_time"  # full_time, part_time, contract
+    benefits_eligible: bool = True
+    vacation_days_allocated: int = 20
+    vacation_days_used: int = 0
+    sick_days_allocated: int = 10
+    sick_days_used: int = 0
+    
+    # Status
     is_active: bool = True
+    profile_picture: Optional[str] = None  # base64 encoded
+    notes: Optional[str] = None
+    
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-class EmployeeCreate(BaseModel):
+# For backward compatibility
+class Employee(EnhancedEmployee):
+    pass
+
+class EnhancedEmployeeCreate(BaseModel):
     first_name: str
     last_name: str
     email: str
     phone: Optional[str] = None
     role: EmployeeRole
+    department: Optional[str] = None
     hire_date: date
     salary: Optional[float] = None
     hourly_rate: Optional[float] = None
+    manager_id: Optional[str] = None
+    employment_type: str = "full_time"
+
+# For backward compatibility
+class EmployeeCreate(EnhancedEmployeeCreate):
+    pass
+
+# Employee Documents
+class EmployeeDocument(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    employee_id: str
+    document_type: EmployeeDocumentType
+    title: str
+    content: str  # HTML or text content
+    status: EmployeeDocumentStatus = EmployeeDocumentStatus.DRAFT
+    
+    # Approval Workflow
+    created_by: str
+    approved_by: Optional[str] = None
+    signed_by: Optional[str] = None
+    signature_date: Optional[datetime] = None
+    approval_date: Optional[datetime] = None
+    
+    # Document Data
+    template_data: Optional[Dict[str, Any]] = None  # For form fields
+    file_attachments: List[str] = []  # base64 encoded files
+    
+    # Dates
+    effective_date: Optional[date] = None
+    expiry_date: Optional[date] = None
+    due_date: Optional[date] = None
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class EmployeeDocumentCreate(BaseModel):
+    employee_id: str
+    document_type: EmployeeDocumentType
+    title: str
+    content: str
+    template_data: Optional[Dict[str, Any]] = None
+    effective_date: Optional[date] = None
+    expiry_date: Optional[date] = None
+    due_date: Optional[date] = None
+    created_by: str
+
+# Time Tracking
+class TimeEntry(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    employee_id: str
+    entry_type: TimeEntryType
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    location: Optional[str] = None
+    notes: Optional[str] = None
+    ip_address: Optional[str] = None
+    manual_entry: bool = False
+    approved_by: Optional[str] = None
+
+class TimeEntryCreate(BaseModel):
+    employee_id: str
+    entry_type: TimeEntryType
+    timestamp: Optional[datetime] = None
+    location: Optional[str] = None
+    notes: Optional[str] = None
+    manual_entry: bool = False
+
+# Work Schedule
+class WorkShift(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    employee_id: str
+    shift_date: date
+    start_time: datetime
+    end_time: datetime
+    break_duration: int = 30  # minutes
+    position: Optional[str] = None
+    location: Optional[str] = None
+    status: ShiftStatus = ShiftStatus.SCHEDULED
+    notes: Optional[str] = None
+    created_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class WorkShiftCreate(BaseModel):
+    employee_id: str
+    shift_date: date
+    start_time: datetime
+    end_time: datetime
+    break_duration: int = 30
+    position: Optional[str] = None
+    location: Optional[str] = None
+    notes: Optional[str] = None
+    created_by: str
+
+# Payroll Calculation
+class PayrollPeriod(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    employee_id: str
+    period_start: date
+    period_end: date
+    regular_hours: float = 0.0
+    overtime_hours: float = 0.0
+    regular_pay: float = 0.0
+    overtime_pay: float = 0.0
+    total_pay: float = 0.0
+    deductions: float = 0.0
+    net_pay: float = 0.0
+    status: str = "draft"  # draft, approved, paid
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 # Enhanced EHR Models
 
