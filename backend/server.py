@@ -181,6 +181,12 @@ class InventoryItem(BaseModel):
     notes: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    @validator('expiry_date', pre=True)
+    def validate_expiry_date(cls, v):
+        if isinstance(v, date):
+            return v.isoformat()
+        return v
 
 class InventoryTransaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
