@@ -381,14 +381,11 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Comprehensive SOAP Notes System"
-    - "Encounter/Visit Management System"
-    - "Vital Signs Recording System"
-    - "Allergy Management System"
-    - "Medication Management System"
-    - "Enhanced EHR Patient Interface"
-    - "Smart Form Builder Interface"
-  stuck_tasks: []
+    - "Invoice/Receipt Management System"
+    - "Inventory Management System"
+  stuck_tasks:
+    - "Invoice/Receipt Management System"
+    - "Inventory Management System"
   test_all: false
   test_priority: "high_first"
 
