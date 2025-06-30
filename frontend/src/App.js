@@ -667,7 +667,7 @@ const Dashboard = ({ setActiveModule }) => {
     { name: "Inventory", key: "inventory", icon: "📦", color: "bg-orange-500" },
     { name: "Invoices", key: "invoices", icon: "🧾", color: "bg-purple-500" },
     { name: "Employees", key: "employees", icon: "👨‍⚕️", color: "bg-indigo-500" },
-    { name: "Reports", key: "reports", icon: "📊", color: "bg-pink-500" }
+    { name: "Finance", key: "finance", icon: "💰", color: "bg-green-600" }
   ];
 
   return (
