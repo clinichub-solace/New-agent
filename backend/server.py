@@ -503,33 +503,40 @@ async def submit_form(form_id: str, submission_data: Dict[str, Any], patient_id:
 # Invoice Routes
 @api_router.post("/invoices", response_model=Invoice)
 async def create_invoice(invoice_data: InvoiceCreate):
-    # Generate invoice number
-    count = await db.invoices.count_documents({})
-    invoice_number = f"INV-{count + 1:06d}"
-    
-    # Calculate totals
-    subtotal = sum(item.total for item in invoice_data.items)
-    tax_amount = subtotal * invoice_data.tax_rate
-    total_amount = subtotal + tax_amount
-    
-    # Set due date
-    due_date = date.today().replace(day=date.today().day + invoice_data.due_days) if invoice_data.due_days else None
-    
-    invoice = Invoice(
-        invoice_number=invoice_number,
-        patient_id=invoice_data.patient_id,
-        items=invoice_data.items,
-        subtotal=subtotal,
-        tax_rate=invoice_data.tax_rate,
-        tax_amount=tax_amount,
-        total_amount=total_amount,
-        due_date=due_date,
-        notes=invoice_data.notes
-    )
-    
-    invoice_dict = jsonable_encoder(invoice)
-    await db.invoices.insert_one(invoice_dict)
-    return invoice
+    try:
+        # Generate invoice number
+        count = await db.invoices.count_documents({})
+        invoice_number = f"INV-{count + 1:06d}"
+        
+        # Calculate totals
+        subtotal = sum(item.total for item in invoice_data.items)
+        tax_amount = subtotal * invoice_data.tax_rate
+        total_amount = subtotal + tax_amount
+        
+        # Set due date - Fix the date calculation
+        due_date = None
+        if invoice_data.due_days:
+            from datetime import timedelta
+            due_date = date.today() + timedelta(days=invoice_data.due_days)
+        
+        invoice = Invoice(
+            invoice_number=invoice_number,
+            patient_id=invoice_data.patient_id,
+            items=invoice_data.items,
+            subtotal=subtotal,
+            tax_rate=invoice_data.tax_rate,
+            tax_amount=tax_amount,
+            total_amount=total_amount,
+            due_date=due_date,
+            notes=invoice_data.notes
+        )
+        
+        invoice_dict = jsonable_encoder(invoice)
+        await db.invoices.insert_one(invoice_dict)
+        return invoice
+    except Exception as e:
+        logger.error(f"Error creating invoice: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating invoice: {str(e)}")
 
 @api_router.get("/invoices", response_model=List[Invoice])
 async def get_invoices():
