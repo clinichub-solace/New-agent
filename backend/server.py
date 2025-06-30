@@ -51,6 +51,36 @@ class EmployeeRole(str, Enum):
     RECEPTIONIST = "receptionist"
     TECHNICIAN = "technician"
 
+class EncounterType(str, Enum):
+    ANNUAL_PHYSICAL = "annual_physical"
+    FOLLOW_UP = "follow_up"
+    ACUTE_CARE = "acute_care"
+    PREVENTIVE_CARE = "preventive_care"
+    EMERGENCY = "emergency"
+    CONSULTATION = "consultation"
+    PROCEDURE = "procedure"
+    TELEMEDICINE = "telemedicine"
+
+class EncounterStatus(str, Enum):
+    PLANNED = "planned"
+    ARRIVED = "arrived"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    NO_SHOW = "no_show"
+
+class AllergySeverity(str, Enum):
+    MILD = "mild"
+    MODERATE = "moderate"
+    SEVERE = "severe"
+    LIFE_THREATENING = "life_threatening"
+
+class MedicationStatus(str, Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    DISCONTINUED = "discontinued"
+    COMPLETED = "completed"
+
 # FHIR-Compliant Patient Model
 class PatientAddress(BaseModel):
     line: List[str] = []
