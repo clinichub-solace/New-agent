@@ -193,11 +193,22 @@ const Dashboard = ({ setActiveModule }) => {
 
 const PatientsModule = ({ setActiveModule }) => {
   const [patients, setPatients] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState(null);
   const [showForm, setShowForm] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
   const [formData, setFormData] = useState({
     first_name: '', last_name: '', email: '', phone: '', 
     date_of_birth: '', gender: '', address_line1: '', city: '', state: '', zip_code: ''
   });
+
+  // EHR Data States
+  const [patientSummary, setPatientSummary] = useState(null);
+  const [encounters, setEncounters] = useState([]);
+  const [showEncounterForm, setShowEncounterForm] = useState(false);
+  const [showVitalsForm, setShowVitalsForm] = useState(false);
+  const [showAllergyForm, setShowAllergyForm] = useState(false);
+  const [showMedicationForm, setShowMedicationForm] = useState(false);
+  const [showSOAPForm, setShowSOAPForm] = useState(false);
 
   useEffect(() => {
     fetchPatients();
@@ -210,6 +221,21 @@ const PatientsModule = ({ setActiveModule }) => {
     } catch (error) {
       console.error("Error fetching patients:", error);
     }
+  };
+
+  const fetchPatientSummary = async (patientId) => {
+    try {
+      const response = await axios.get(`${API}/patients/${patientId}/summary`);
+      setPatientSummary(response.data);
+    } catch (error) {
+      console.error("Error fetching patient summary:", error);
+    }
+  };
+
+  const handlePatientSelect = (patient) => {
+    setSelectedPatient(patient);
+    fetchPatientSummary(patient.id);
+    setActiveTab('overview');
   };
 
   const handleSubmit = async (e) => {
@@ -226,6 +252,404 @@ const PatientsModule = ({ setActiveModule }) => {
       console.error("Error creating patient:", error);
     }
   };
+
+  // New Encounter Form
+  const EncounterForm = () => {
+    const [encounterData, setEncounterData] = useState({
+      encounter_type: 'follow_up',
+      scheduled_date: '',
+      provider: 'Dr. Sarah Chen',
+      location: 'Main Office',
+      chief_complaint: '',
+      reason_for_visit: ''
+    });
+
+    const handleEncounterSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await axios.post(`${API}/encounters`, {
+          ...encounterData,
+          patient_id: selectedPatient.id
+        });
+        setShowEncounterForm(false);
+        fetchPatientSummary(selectedPatient.id);
+      } catch (error) {
+        console.error("Error creating encounter:", error);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl p-8 max-w-2xl w-full mx-4">
+          <h3 className="text-xl font-bold mb-4">New Encounter</h3>
+          <form onSubmit={handleEncounterSubmit} className="space-y-4">
+            <select
+              value={encounterData.encounter_type}
+              onChange={(e) => setEncounterData({...encounterData, encounter_type: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+            >
+              <option value="annual_physical">Annual Physical</option>
+              <option value="follow_up">Follow-up</option>
+              <option value="acute_care">Acute Care</option>
+              <option value="preventive_care">Preventive Care</option>
+              <option value="emergency">Emergency</option>
+              <option value="consultation">Consultation</option>
+            </select>
+            <input
+              type="datetime-local"
+              value={encounterData.scheduled_date}
+              onChange={(e) => setEncounterData({...encounterData, scheduled_date: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+              required
+            />
+            <input
+              type="text"
+              placeholder="Provider"
+              value={encounterData.provider}
+              onChange={(e) => setEncounterData({...encounterData, provider: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+            />
+            <textarea
+              placeholder="Chief Complaint"
+              value={encounterData.chief_complaint}
+              onChange={(e) => setEncounterData({...encounterData, chief_complaint: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+              rows="3"
+            />
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => setShowEncounterForm(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-blue-500 text-white rounded-lg"
+              >
+                Create Encounter
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  // Vitals Form
+  const VitalsForm = () => {
+    const [vitalsData, setVitalsData] = useState({
+      height: '', weight: '', systolic_bp: '', diastolic_bp: '',
+      heart_rate: '', temperature: '', oxygen_saturation: '', pain_scale: '',
+      recorded_by: 'Nurse Smith'
+    });
+
+    const handleVitalsSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        const data = {
+          ...vitalsData,
+          patient_id: selectedPatient.id,
+          height: vitalsData.height ? parseFloat(vitalsData.height) : null,
+          weight: vitalsData.weight ? parseFloat(vitalsData.weight) : null,
+          systolic_bp: vitalsData.systolic_bp ? parseInt(vitalsData.systolic_bp) : null,
+          diastolic_bp: vitalsData.diastolic_bp ? parseInt(vitalsData.diastolic_bp) : null,
+          heart_rate: vitalsData.heart_rate ? parseInt(vitalsData.heart_rate) : null,
+          temperature: vitalsData.temperature ? parseFloat(vitalsData.temperature) : null,
+          oxygen_saturation: vitalsData.oxygen_saturation ? parseInt(vitalsData.oxygen_saturation) : null,
+          pain_scale: vitalsData.pain_scale ? parseInt(vitalsData.pain_scale) : null,
+        };
+        
+        await axios.post(`${API}/vital-signs`, data);
+        setShowVitalsForm(false);
+        fetchPatientSummary(selectedPatient.id);
+      } catch (error) {
+        console.error("Error recording vitals:", error);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+          <h3 className="text-xl font-bold mb-4">Record Vital Signs</h3>
+          <form onSubmit={handleVitalsSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <input
+                type="number"
+                step="0.1"
+                placeholder="Height (cm)"
+                value={vitalsData.height}
+                onChange={(e) => setVitalsData({...vitalsData, height: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <input
+                type="number"
+                step="0.1"
+                placeholder="Weight (kg)"
+                value={vitalsData.weight}
+                onChange={(e) => setVitalsData({...vitalsData, weight: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <input
+                type="number"
+                placeholder="Systolic BP"
+                value={vitalsData.systolic_bp}
+                onChange={(e) => setVitalsData({...vitalsData, systolic_bp: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <input
+                type="number"
+                placeholder="Diastolic BP"
+                value={vitalsData.diastolic_bp}
+                onChange={(e) => setVitalsData({...vitalsData, diastolic_bp: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <input
+                type="number"
+                placeholder="Heart Rate (bpm)"
+                value={vitalsData.heart_rate}
+                onChange={(e) => setVitalsData({...vitalsData, heart_rate: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <input
+                type="number"
+                step="0.1"
+                placeholder="Temperature (°C)"
+                value={vitalsData.temperature}
+                onChange={(e) => setVitalsData({...vitalsData, temperature: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <input
+                type="number"
+                placeholder="O2 Saturation (%)"
+                value={vitalsData.oxygen_saturation}
+                onChange={(e) => setVitalsData({...vitalsData, oxygen_saturation: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              />
+              <select
+                value={vitalsData.pain_scale}
+                onChange={(e) => setVitalsData({...vitalsData, pain_scale: e.target.value})}
+                className="p-3 border border-gray-300 rounded-lg"
+              >
+                <option value="">Pain Scale (0-10)</option>
+                {[0,1,2,3,4,5,6,7,8,9,10].map(n => (
+                  <option key={n} value={n}>{n} - {n === 0 ? 'No Pain' : n <= 3 ? 'Mild' : n <= 6 ? 'Moderate' : 'Severe'}</option>
+                ))}
+              </select>
+            </div>
+            <input
+              type="text"
+              placeholder="Recorded by"
+              value={vitalsData.recorded_by}
+              onChange={(e) => setVitalsData({...vitalsData, recorded_by: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+            />
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => setShowVitalsForm(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-green-500 text-white rounded-lg"
+              >
+                Record Vitals
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  if (selectedPatient) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {/* Patient Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => setSelectedPatient(null)}
+                className="text-blue-200 hover:text-white"
+              >
+                ← Back to Patients
+              </button>
+              <div>
+                <h1 className="text-3xl font-bold text-white">
+                  {selectedPatient.name?.[0]?.given?.[0]} {selectedPatient.name?.[0]?.family}
+                </h1>
+                <p className="text-blue-200">
+                  DOB: {selectedPatient.birth_date ? new Date(selectedPatient.birth_date).toLocaleDateString() : 'N/A'} |
+                  Gender: {selectedPatient.gender || 'N/A'} |
+                  Status: {selectedPatient.status}
+                </p>
+              </div>
+            </div>
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowEncounterForm(true)}
+                className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg"
+              >
+                + New Visit
+              </button>
+              <button
+                onClick={() => setShowVitalsForm(true)}
+                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg"
+              >
+                + Vitals
+              </button>
+            </div>
+          </div>
+
+          {/* EHR Tabs */}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+            <div className="border-b border-white/20">
+              <nav className="flex space-x-8 px-6">
+                {['overview', 'encounters', 'medications', 'allergies', 'history'].map((tab) => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`py-4 px-2 border-b-2 font-medium text-sm capitalize ${
+                      activeTab === tab
+                        ? 'border-blue-400 text-blue-400'
+                        : 'border-transparent text-blue-200 hover:text-white'
+                    }`}
+                  >
+                    {tab}
+                  </button>
+                ))}
+              </nav>
+            </div>
+
+            <div className="p-6">
+              {activeTab === 'overview' && patientSummary && (
+                <div className="space-y-6">
+                  {/* Recent Vitals */}
+                  {patientSummary.recent_vitals?.length > 0 && (
+                    <div className="bg-white/5 rounded-lg p-4">
+                      <h3 className="text-lg font-semibold text-white mb-3">Latest Vital Signs</h3>
+                      <div className="grid grid-cols-4 gap-4">
+                        {patientSummary.recent_vitals[0].systolic_bp && (
+                          <div className="text-center">
+                            <p className="text-blue-200 text-sm">Blood Pressure</p>
+                            <p className="text-white font-semibold">
+                              {patientSummary.recent_vitals[0].systolic_bp}/{patientSummary.recent_vitals[0].diastolic_bp}
+                            </p>
+                          </div>
+                        )}
+                        {patientSummary.recent_vitals[0].heart_rate && (
+                          <div className="text-center">
+                            <p className="text-blue-200 text-sm">Heart Rate</p>
+                            <p className="text-white font-semibold">{patientSummary.recent_vitals[0].heart_rate} bpm</p>
+                          </div>
+                        )}
+                        {patientSummary.recent_vitals[0].temperature && (
+                          <div className="text-center">
+                            <p className="text-blue-200 text-sm">Temperature</p>
+                            <p className="text-white font-semibold">{patientSummary.recent_vitals[0].temperature}°C</p>
+                          </div>
+                        )}
+                        {patientSummary.recent_vitals[0].weight && (
+                          <div className="text-center">
+                            <p className="text-blue-200 text-sm">Weight</p>
+                            <p className="text-white font-semibold">{patientSummary.recent_vitals[0].weight} kg</p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Active Medications */}
+                  <div className="bg-white/5 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-white mb-3">Active Medications</h3>
+                    {patientSummary.active_medications?.length > 0 ? (
+                      <div className="space-y-2">
+                        {patientSummary.active_medications.map((med) => (
+                          <div key={med.id} className="flex justify-between items-center">
+                            <div>
+                              <p className="text-white font-medium">{med.medication_name}</p>
+                              <p className="text-blue-200 text-sm">{med.dosage} - {med.frequency}</p>
+                            </div>
+                            <span className="px-2 py-1 bg-green-500 text-white text-xs rounded-full">
+                              {med.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-blue-200">No active medications</p>
+                    )}
+                  </div>
+
+                  {/* Allergies */}
+                  <div className="bg-white/5 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-white mb-3">Allergies</h3>
+                    {patientSummary.allergies?.length > 0 ? (
+                      <div className="space-y-2">
+                        {patientSummary.allergies.map((allergy) => (
+                          <div key={allergy.id} className="flex justify-between items-center">
+                            <div>
+                              <p className="text-white font-medium">{allergy.allergen}</p>
+                              <p className="text-blue-200 text-sm">{allergy.reaction}</p>
+                            </div>
+                            <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                              allergy.severity === 'severe' || allergy.severity === 'life_threatening'
+                                ? 'bg-red-500' : 'bg-yellow-500'
+                            }`}>
+                              {allergy.severity}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-blue-200">No known allergies</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeTab === 'encounters' && patientSummary && (
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold text-white">Recent Encounters</h3>
+                  {patientSummary.recent_encounters?.map((encounter) => (
+                    <div key={encounter.id} className="bg-white/5 rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="text-white font-medium">{encounter.encounter_number}</p>
+                          <p className="text-blue-200 capitalize">{encounter.encounter_type.replace('_', ' ')}</p>
+                          <p className="text-blue-200 text-sm">
+                            {new Date(encounter.scheduled_date).toLocaleDateString()} - {encounter.provider}
+                          </p>
+                          {encounter.chief_complaint && (
+                            <p className="text-blue-200 text-sm mt-1">CC: {encounter.chief_complaint}</p>
+                          )}
+                        </div>
+                        <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                          encounter.status === 'completed' ? 'bg-green-500' : 
+                          encounter.status === 'in_progress' ? 'bg-blue-500' : 'bg-gray-500'
+                        }`}>
+                          {encounter.status}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* Forms */}
+        {showEncounterForm && <EncounterForm />}
+        {showVitalsForm && <VitalsForm />}
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
@@ -253,6 +677,7 @@ const PatientsModule = ({ setActiveModule }) => {
             <div className="bg-white rounded-xl p-8 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
               <h2 className="text-2xl font-bold mb-6">Add New Patient</h2>
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Form fields remain the same */}
                 <div className="grid grid-cols-2 gap-4">
                   <input
                     type="text"
@@ -367,6 +792,7 @@ const PatientsModule = ({ setActiveModule }) => {
                   <th className="text-left p-4 text-white font-semibold">Gender</th>
                   <th className="text-left p-4 text-white font-semibold">Status</th>
                   <th className="text-left p-4 text-white font-semibold">Added</th>
+                  <th className="text-left p-4 text-white font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -379,7 +805,7 @@ const PatientsModule = ({ setActiveModule }) => {
                       {patient.telecom?.find(t => t.system === 'email')?.value || 'N/A'}
                     </td>
                     <td className="p-4 text-blue-200">
-                      {patient.birth_date ? new Date(patient.birth_date).toLocaleDateString() : 'N/A'}
+                      {patient.birth_date ? new Date(patient.birth_date).toLocalDateString() : 'N/A'}
                     </td>
                     <td className="p-4 text-blue-200 capitalize">
                       {patient.gender || 'N/A'}
@@ -391,6 +817,14 @@ const PatientsModule = ({ setActiveModule }) => {
                     </td>
                     <td className="p-4 text-blue-200">
                       {new Date(patient.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="p-4">
+                      <button
+                        onClick={() => handlePatientSelect(patient)}
+                        className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                      >
+                        View EHR
+                      </button>
                     </td>
                   </tr>
                 ))}
