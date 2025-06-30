@@ -211,7 +211,6 @@ const PatientsModule = ({ setActiveModule }) => {
   const [showMedicationForm, setShowMedicationForm] = useState(false);
   const [showSOAPForm, setShowSOAPForm] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
-  const [showDocumentUpload, setShowDocumentUpload] = useState(false);
 
   useEffect(() => {
     fetchPatients();
