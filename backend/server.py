@@ -1073,6 +1073,98 @@ class EnhancedSOAPNoteCreate(BaseModel):
     plan_items: List[PlanItem] = []
     provider: str
 
+# Authentication Helper Functions
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+def get_password_hash(password: str) -> str:
+    return pwd_context.hash(password)
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except jwt.PyJWTError:
+        raise credentials_exception
+    
+    user = await db.users.find_one({"username": username})
+    if user is None:
+        raise credentials_exception
+    
+    return User(**user)
+
+async def get_current_active_user(current_user: User = Depends(get_current_user)):
+    if current_user.status != UserStatus.ACTIVE:
+        raise HTTPException(status_code=400, detail="Inactive user")
+    return current_user
+
+def require_permission(permission: str):
+    async def permission_checker(current_user: User = Depends(get_current_active_user)):
+        if permission not in current_user.permissions and current_user.role != UserRole.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Not enough permissions. Required: {permission}"
+            )
+        return current_user
+    return permission_checker
+
+async def authenticate_user(username: str, password: str):
+    user = await db.users.find_one({"username": username})
+    if not user:
+        return False
+    user_obj = User(**user)
+    if not verify_password(password, user_obj.password_hash):
+        # Increment failed login attempts
+        await db.users.update_one(
+            {"username": username},
+            {"$inc": {"failed_login_attempts": 1}}
+        )
+        # Lock account after 5 failed attempts
+        if user_obj.failed_login_attempts >= 4:  # Will be 5 after increment
+            lock_until = datetime.utcnow() + timedelta(minutes=30)
+            await db.users.update_one(
+                {"username": username},
+                {"$set": {"locked_until": jsonable_encoder(lock_until)}}
+            )
+        return False
+    
+    # Check if account is locked
+    if user_obj.locked_until and datetime.utcnow() < user_obj.locked_until:
+        raise HTTPException(
+            status_code=status.HTTP_423_LOCKED,
+            detail="Account is temporarily locked due to failed login attempts"
+        )
+    
+    # Reset failed attempts on successful login
+    await db.users.update_one(
+        {"username": username},
+        {"$set": {
+            "failed_login_attempts": 0,
+            "locked_until": None,
+            "last_login": jsonable_encoder(datetime.utcnow())
+        }}
+    )
+    
+    return user_obj
+
 # Patient Routes
 @api_router.post("/patients", response_model=Patient)
 async def create_patient(patient_data: PatientCreate):
