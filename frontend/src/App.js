@@ -1397,7 +1397,7 @@ const SmartFormsModule = ({ setActiveModule }) => {
                       </span>
                     </td>
                     <td className="p-4 text-blue-200">
-                      {new Date(form.created_at).toLocaleDateString()}
+                      {formatDate(form.created_at)}
                     </td>
                     <td className="p-4">
                       <button className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm mr-2">
