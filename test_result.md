@@ -212,15 +212,18 @@ backend:
 
   - task: "Vital Signs Recording System"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Comprehensive vital signs system with height, weight, BMI, blood pressure, heart rate, temperature, oxygen saturation, and pain scale tracking."
+      - working: true
+        agent: "testing"
+        comment: "Vital signs API endpoints are working correctly. Successfully created vital signs record with comprehensive measurements and retrieved vital signs history by patient."
 
   - task: "Allergy Management System"
     implemented: true
