@@ -137,15 +137,18 @@ backend:
 
   - task: "Invoice/Receipt Management System"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Complete invoice system with auto-numbering, tax calculations, patient linking, and multiple status tracking."
+      - working: false
+        agent: "testing"
+        comment: "Invoice creation endpoint is failing with a 500 Internal Server Error. This needs to be fixed before further testing can be done on the invoice management system."
 
   - task: "Inventory Management System"
     implemented: true
