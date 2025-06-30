@@ -325,7 +325,8 @@ async def get_invoice(invoice_id: str):
 # Inventory Routes
 @api_router.post("/inventory", response_model=InventoryItem)
 async def create_inventory_item(item: InventoryItem):
-    await db.inventory.insert_one(item.dict())
+    item_dict = jsonable_encoder(item)
+    await db.inventory.insert_one(item_dict)
     return item
 
 @api_router.get("/inventory", response_model=List[InventoryItem])
