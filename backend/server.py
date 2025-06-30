@@ -715,37 +715,34 @@ async def get_employees():
 async def get_dashboard_stats():
     total_patients = await db.patients.count_documents({"status": "active"})
     total_invoices = await db.invoices.count_documents({})
+    total_enhanced_invoices = await db.enhanced_invoices.count_documents({})
     pending_invoices = await db.invoices.count_documents({"status": {"$in": ["draft", "sent"]}})
+    pending_enhanced_invoices = await db.enhanced_invoices.count_documents({"status": {"$in": ["draft", "sent"]}})
     low_stock_items = await db.inventory.count_documents({"$expr": {"$lte": ["$current_stock", "$min_stock_level"]}})
     total_employees = await db.employees.count_documents({"is_active": True})
     
-    # Additional EHR stats
-    total_encounters = await db.encounters.count_documents({})
-    pending_encounters = await db.encounters.count_documents({"status": {"$in": ["planned", "arrived"]}})
-    completed_encounters_today = await db.encounters.count_documents({
-        "status": "completed",
-        "actual_end": {"$gte": datetime.combine(date.today(), datetime.min.time())}
-    })
-    
-    # Recent activity
+    # Recent activity (removed encounters from dashboard)
     recent_patients = await db.patients.find().sort("created_at", -1).limit(5).to_list(5)
-    recent_invoices = await db.invoices.find().sort("created_at", -1).limit(5).to_list(5)
-    recent_encounters = await db.encounters.find().sort("created_at", -1).limit(5).to_list(5)
+    recent_invoices = await db.invoices.find().sort("created_at", -1).limit(3).to_list(3)
+    recent_enhanced_invoices = await db.enhanced_invoices.find().sort("created_at", -1).limit(2).to_list(2)
+    
+    # Combine recent invoices
+    all_recent_invoices = []
+    for inv in recent_invoices:
+        all_recent_invoices.append(Invoice(**inv))
+    for inv in recent_enhanced_invoices:
+        all_recent_invoices.append(EnhancedInvoice(**inv))
     
     return {
         "stats": {
             "total_patients": total_patients,
-            "total_invoices": total_invoices,
-            "pending_invoices": pending_invoices,
+            "total_invoices": total_invoices + total_enhanced_invoices,
+            "pending_invoices": pending_invoices + pending_enhanced_invoices,
             "low_stock_items": low_stock_items,
-            "total_employees": total_employees,
-            "total_encounters": total_encounters,
-            "pending_encounters": pending_encounters,
-            "completed_encounters_today": completed_encounters_today
+            "total_employees": total_employees
         },
         "recent_patients": [Patient(**p) for p in recent_patients],
-        "recent_invoices": [Invoice(**i) for i in recent_invoices],
-        "recent_encounters": [Encounter(**e) for e in recent_encounters]
+        "recent_invoices": all_recent_invoices
     }
 
 # Enhanced EHR Routes
