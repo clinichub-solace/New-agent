@@ -9,8 +9,8 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, date
-from pydantic import validator
 from enum import Enum
+from fastapi.encoders import jsonable_encoder
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
