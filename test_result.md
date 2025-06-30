@@ -242,15 +242,18 @@ backend:
 
   - task: "Medication Management System"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Full medication tracking with dosage, frequency, route, prescribing physician, indications, and status management (active/discontinued)."
+      - working: true
+        agent: "testing"
+        comment: "Medication management API endpoints are working correctly. Successfully created a medication record with complete details, retrieved medications by patient, and updated medication status."
 
   - task: "Medical History System"
     implemented: true
