@@ -1378,58 +1378,461 @@ async def get_employee_hours_summary(employee_id: str, start_date: date, end_dat
         logger.error(f"Error calculating hours: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error calculating hours: {str(e)}")
 
-# Employee Dashboard Summary
-@api_router.get("/employees/{employee_id}/dashboard")
-async def get_employee_dashboard(employee_id: str):
+# Finance Module Routes
+
+# Vendor Management
+@api_router.post("/vendors", response_model=Vendor)
+async def create_vendor(vendor_data: VendorCreate):
     try:
-        # Get employee info
-        employee = await db.enhanced_employees.find_one({"id": employee_id})
-        if not employee:
-            raise HTTPException(status_code=404, detail="Employee not found")
+        # Generate vendor code
+        count = await db.vendors.count_documents({})
+        vendor_code = f"VND-{count + 1:04d}"
         
-        # Get current status
-        today = date.today()
-        latest_entry = await db.time_entries.find_one(
-            {
-                "employee_id": employee_id,
-                "timestamp": {
-                    "$gte": datetime.combine(today, datetime.min.time()),
-                    "$lte": datetime.combine(today, datetime.max.time())
-                }
-            },
-            sort=[("timestamp", -1)]
+        vendor = Vendor(
+            vendor_code=vendor_code,
+            **vendor_data.dict()
         )
         
-        # Get upcoming shifts (next 7 days)
-        upcoming_shifts = await db.work_shifts.find({
-            "employee_id": employee_id,
-            "shift_date": {"$gte": today, "$lte": today.replace(day=today.day + 7)}
-        }).sort("shift_date", 1).to_list(10)
-        
-        # Get pending documents
-        pending_docs = await db.employee_documents.find({
-            "employee_id": employee_id,
-            "status": {"$in": ["pending_signature", "draft"]}
-        }).to_list(100)
-        
-        # Calculate hours this week
-        week_start = today - timedelta(days=today.weekday())
-        week_end = week_start + timedelta(days=6)
-        
-        hours_summary = await get_employee_hours_summary(employee_id, week_start, week_end)
-        
-        return {
-            "employee": EnhancedEmployee(**employee),
-            "current_status": latest_entry,
-            "upcoming_shifts": [WorkShift(**shift) for shift in upcoming_shifts],
-            "pending_documents": [EmployeeDocument(**doc) for doc in pending_docs],
-            "week_hours": hours_summary
-        }
+        vendor_dict = jsonable_encoder(vendor)
+        await db.vendors.insert_one(vendor_dict)
+        return vendor
+    except Exception as e:
+        logger.error(f"Error creating vendor: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating vendor: {str(e)}")
+
+@api_router.get("/vendors", response_model=List[Vendor])
+async def get_vendors():
+    vendors = await db.vendors.find({"status": {"$ne": "inactive"}}).sort("company_name", 1).to_list(1000)
+    return [Vendor(**vendor) for vendor in vendors]
+
+@api_router.get("/vendors/{vendor_id}", response_model=Vendor)
+async def get_vendor(vendor_id: str):
+    vendor = await db.vendors.find_one({"id": vendor_id})
+    if not vendor:
+        raise HTTPException(status_code=404, detail="Vendor not found")
+    return Vendor(**vendor)
+
+@api_router.put("/vendors/{vendor_id}")
+async def update_vendor(vendor_id: str, vendor_data: Dict[str, Any]):
+    try:
+        vendor_data["updated_at"] = datetime.utcnow()
+        result = await db.vendors.update_one(
+            {"id": vendor_id},
+            {"$set": jsonable_encoder(vendor_data)}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Vendor not found")
+        return {"message": "Vendor updated successfully"}
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error getting employee dashboard: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error getting dashboard: {str(e)}")
+        logger.error(f"Error updating vendor: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating vendor: {str(e)}")
+
+# Check Management
+@api_router.post("/checks", response_model=Check)
+async def create_check(check_data: CheckCreate):
+    try:
+        # Generate check number
+        count = await db.checks.count_documents({})
+        check_number = f"{count + 1001:04d}"  # Start from 1001
+        
+        # Calculate total amount
+        total_amount = check_data.amount
+        
+        check = Check(
+            check_number=check_number,
+            **check_data.dict()
+        )
+        
+        check_dict = jsonable_encoder(check)
+        await db.checks.insert_one(check_dict)
+        
+        # Create corresponding expense transaction
+        if check.expense_category:
+            transaction = FinancialTransaction(
+                transaction_number=f"EXP-{check_number}",
+                transaction_type=TransactionType.EXPENSE,
+                amount=check.amount,
+                payment_method=PaymentMethod.CHECK,
+                transaction_date=check.check_date,
+                description=f"Check #{check_number} - {check.memo or 'Payment to ' + check.payee_name}",
+                category=check.expense_category,
+                vendor_id=check.payee_id if check.payee_type == "vendor" else None,
+                check_id=check.id,
+                reference_number=check_number,
+                created_by=check.created_by
+            )
+            
+            transaction_dict = jsonable_encoder(transaction)
+            await db.financial_transactions.insert_one(transaction_dict)
+        
+        return check
+    except Exception as e:
+        logger.error(f"Error creating check: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating check: {str(e)}")
+
+@api_router.get("/checks", response_model=List[Check])
+async def get_checks():
+    checks = await db.checks.find().sort("created_at", -1).to_list(1000)
+    return [Check(**check) for check in checks]
+
+@api_router.put("/checks/{check_id}/status")
+async def update_check_status(check_id: str, status: CheckStatus):
+    try:
+        update_data = {"status": status, "updated_at": datetime.utcnow()}
+        
+        if status == CheckStatus.PRINTED:
+            update_data["printed_date"] = datetime.utcnow()
+        elif status == CheckStatus.ISSUED:
+            update_data["issued_date"] = datetime.utcnow()
+        elif status == CheckStatus.CASHED:
+            update_data["cashed_date"] = datetime.utcnow()
+        elif status == CheckStatus.VOID:
+            update_data["void_date"] = date.today()
+        
+        result = await db.checks.update_one(
+            {"id": check_id},
+            {"$set": jsonable_encoder(update_data)}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Check not found")
+        
+        return {"message": "Check status updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating check status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating check: {str(e)}")
+
+@api_router.get("/checks/{check_id}/print-data")
+async def get_check_print_data(check_id: str):
+    try:
+        check = await db.checks.find_one({"id": check_id})
+        if not check:
+            raise HTTPException(status_code=404, detail="Check not found")
+        
+        check_obj = Check(**check)
+        
+        # Get payee details if vendor
+        payee_details = None
+        if check_obj.payee_type == "vendor" and check_obj.payee_id:
+            vendor = await db.vendors.find_one({"id": check_obj.payee_id})
+            if vendor:
+                payee_details = Vendor(**vendor)
+        
+        # Format amount in words (basic implementation)
+        def amount_to_words(amount):
+            # Simple implementation - in production, use a proper library
+            return f"***** {amount:.2f} DOLLARS *****"
+        
+        print_data = {
+            "check": check_obj,
+            "payee_details": payee_details,
+            "amount_in_words": amount_to_words(check_obj.amount),
+            "clinic_info": {
+                "name": "ClinicHub Medical Practice",
+                "address": "123 Healthcare Drive",
+                "city_state_zip": "Medical City, HC 12345",
+                "phone": "(555) 123-CARE"
+            }
+        }
+        
+        return print_data
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting check print data: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting print data: {str(e)}")
+
+# Financial Transactions
+@api_router.post("/financial-transactions", response_model=FinancialTransaction)
+async def create_financial_transaction(transaction_data: FinancialTransactionCreate):
+    try:
+        # Generate transaction number
+        count = await db.financial_transactions.count_documents({})
+        prefix = "INC" if transaction_data.transaction_type == TransactionType.INCOME else "EXP"
+        transaction_number = f"{prefix}-{count + 1:06d}"
+        
+        transaction = FinancialTransaction(
+            transaction_number=transaction_number,
+            **transaction_data.dict()
+        )
+        
+        transaction_dict = jsonable_encoder(transaction)
+        await db.financial_transactions.insert_one(transaction_dict)
+        return transaction
+    except Exception as e:
+        logger.error(f"Error creating transaction: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating transaction: {str(e)}")
+
+@api_router.get("/financial-transactions", response_model=List[FinancialTransaction])
+async def get_financial_transactions(
+    start_date: Optional[date] = None,
+    end_date: Optional[date] = None,
+    transaction_type: Optional[TransactionType] = None
+):
+    try:
+        query = {}
+        
+        if start_date and end_date:
+            query["transaction_date"] = {"$gte": start_date, "$lte": end_date}
+        
+        if transaction_type:
+            query["transaction_type"] = transaction_type
+        
+        transactions = await db.financial_transactions.find(query).sort("transaction_date", -1).to_list(1000)
+        return [FinancialTransaction(**trans) for trans in transactions]
+    except Exception as e:
+        logger.error(f"Error getting transactions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error getting transactions: {str(e)}")
+
+# Vendor Invoice Management
+@api_router.post("/vendor-invoices", response_model=VendorInvoice)
+async def create_vendor_invoice(invoice_data: VendorInvoiceCreate):
+    try:
+        # Calculate total amount
+        total_amount = invoice_data.amount + invoice_data.tax_amount
+        
+        invoice = VendorInvoice(
+            total_amount=total_amount,
+            **invoice_data.dict()
+        )
+        
+        invoice_dict = jsonable_encoder(invoice)
+        await db.vendor_invoices.insert_one(invoice_dict)
+        return invoice
+    except Exception as e:
+        logger.error(f"Error creating vendor invoice: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating invoice: {str(e)}")
+
+@api_router.get("/vendor-invoices", response_model=List[VendorInvoice])
+async def get_vendor_invoices():
+    invoices = await db.vendor_invoices.find().sort("invoice_date", -1).to_list(1000)
+    return [VendorInvoice(**inv) for inv in invoices]
+
+@api_router.get("/vendor-invoices/unpaid", response_model=List[VendorInvoice])
+async def get_unpaid_vendor_invoices():
+    invoices = await db.vendor_invoices.find({"payment_status": "unpaid"}).sort("due_date", 1).to_list(1000)
+    return [VendorInvoice(**inv) for inv in invoices]
+
+@api_router.put("/vendor-invoices/{invoice_id}/pay")
+async def pay_vendor_invoice(invoice_id: str, check_id: str):
+    try:
+        # Get invoice and check
+        invoice = await db.vendor_invoices.find_one({"id": invoice_id})
+        check = await db.checks.find_one({"id": check_id})
+        
+        if not invoice or not check:
+            raise HTTPException(status_code=404, detail="Invoice or check not found")
+        
+        # Update invoice payment status
+        result = await db.vendor_invoices.update_one(
+            {"id": invoice_id},
+            {"$set": {
+                "payment_status": "paid",
+                "amount_paid": invoice["total_amount"],
+                "payment_date": date.today(),
+                "check_id": check_id,
+                "updated_at": jsonable_encoder(datetime.utcnow())
+            }}
+        )
+        
+        # Update check reference
+        await db.checks.update_one(
+            {"id": check_id},
+            {"$set": {"reference_invoice_id": invoice_id}}
+        )
+        
+        return {"message": "Invoice marked as paid"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error paying invoice: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error paying invoice: {str(e)}")
+
+# Daily Financial Summary
+@api_router.get("/financial-summary/{summary_date}")
+async def get_daily_financial_summary(summary_date: date):
+    try:
+        # Get all transactions for the date
+        transactions = await db.financial_transactions.find({
+            "transaction_date": summary_date
+        }).to_list(1000)
+        
+        # Calculate totals
+        cash_income = 0.0
+        credit_card_income = 0.0
+        check_income = 0.0
+        other_income = 0.0
+        
+        cash_expenses = 0.0
+        check_expenses = 0.0
+        credit_card_expenses = 0.0
+        other_expenses = 0.0
+        
+        income_count = 0
+        expense_count = 0
+        
+        for trans_data in transactions:
+            trans = FinancialTransaction(**trans_data)
+            
+            if trans.transaction_type == TransactionType.INCOME:
+                income_count += 1
+                if trans.payment_method == PaymentMethod.CASH:
+                    cash_income += trans.amount
+                elif trans.payment_method in [PaymentMethod.CREDIT_CARD, PaymentMethod.DEBIT_CARD]:
+                    credit_card_income += trans.amount
+                elif trans.payment_method == PaymentMethod.CHECK:
+                    check_income += trans.amount
+                else:
+                    other_income += trans.amount
+            
+            elif trans.transaction_type == TransactionType.EXPENSE:
+                expense_count += 1
+                if trans.payment_method == PaymentMethod.CASH:
+                    cash_expenses += trans.amount
+                elif trans.payment_method in [PaymentMethod.CREDIT_CARD, PaymentMethod.DEBIT_CARD]:
+                    credit_card_expenses += trans.amount
+                elif trans.payment_method == PaymentMethod.CHECK:
+                    check_expenses += trans.amount
+                else:
+                    other_expenses += trans.amount
+        
+        total_income = cash_income + credit_card_income + check_income + other_income
+        total_expenses = cash_expenses + check_expenses + credit_card_expenses + other_expenses
+        net_amount = total_income - total_expenses
+        
+        summary = DailyFinancialSummary(
+            summary_date=summary_date,
+            cash_income=cash_income,
+            credit_card_income=credit_card_income,
+            check_income=check_income,
+            other_income=other_income,
+            total_income=total_income,
+            cash_expenses=cash_expenses,
+            check_expenses=check_expenses,
+            credit_card_expenses=credit_card_expenses,
+            other_expenses=other_expenses,
+            total_expenses=total_expenses,
+            net_amount=net_amount,
+            income_transaction_count=income_count,
+            expense_transaction_count=expense_count,
+            created_by="System"
+        )
+        
+        return summary
+    except Exception as e:
+        logger.error(f"Error generating financial summary: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating summary: {str(e)}")
+
+@api_router.get("/financial-reports/monthly/{year}/{month}")
+async def get_monthly_financial_report(year: int, month: int):
+    try:
+        # Calculate date range for the month
+        start_date = date(year, month, 1)
+        if month == 12:
+            end_date = date(year + 1, 1, 1) - timedelta(days=1)
+        else:
+            end_date = date(year, month + 1, 1) - timedelta(days=1)
+        
+        # Get all transactions for the month
+        transactions = await db.financial_transactions.find({
+            "transaction_date": {"$gte": start_date, "$lte": end_date}
+        }).to_list(10000)
+        
+        # Calculate category-wise totals
+        income_by_category = {}
+        expense_by_category = {}
+        total_income = 0.0
+        total_expenses = 0.0
+        
+        for trans_data in transactions:
+            trans = FinancialTransaction(**trans_data)
+            
+            if trans.transaction_type == TransactionType.INCOME:
+                total_income += trans.amount
+                category = trans.category or "other_income"
+                income_by_category[category] = income_by_category.get(category, 0) + trans.amount
+            
+            elif trans.transaction_type == TransactionType.EXPENSE:
+                total_expenses += trans.amount
+                category = trans.category or "other_expense"
+                expense_by_category[category] = expense_by_category.get(category, 0) + trans.amount
+        
+        # Get unpaid vendor invoices
+        unpaid_invoices = await db.vendor_invoices.find({
+            "payment_status": "unpaid",
+            "due_date": {"$lte": end_date}
+        }).to_list(1000)
+        
+        total_payables = sum(inv["total_amount"] for inv in unpaid_invoices)
+        
+        return {
+            "period": {"year": year, "month": month, "start_date": start_date, "end_date": end_date},
+            "summary": {
+                "total_income": total_income,
+                "total_expenses": total_expenses,
+                "net_income": total_income - total_expenses,
+                "total_payables": total_payables
+            },
+            "income_breakdown": income_by_category,
+            "expense_breakdown": expense_by_category,
+            "unpaid_invoices_count": len(unpaid_invoices),
+            "transaction_count": len(transactions)
+        }
+    except Exception as e:
+        logger.error(f"Error generating monthly report: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating report: {str(e)}")
+
+# Dashboard Integration - Update existing dashboard
+@api_router.get("/dashboard/stats")
+async def get_dashboard_stats():
+    total_patients = await db.patients.count_documents({"status": "active"})
+    total_invoices = await db.invoices.count_documents({})
+    total_enhanced_invoices = await db.enhanced_invoices.count_documents({})
+    pending_invoices = await db.invoices.count_documents({"status": {"$in": ["draft", "sent"]}})
+    pending_enhanced_invoices = await db.enhanced_invoices.count_documents({"status": {"$in": ["draft", "sent"]}})
+    low_stock_items = await db.inventory.count_documents({"$expr": {"$lte": ["$current_stock", "$min_stock_level"]}})
+    total_employees = await db.employees.count_documents({"is_active": True})
+    
+    # Finance stats
+    today = date.today()
+    today_income = await db.financial_transactions.aggregate([
+        {"$match": {"transaction_date": today, "transaction_type": "income"}},
+        {"$group": {"_id": None, "total": {"$sum": "$amount"}}}
+    ]).to_list(1)
+    
+    unpaid_vendor_invoices = await db.vendor_invoices.count_documents({"payment_status": "unpaid"})
+    pending_checks = await db.checks.count_documents({"status": {"$in": ["draft", "printed"]}})
+    
+    # Recent activity (removed encounters from dashboard)
+    recent_patients = await db.patients.find().sort("created_at", -1).limit(5).to_list(5)
+    recent_invoices = await db.invoices.find().sort("created_at", -1).limit(3).to_list(3)
+    recent_enhanced_invoices = await db.enhanced_invoices.find().sort("created_at", -1).limit(2).to_list(2)
+    
+    # Combine recent invoices
+    all_recent_invoices = []
+    for inv in recent_invoices:
+        all_recent_invoices.append(Invoice(**inv))
+    for inv in recent_enhanced_invoices:
+        all_recent_invoices.append(EnhancedInvoice(**inv))
+    
+    return {
+        "stats": {
+            "total_patients": total_patients,
+            "total_invoices": total_invoices + total_enhanced_invoices,
+            "pending_invoices": pending_invoices + pending_enhanced_invoices,
+            "low_stock_items": low_stock_items,
+            "total_employees": total_employees,
+            "today_income": today_income[0]["total"] if today_income else 0.0,
+            "unpaid_vendor_invoices": unpaid_vendor_invoices,
+            "pending_checks": pending_checks
+        },
+        "recent_patients": [Patient(**p) for p in recent_patients],
+        "recent_invoices": all_recent_invoices
+    }
 
 # Dashboard Stats
 @api_router.get("/dashboard/stats")
