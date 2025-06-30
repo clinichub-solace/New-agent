@@ -840,7 +840,7 @@ const PatientsModule = ({ setActiveModule }) => {
                       </span>
                     </td>
                     <td className="p-4 text-blue-200">
-                      {new Date(patient.created_at).toLocaleDateString()}
+                      {formatDate(patient.created_at)}
                     </td>
                     <td className="p-4">
                       <button
