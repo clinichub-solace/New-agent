@@ -49,6 +49,7 @@ class TestPatientManagement:
     def test_create_patient(self):
         """Test creating a patient with FHIR-compliant data structure"""
         url = f"{API_URL}/patients"
+        print(f"Making POST request to: {url}")
         
         # Create a patient with realistic healthcare data
         data = {
@@ -65,7 +66,10 @@ class TestPatientManagement:
         }
         
         try:
+            print(f"Request data: {json.dumps(data)}")
             response = requests.post(url, json=data)
+            print(f"Response status code: {response.status_code}")
+            print(f"Response text: {response.text}")
             response.raise_for_status()
             result = response.json()
             
@@ -83,6 +87,7 @@ class TestPatientManagement:
             print_test_result("Create Patient", True, result)
             return True
         except Exception as e:
+            print(f"Exception: {str(e)}")
             print_test_result("Create Patient", False, response.json() if hasattr(response, 'json') else None, str(e))
             return False
     
