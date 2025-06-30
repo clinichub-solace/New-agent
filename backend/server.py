@@ -1165,6 +1165,219 @@ async def authenticate_user(username: str, password: str):
     
     return user_obj
 
+# Authentication Routes
+@api_router.post("/auth/login", response_model=Token)
+async def login(user_credentials: UserLogin):
+    user = await authenticate_user(user_credentials.username, user_credentials.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "expires_in": ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        "user": {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "role": user.role,
+            "permissions": user.permissions,
+            "profile_picture": user.profile_picture
+        }
+    }
+
+@api_router.post("/auth/logout")
+async def logout(current_user: User = Depends(get_current_active_user)):
+    # In a production system, you might want to blacklist the token
+    return {"message": "Successfully logged out"}
+
+@api_router.get("/auth/me", response_model=User)
+async def read_users_me(current_user: User = Depends(get_current_active_user)):
+    return current_user
+
+@api_router.post("/auth/change-password")
+async def change_password(
+    current_password: str,
+    new_password: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    if not verify_password(current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Incorrect current password"
+        )
+    
+    new_password_hash = get_password_hash(new_password)
+    await db.users.update_one(
+        {"id": current_user.id},
+        {"$set": {"password_hash": new_password_hash, "updated_at": jsonable_encoder(datetime.utcnow())}}
+    )
+    
+    return {"message": "Password changed successfully"}
+
+# User Management Routes (Admin only)
+@api_router.post("/users", response_model=User)
+async def create_user(
+    user_data: UserCreate,
+    current_user: User = Depends(require_permission("users:write"))
+):
+    try:
+        # Check if username or email already exists
+        existing_user = await db.users.find_one({
+            "$or": [{"username": user_data.username}, {"email": user_data.email}]
+        })
+        if existing_user:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username or email already registered"
+            )
+        
+        # Get role permissions
+        permissions = ROLE_PERMISSIONS.get(user_data.role, [])
+        
+        # Create user
+        password_hash = get_password_hash(user_data.password)
+        user = User(
+            username=user_data.username,
+            email=user_data.email,
+            first_name=user_data.first_name,
+            last_name=user_data.last_name,
+            role=user_data.role,
+            phone=user_data.phone,
+            employee_id=user_data.employee_id,
+            password_hash=password_hash,
+            permissions=permissions,
+            created_by=current_user.id
+        )
+        
+        user_dict = jsonable_encoder(user)
+        await db.users.insert_one(user_dict)
+        
+        # Remove password hash from response
+        user_dict.pop("password_hash", None)
+        return User(**user_dict, password_hash="[REDACTED]")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating user: {str(e)}")
+
+@api_router.get("/users", response_model=List[User])
+async def get_users(current_user: User = Depends(require_permission("users:read"))):
+    users = await db.users.find({}).to_list(1000)
+    # Remove password hashes from response
+    for user in users:
+        user.pop("password_hash", None)
+    return [User(**user, password_hash="[REDACTED]") for user in users]
+
+@api_router.get("/users/{user_id}", response_model=User)
+async def get_user(
+    user_id: str,
+    current_user: User = Depends(require_permission("users:read"))
+):
+    user = await db.users.find_one({"id": user_id})
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.pop("password_hash", None)
+    return User(**user, password_hash="[REDACTED]")
+
+@api_router.put("/users/{user_id}")
+async def update_user(
+    user_id: str,
+    user_data: UserUpdate,
+    current_user: User = Depends(require_permission("users:write"))
+):
+    try:
+        update_data = {k: v for k, v in user_data.dict().items() if v is not None}
+        
+        # Update role permissions if role changed
+        if "role" in update_data:
+            update_data["permissions"] = ROLE_PERMISSIONS.get(update_data["role"], [])
+        
+        update_data["updated_at"] = datetime.utcnow()
+        
+        result = await db.users.update_one(
+            {"id": user_id},
+            {"$set": jsonable_encoder(update_data)}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return {"message": "User updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating user: {str(e)}")
+
+@api_router.delete("/users/{user_id}")
+async def delete_user(
+    user_id: str,
+    current_user: User = Depends(require_permission("users:delete"))
+):
+    if user_id == current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete your own account"
+        )
+    
+    result = await db.users.delete_one({"id": user_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    return {"message": "User deleted successfully"}
+
+# Initialize Default Admin User
+@api_router.post("/auth/init-admin")
+async def initialize_admin():
+    try:
+        # Check if any admin users exist
+        admin_exists = await db.users.find_one({"role": "admin"})
+        if admin_exists:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Admin user already exists"
+            )
+        
+        # Create default admin user
+        admin_user = User(
+            username="admin",
+            email="admin@clinichub.com",
+            first_name="System",
+            last_name="Administrator",
+            role=UserRole.ADMIN,
+            password_hash=get_password_hash("admin123"),  # Change this in production!
+            permissions=ROLE_PERMISSIONS[UserRole.ADMIN],
+            status=UserStatus.ACTIVE
+        )
+        
+        user_dict = jsonable_encoder(admin_user)
+        await db.users.insert_one(user_dict)
+        
+        return {
+            "message": "Default admin user created successfully",
+            "username": "admin",
+            "password": "admin123",
+            "warning": "Please change the password immediately!"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating admin user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating admin: {str(e)}")
+
 # Patient Routes
 @api_router.post("/patients", response_model=Patient)
 async def create_patient(patient_data: PatientCreate):
