@@ -3415,6 +3415,8 @@ function App() {
         return <InvoicesModule setActiveModule={setActiveModule} />;
       case 'employees':
         return <EmployeeModule setActiveModule={setActiveModule} />;
+      case 'finance':
+        return <FinanceModule setActiveModule={setActiveModule} />;
       default:
         return <Dashboard setActiveModule={setActiveModule} />;
     }
