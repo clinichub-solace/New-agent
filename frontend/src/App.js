@@ -922,7 +922,7 @@ const FinanceModule = ({ setActiveModule }) => {
     </div>
   );
 };
-const Dashboard = ({ setActiveModule }) => {
+const Dashboard = ({ setActiveModule, user, onLogout }) => {
   const [stats, setStats] = useState({});
   const [recentPatients, setRecentPatients] = useState([]);
   const [recentInvoices, setRecentInvoices] = useState([]);
@@ -943,13 +943,15 @@ const Dashboard = ({ setActiveModule }) => {
   };
 
   const modules = [
-    { name: "Patients/EHR", key: "patients", icon: "👥", color: "bg-blue-500" },
-    { name: "Smart Forms", key: "forms", icon: "📋", color: "bg-green-500" },
-    { name: "Inventory", key: "inventory", icon: "📦", color: "bg-orange-500" },
-    { name: "Invoices", key: "invoices", icon: "🧾", color: "bg-purple-500" },
-    { name: "Employees", key: "employees", icon: "👨‍⚕️", color: "bg-indigo-500" },
-    { name: "Finance", key: "finance", icon: "💰", color: "bg-green-600" }
+    { name: "Patients/EHR", key: "patients", icon: "👥", color: "bg-blue-500", permission: "patients:read" },
+    { name: "Smart Forms", key: "forms", icon: "📋", color: "bg-green-500", permission: "forms:read" },
+    { name: "Inventory", key: "inventory", icon: "📦", color: "bg-orange-500", permission: "inventory:read" },
+    { name: "Invoices", key: "invoices", icon: "🧾", color: "bg-purple-500", permission: "invoices:read" },
+    { name: "Employees", key: "employees", icon: "👨‍⚕️", color: "bg-indigo-500", permission: "employees:read" },
+    { name: "Finance", key: "finance", icon: "💰", color: "bg-green-600", permission: "finance:read" }
   ];
+
+  const { hasPermission } = useAuth();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
@@ -966,9 +968,26 @@ const Dashboard = ({ setActiveModule }) => {
                 <p className="text-blue-200 text-sm">FHIR-Compliant Practice Management</p>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-white font-semibold">Dr. Sarah Chen</p>
-              <p className="text-blue-200 text-sm">Healthcare Admin</p>
+            <div className="flex items-center space-x-4">
+              <div className="text-right">
+                <p className="text-white font-semibold">
+                  {user?.first_name} {user?.last_name}
+                </p>
+                <p className="text-blue-200 text-sm capitalize">{user?.role}</p>
+              </div>
+              {user?.profile_picture && (
+                <img 
+                  src={`data:image/jpeg;base64,${user.profile_picture}`}
+                  alt="Profile"
+                  className="w-10 h-10 rounded-full object-cover"
+                />
+              )}
+              <button
+                onClick={onLogout}
+                className="bg-red-500/20 hover:bg-red-500/30 text-red-200 hover:text-white px-4 py-2 rounded-lg transition-colors duration-200 border border-red-500/30"
+              >
+                Logout
+              </button>
             </div>
           </div>
         </div>
@@ -1026,23 +1045,39 @@ const Dashboard = ({ setActiveModule }) => {
           </div>
         </div>
 
-        {/* Module Grid */}
+        {/* Module Grid with Permission Checks */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          {modules.map((module) => (
-            <div
-              key={module.key}
-              onClick={() => setActiveModule(module.key)}
-              className="bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 cursor-pointer hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-1"
-            >
-              <div className="text-center">
-                <div className={`w-16 h-16 ${module.color} rounded-full flex items-center justify-center mx-auto mb-4`}>
-                  <span className="text-white text-2xl">{module.icon}</span>
+          {modules.map((module) => {
+            const hasAccess = hasPermission(module.permission);
+            return (
+              <div
+                key={module.key}
+                onClick={() => hasAccess && setActiveModule(module.key)}
+                className={`bg-white/10 backdrop-blur-md rounded-xl p-8 border border-white/20 transition-all duration-300 ${
+                  hasAccess 
+                    ? 'cursor-pointer hover:bg-white/20 transform hover:-translate-y-1' 
+                    : 'opacity-50 cursor-not-allowed'
+                }`}
+              >
+                <div className="text-center">
+                  <div className={`w-16 h-16 ${module.color} rounded-full flex items-center justify-center mx-auto mb-4 ${
+                    !hasAccess && 'grayscale'
+                  }`}>
+                    <span className="text-white text-2xl">{module.icon}</span>
+                  </div>
+                  <h3 className="text-xl font-semibold text-white mb-2">{module.name}</h3>
+                  <p className="text-blue-200 text-sm">
+                    {hasAccess ? `Manage your ${module.name.toLowerCase()}` : 'Access restricted'}
+                  </p>
+                  {!hasAccess && (
+                    <p className="text-red-300 text-xs mt-1">
+                      Required: {module.permission}
+                    </p>
+                  )}
                 </div>
-                <h3 className="text-xl font-semibold text-white mb-2">{module.name}</h3>
-                <p className="text-blue-200 text-sm">Manage your {module.name.toLowerCase()}</p>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Recent Activity - Removed Encounters Section */}
