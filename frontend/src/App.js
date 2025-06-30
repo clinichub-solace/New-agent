@@ -647,7 +647,7 @@ const PatientsModule = ({ setActiveModule }) => {
                           <p className="text-white font-medium">{encounter.encounter_number}</p>
                           <p className="text-blue-200 capitalize">{encounter.encounter_type.replace('_', ' ')}</p>
                           <p className="text-blue-200 text-sm">
-                            {new Date(encounter.scheduled_date).toLocaleDateString()} - {encounter.provider}
+                            {formatDate(encounter.scheduled_date)} - {encounter.provider}
                           </p>
                           {encounter.chief_complaint && (
                             <p className="text-blue-200 text-sm mt-1">CC: {encounter.chief_complaint}</p>
