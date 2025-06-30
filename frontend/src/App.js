@@ -468,6 +468,158 @@ const PatientsModule = ({ setActiveModule }) => {
     );
   };
 
+  // Document Management Functions
+  const viewDocument = (doc) => {
+    // Create a blob from base64 data and open in new window
+    const byteCharacters = atob(doc.file_data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+      byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    const blob = new Blob([byteArray], { type: `application/${doc.file_extension}` });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  };
+
+  const deleteDocument = async (documentId) => {
+    if (window.confirm('Are you sure you want to delete this document?')) {
+      try {
+        await axios.delete(`${API}/documents/${documentId}`);
+        fetchPatientSummary(selectedPatient.id);
+      } catch (error) {
+        console.error("Error deleting document:", error);
+      }
+    }
+  };
+
+  // Document Upload Form
+  const DocumentUploadForm = () => {
+    const [documentData, setDocumentData] = useState({
+      document_name: '',
+      document_type: 'lab_result',
+      notes: '',
+      uploaded_by: 'Dr. Sarah Chen'
+    });
+    const [selectedFile, setSelectedFile] = useState(null);
+
+    const handleFileSelect = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        setSelectedFile(file);
+        setDocumentData({
+          ...documentData,
+          document_name: file.name.split('.')[0]
+        });
+      }
+    };
+
+    const handleDocumentSubmit = async (e) => {
+      e.preventDefault();
+      if (!selectedFile) {
+        alert('Please select a file to upload');
+        return;
+      }
+
+      try {
+        // Convert file to base64
+        const reader = new FileReader();
+        reader.onload = async () => {
+          const base64Data = reader.result.split(',')[1]; // Remove data:*/*;base64, prefix
+          
+          const uploadData = {
+            ...documentData,
+            patient_id: selectedPatient.id,
+            file_data: base64Data,
+            file_extension: selectedFile.name.split('.').pop().toLowerCase(),
+            file_size: selectedFile.size
+          };
+
+          await axios.post(`${API}/patients/${selectedPatient.id}/documents`, uploadData);
+          setShowDocumentUpload(false);
+          setSelectedFile(null);
+          setDocumentData({
+            document_name: '',
+            document_type: 'lab_result',
+            notes: '',
+            uploaded_by: 'Dr. Sarah Chen'
+          });
+          fetchPatientSummary(selectedPatient.id);
+        };
+        reader.readAsDataURL(selectedFile);
+      } catch (error) {
+        console.error("Error uploading document:", error);
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-white rounded-xl p-8 max-w-2xl w-full mx-4">
+          <h3 className="text-xl font-bold mb-4">Upload Patient Document</h3>
+          <form onSubmit={handleDocumentSubmit} className="space-y-4">
+            <input
+              type="text"
+              placeholder="Document Name"
+              value={documentData.document_name}
+              onChange={(e) => setDocumentData({...documentData, document_name: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+              required
+            />
+            <select
+              value={documentData.document_type}
+              onChange={(e) => setDocumentData({...documentData, document_type: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+            >
+              <option value="lab_result">Lab Result</option>
+              <option value="imaging">Imaging/X-Ray</option>
+              <option value="insurance">Insurance Document</option>
+              <option value="consent_form">Consent Form</option>
+              <option value="referral">Referral</option>
+              <option value="discharge_summary">Discharge Summary</option>
+              <option value="other">Other</option>
+            </select>
+            <input
+              type="file"
+              accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+              onChange={handleFileSelect}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+              required
+            />
+            {selectedFile && (
+              <div className="p-3 bg-gray-100 rounded-lg">
+                <p className="text-sm text-gray-600">
+                  Selected: {selectedFile.name} ({(selectedFile.size / 1024).toFixed(1)} KB)
+                </p>
+              </div>
+            )}
+            <textarea
+              placeholder="Notes (optional)"
+              value={documentData.notes}
+              onChange={(e) => setDocumentData({...documentData, notes: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+              rows="3"
+            />
+            <div className="flex justify-end space-x-4">
+              <button
+                type="button"
+                onClick={() => setShowDocumentUpload(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg"
+              >
+                Cancel
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2 bg-indigo-500 text-white rounded-lg"
+              >
+                Upload Document
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
   if (selectedPatient) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
