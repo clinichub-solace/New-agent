@@ -84,12 +84,6 @@ class Patient(BaseModel):
     status: PatientStatus = PatientStatus.ACTIVE
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
-    
-    @validator('birth_date', pre=True)
-    def validate_birth_date(cls, v):
-        if isinstance(v, date):
-            return v.isoformat()
-        return v
 
 class PatientCreate(BaseModel):
     first_name: str
