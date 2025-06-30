@@ -5,6 +5,18 @@ import axios from "axios";
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
 
+// Helper function to safely format dates
+const formatDate = (dateValue) => {
+  if (!dateValue) return 'N/A';
+  try {
+    const date = new Date(dateValue);
+    if (isNaN(date.getTime())) return 'N/A';
+    return date.toLocaleDateString();
+  } catch (error) {
+    return 'N/A';
+  }
+};
+
 // Components
 const Dashboard = ({ setActiveModule }) => {
   const [stats, setStats] = useState({});
