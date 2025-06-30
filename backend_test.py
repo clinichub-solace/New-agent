@@ -403,6 +403,484 @@ def test_dashboard_analytics():
         print(f"Error getting dashboard stats: {str(e)}")
         print_test_result("Dashboard Stats", False)
 
+# Test SOAP Notes System
+def test_soap_notes_system(patient_id):
+    print("\n--- Testing SOAP Notes System ---")
+    
+    # First, create an encounter for the patient
+    encounter_id = None
+    try:
+        url = f"{API_URL}/encounters"
+        data = {
+            "patient_id": patient_id,
+            "encounter_type": "follow_up",
+            "scheduled_date": (datetime.now() + timedelta(days=1)).isoformat(),
+            "provider": "Dr. Michael Chen",
+            "location": "Main Clinic - Room 105",
+            "chief_complaint": "Persistent headache",
+            "reason_for_visit": "Follow-up for headache treatment"
+        }
+        
+        response = requests.post(url, json=data)
+        response.raise_for_status()
+        result = response.json()
+        
+        # Verify encounter creation and auto-numbering
+        assert "encounter_number" in result
+        assert result["encounter_number"].startswith("ENC-")
+        
+        encounter_id = result["id"]
+        print_test_result("Create Encounter for SOAP Notes", True, result)
+    except Exception as e:
+        print(f"Error creating encounter: {str(e)}")
+        print_test_result("Create Encounter for SOAP Notes", False)
+        return None
+    
+    # Test creating a SOAP note
+    soap_note_id = None
+    if encounter_id:
+        try:
+            url = f"{API_URL}/soap-notes"
+            data = {
+                "encounter_id": encounter_id,
+                "patient_id": patient_id,
+                "subjective": "Patient reports persistent headache for 5 days, describes it as throbbing pain behind the eyes. Pain level 7/10. Reports light sensitivity and nausea. No fever.",
+                "objective": "Vital signs stable. BP 120/80, HR 72, Temp 98.6°F. HEENT: Pupils equal and reactive. No sinus tenderness. Neurological exam normal.",
+                "assessment": "Migraine headache, possibly triggered by recent stress and lack of sleep.",
+                "plan": "1. Prescribed sumatriptan 50mg PRN for acute episodes. 2. Recommended stress reduction techniques. 3. Follow up in 2 weeks. 4. If symptoms worsen, return to clinic immediately.",
+                "provider": "Dr. Michael Chen"
+            }
+            
+            response = requests.post(url, json=data)
+            response.raise_for_status()
+            result = response.json()
+            
+            soap_note_id = result["id"]
+            print_test_result("Create SOAP Note", True, result)
+        except Exception as e:
+            print(f"Error creating SOAP note: {str(e)}")
+            print_test_result("Create SOAP Note", False)
+    
+    # Test getting SOAP notes by encounter
+    if encounter_id:
+        try:
+            url = f"{API_URL}/soap-notes/encounter/{encounter_id}"
+            response = requests.get(url)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Get SOAP Notes by Encounter", True, result)
+        except Exception as e:
+            print(f"Error getting SOAP notes by encounter: {str(e)}")
+            print_test_result("Get SOAP Notes by Encounter", False)
+    
+    # Test getting SOAP notes by patient
+    try:
+        url = f"{API_URL}/soap-notes/patient/{patient_id}"
+        response = requests.get(url)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get SOAP Notes by Patient", True, result)
+    except Exception as e:
+        print(f"Error getting SOAP notes by patient: {str(e)}")
+        print_test_result("Get SOAP Notes by Patient", False)
+    
+    return encounter_id
+
+# Test Encounter/Visit Management
+def test_encounter_management(patient_id):
+    print("\n--- Testing Encounter/Visit Management ---")
+    
+    # Test creating an encounter
+    encounter_id = None
+    try:
+        url = f"{API_URL}/encounters"
+        data = {
+            "patient_id": patient_id,
+            "encounter_type": "annual_physical",
+            "scheduled_date": (datetime.now() + timedelta(days=7)).isoformat(),
+            "provider": "Dr. Sarah Williams",
+            "location": "Main Clinic - Room 203",
+            "chief_complaint": "Annual physical examination",
+            "reason_for_visit": "Yearly check-up"
+        }
+        
+        response = requests.post(url, json=data)
+        response.raise_for_status()
+        result = response.json()
+        
+        # Verify encounter creation and auto-numbering
+        assert "encounter_number" in result
+        assert result["encounter_number"].startswith("ENC-")
+        
+        encounter_id = result["id"]
+        print_test_result("Create Encounter", True, result)
+    except Exception as e:
+        print(f"Error creating encounter: {str(e)}")
+        print_test_result("Create Encounter", False)
+        return
+    
+    # Test getting all encounters
+    try:
+        url = f"{API_URL}/encounters"
+        response = requests.get(url)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get All Encounters", True, result)
+    except Exception as e:
+        print(f"Error getting all encounters: {str(e)}")
+        print_test_result("Get All Encounters", False)
+    
+    # Test getting encounters by patient
+    try:
+        url = f"{API_URL}/encounters/patient/{patient_id}"
+        response = requests.get(url)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Patient Encounters", True, result)
+    except Exception as e:
+        print(f"Error getting patient encounters: {str(e)}")
+        print_test_result("Get Patient Encounters", False)
+    
+    # Test updating encounter status
+    if encounter_id:
+        try:
+            url = f"{API_URL}/encounters/{encounter_id}/status"
+            params = {"status": "arrived"}
+            
+            response = requests.put(url, params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Update Encounter Status (Arrived)", True, result)
+            
+            # Update to in_progress
+            params = {"status": "in_progress"}
+            response = requests.put(url, params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Update Encounter Status (In Progress)", True, result)
+            
+            # Update to completed
+            params = {"status": "completed"}
+            response = requests.put(url, params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Update Encounter Status (Completed)", True, result)
+        except Exception as e:
+            print(f"Error updating encounter status: {str(e)}")
+            print_test_result("Update Encounter Status", False)
+    
+    return encounter_id
+
+# Test Vital Signs Recording
+def test_vital_signs(patient_id, encounter_id):
+    print("\n--- Testing Vital Signs Recording ---")
+    
+    # Test creating vital signs
+    try:
+        url = f"{API_URL}/vital-signs"
+        data = {
+            "patient_id": patient_id,
+            "encounter_id": encounter_id,
+            "height": 175.5,  # cm
+            "weight": 70.3,   # kg
+            "bmi": 22.8,
+            "systolic_bp": 120,
+            "diastolic_bp": 80,
+            "heart_rate": 72,
+            "respiratory_rate": 16,
+            "temperature": 37.0,
+            "oxygen_saturation": 98,
+            "pain_scale": 0,
+            "recorded_by": "Nurse Johnson"
+        }
+        
+        response = requests.post(url, json=data)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Create Vital Signs", True, result)
+    except Exception as e:
+        print(f"Error creating vital signs: {str(e)}")
+        print_test_result("Create Vital Signs", False)
+    
+    # Test getting vital signs by patient
+    try:
+        url = f"{API_URL}/vital-signs/patient/{patient_id}"
+        response = requests.get(url)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Patient Vital Signs", True, result)
+    except Exception as e:
+        print(f"Error getting patient vital signs: {str(e)}")
+        print_test_result("Get Patient Vital Signs", False)
+
+# Test Allergy Management
+def test_allergy_management(patient_id):
+    print("\n--- Testing Allergy Management ---")
+    
+    # Test creating an allergy
+    allergy_id = None
+    try:
+        url = f"{API_URL}/allergies"
+        data = {
+            "patient_id": patient_id,
+            "allergen": "Penicillin",
+            "reaction": "Hives, difficulty breathing",
+            "severity": "severe",
+            "onset_date": "2018-05-10",
+            "notes": "First discovered during treatment for strep throat",
+            "created_by": "Dr. Michael Chen"
+        }
+        
+        response = requests.post(url, json=data)
+        response.raise_for_status()
+        result = response.json()
+        
+        allergy_id = result["id"]
+        print_test_result("Create Allergy", True, result)
+    except Exception as e:
+        print(f"Error creating allergy: {str(e)}")
+        print_test_result("Create Allergy", False)
+    
+    # Test getting allergies by patient
+    try:
+        url = f"{API_URL}/allergies/patient/{patient_id}"
+        response = requests.get(url)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Patient Allergies", True, result)
+    except Exception as e:
+        print(f"Error getting patient allergies: {str(e)}")
+        print_test_result("Get Patient Allergies", False)
+    
+    return allergy_id
+
+# Test Medication Management
+def test_medication_management(patient_id):
+    print("\n--- Testing Medication Management ---")
+    
+    # Test creating a medication
+    medication_id = None
+    try:
+        url = f"{API_URL}/medications"
+        data = {
+            "patient_id": patient_id,
+            "medication_name": "Lisinopril",
+            "dosage": "10mg",
+            "frequency": "Once daily",
+            "route": "oral",
+            "start_date": date.today().isoformat(),
+            "prescribing_physician": "Dr. Sarah Williams",
+            "indication": "Hypertension",
+            "notes": "Take in the morning with food"
+        }
+        
+        response = requests.post(url, json=data)
+        response.raise_for_status()
+        result = response.json()
+        
+        medication_id = result["id"]
+        print_test_result("Create Medication", True, result)
+    except Exception as e:
+        print(f"Error creating medication: {str(e)}")
+        print_test_result("Create Medication", False)
+    
+    # Test getting medications by patient
+    try:
+        url = f"{API_URL}/medications/patient/{patient_id}"
+        response = requests.get(url)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Patient Medications", True, result)
+    except Exception as e:
+        print(f"Error getting patient medications: {str(e)}")
+        print_test_result("Get Patient Medications", False)
+    
+    # Test updating medication status
+    if medication_id:
+        try:
+            url = f"{API_URL}/medications/{medication_id}/status"
+            params = {"status": "discontinued"}
+            
+            response = requests.put(url, params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Update Medication Status", True, result)
+        except Exception as e:
+            print(f"Error updating medication status: {str(e)}")
+            print_test_result("Update Medication Status", False)
+    
+    return medication_id
+
+# Test Medical History
+def test_medical_history(patient_id):
+    print("\n--- Testing Medical History ---")
+    
+    # Test creating a medical history entry
+    try:
+        url = f"{API_URL}/medical-history"
+        data = {
+            "patient_id": patient_id,
+            "condition": "Essential (primary) hypertension",
+            "icd10_code": "I10",
+            "diagnosis_date": "2020-03-15",
+            "status": "active",
+            "notes": "Well-controlled with medication",
+            "diagnosed_by": "Dr. Sarah Williams"
+        }
+        
+        response = requests.post(url, json=data)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Create Medical History", True, result)
+    except Exception as e:
+        print(f"Error creating medical history: {str(e)}")
+        print_test_result("Create Medical History", False)
+    
+    # Test getting medical history by patient
+    try:
+        url = f"{API_URL}/medical-history/patient/{patient_id}"
+        response = requests.get(url)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Patient Medical History", True, result)
+    except Exception as e:
+        print(f"Error getting patient medical history: {str(e)}")
+        print_test_result("Get Patient Medical History", False)
+
+# Test Diagnosis and Procedure Coding
+def test_diagnosis_procedure(patient_id, encounter_id):
+    print("\n--- Testing Diagnosis and Procedure Coding ---")
+    
+    # Test creating a diagnosis
+    try:
+        url = f"{API_URL}/diagnoses"
+        data = {
+            "encounter_id": encounter_id,
+            "patient_id": patient_id,
+            "diagnosis_code": "J45.909",
+            "diagnosis_description": "Unspecified asthma, uncomplicated",
+            "diagnosis_type": "primary",
+            "status": "active",
+            "onset_date": "2021-06-10",
+            "provider": "Dr. Michael Chen"
+        }
+        
+        response = requests.post(url, json=data)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Create Diagnosis", True, result)
+    except Exception as e:
+        print(f"Error creating diagnosis: {str(e)}")
+        print_test_result("Create Diagnosis", False)
+    
+    # Test creating a procedure
+    try:
+        url = f"{API_URL}/procedures"
+        data = {
+            "encounter_id": encounter_id,
+            "patient_id": patient_id,
+            "procedure_code": "94010",
+            "procedure_description": "Spirometry, including graphic record, total and timed vital capacity",
+            "procedure_date": date.today().isoformat(),
+            "provider": "Dr. Michael Chen",
+            "location": "Pulmonary Function Lab",
+            "notes": "Patient tolerated procedure well"
+        }
+        
+        response = requests.post(url, json=data)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Create Procedure", True, result)
+    except Exception as e:
+        print(f"Error creating procedure: {str(e)}")
+        print_test_result("Create Procedure", False)
+    
+    # Test getting diagnoses by encounter
+    try:
+        url = f"{API_URL}/diagnoses/encounter/{encounter_id}"
+        response = requests.get(url)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Encounter Diagnoses", True, result)
+    except Exception as e:
+        print(f"Error getting encounter diagnoses: {str(e)}")
+        print_test_result("Get Encounter Diagnoses", False)
+    
+    # Test getting diagnoses by patient
+    try:
+        url = f"{API_URL}/diagnoses/patient/{patient_id}"
+        response = requests.get(url)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Patient Diagnoses", True, result)
+    except Exception as e:
+        print(f"Error getting patient diagnoses: {str(e)}")
+        print_test_result("Get Patient Diagnoses", False)
+    
+    # Test getting procedures by encounter
+    try:
+        url = f"{API_URL}/procedures/encounter/{encounter_id}"
+        response = requests.get(url)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Encounter Procedures", True, result)
+    except Exception as e:
+        print(f"Error getting encounter procedures: {str(e)}")
+        print_test_result("Get Encounter Procedures", False)
+    
+    # Test getting procedures by patient
+    try:
+        url = f"{API_URL}/procedures/patient/{patient_id}"
+        response = requests.get(url)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Patient Procedures", True, result)
+    except Exception as e:
+        print(f"Error getting patient procedures: {str(e)}")
+        print_test_result("Get Patient Procedures", False)
+
+# Test Patient Summary
+def test_patient_summary(patient_id):
+    print("\n--- Testing Comprehensive Patient Summary ---")
+    
+    try:
+        url = f"{API_URL}/patients/{patient_id}/summary"
+        response = requests.get(url)
+        response.raise_for_status()
+        result = response.json()
+        
+        # Verify comprehensive summary structure
+        assert "patient" in result
+        assert "recent_encounters" in result
+        assert "allergies" in result
+        assert "active_medications" in result
+        assert "medical_history" in result
+        
+        print_test_result("Get Patient Summary", True, result)
+    except Exception as e:
+        print(f"Error getting patient summary: {str(e)}")
+        print_test_result("Get Patient Summary", False)
+
 def run_all_tests():
     print("\n" + "=" * 80)
     print("TESTING CLINICHUB BACKEND API")
@@ -414,6 +892,17 @@ def run_all_tests():
     test_invoice_management(patient_id)
     test_inventory_management()
     test_employee_management()
+    
+    # Test new EHR features
+    soap_encounter_id = test_soap_notes_system(patient_id)
+    encounter_id = test_encounter_management(patient_id)
+    test_vital_signs(patient_id, encounter_id)
+    test_allergy_management(patient_id)
+    test_medication_management(patient_id)
+    test_medical_history(patient_id)
+    test_diagnosis_procedure(patient_id, encounter_id if encounter_id else soap_encounter_id)
+    test_patient_summary(patient_id)
+    
     test_dashboard_analytics()
     
     print("\n" + "=" * 80)
