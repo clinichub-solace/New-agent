@@ -107,15 +107,18 @@ user_problem_statement: "Build ClinicHub - AI-Powered Medical Practice Managemen
 backend:
   - task: "FHIR-Compliant Patient Management System"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented FHIR-compliant Patient model with proper address, telecom, and name structures. Added full CRUD operations for patients."
+      - working: true
+        agent: "testing"
+        comment: "Patient management API endpoints are working correctly. Successfully created a patient with FHIR-compliant structure, retrieved all patients, and retrieved a specific patient by ID."
 
   - task: "SmartForm Builder with FHIR Mapping"
     implemented: true
