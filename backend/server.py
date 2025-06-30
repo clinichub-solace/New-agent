@@ -564,30 +564,35 @@ async def get_inventory():
 
 @api_router.post("/inventory/{item_id}/transaction", response_model=InventoryTransaction)
 async def create_inventory_transaction(item_id: str, transaction: InventoryTransaction):
-    # Update inventory stock
-    item = await db.inventory.find_one({"id": item_id})
-    if not item:
-        raise HTTPException(status_code=404, detail="Inventory item not found")
-    
-    new_stock = item["current_stock"]
-    if transaction.transaction_type == "in":
-        new_stock += transaction.quantity
-    elif transaction.transaction_type == "out":
-        new_stock -= transaction.quantity
-    elif transaction.transaction_type == "adjustment":
-        new_stock = transaction.quantity
-    
-    await db.inventory.update_one(
-        {"id": item_id},
-        {"$set": {"current_stock": new_stock, "updated_at": jsonable_encoder(datetime.utcnow())}}
-    )
-    
-    transaction.item_id = item_id
-    transaction_dict = jsonable_encoder(transaction)
-    await db.inventory_transactions.insert_one(transaction_dict)
-    return transaction
-    await db.inventory_transactions.insert_one(transaction_dict)
-    return transaction
+    try:
+        # Update inventory stock
+        item = await db.inventory.find_one({"id": item_id})
+        if not item:
+            raise HTTPException(status_code=404, detail="Inventory item not found")
+        
+        new_stock = item["current_stock"]
+        if transaction.transaction_type == "in":
+            new_stock += transaction.quantity
+        elif transaction.transaction_type == "out":
+            new_stock -= transaction.quantity
+        elif transaction.transaction_type == "adjustment":
+            new_stock = transaction.quantity
+        
+        await db.inventory.update_one(
+            {"id": item_id},
+            {"$set": {"current_stock": new_stock, "updated_at": jsonable_encoder(datetime.utcnow())}}
+        )
+        
+        # Set the item_id in the transaction
+        transaction.item_id = item_id
+        transaction_dict = jsonable_encoder(transaction)
+        await db.inventory_transactions.insert_one(transaction_dict)
+        return transaction
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating inventory transaction: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating inventory transaction: {str(e)}")
 
 # Employee Routes
 @api_router.post("/employees", response_model=Employee)
