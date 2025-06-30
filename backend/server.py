@@ -152,6 +152,12 @@ class Invoice(BaseModel):
     due_date: Optional[date] = None
     notes: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    @validator('issue_date', 'due_date', pre=True)
+    def validate_dates(cls, v):
+        if isinstance(v, date):
+            return v.isoformat()
+        return v
 
 class InvoiceCreate(BaseModel):
     patient_id: str
