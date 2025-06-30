@@ -22,7 +22,6 @@ const Dashboard = ({ setActiveModule }) => {
   const [stats, setStats] = useState({});
   const [recentPatients, setRecentPatients] = useState([]);
   const [recentInvoices, setRecentInvoices] = useState([]);
-  const [recentEncounters, setRecentEncounters] = useState([]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -34,7 +33,6 @@ const Dashboard = ({ setActiveModule }) => {
       setStats(response.data.stats);
       setRecentPatients(response.data.recent_patients);
       setRecentInvoices(response.data.recent_invoices);
-      setRecentEncounters(response.data.recent_encounters || []);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     }
@@ -43,10 +41,10 @@ const Dashboard = ({ setActiveModule }) => {
   const modules = [
     { name: "Patients/EHR", key: "patients", icon: "👥", color: "bg-blue-500" },
     { name: "Smart Forms", key: "forms", icon: "📋", color: "bg-green-500" },
-    { name: "Encounters", key: "encounters", icon: "🏥", color: "bg-teal-500" },
-    { name: "Invoices", key: "invoices", icon: "🧾", color: "bg-purple-500" },
     { name: "Inventory", key: "inventory", icon: "📦", color: "bg-orange-500" },
-    { name: "Employees", key: "employees", icon: "👨‍⚕️", color: "bg-indigo-500" }
+    { name: "Invoices", key: "invoices", icon: "🧾", color: "bg-purple-500" },
+    { name: "Employees", key: "employees", icon: "👨‍⚕️", color: "bg-indigo-500" },
+    { name: "Reports", key: "reports", icon: "📊", color: "bg-pink-500" }
   ];
 
   return (
@@ -73,52 +71,52 @@ const Dashboard = ({ setActiveModule }) => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Enhanced Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-8 gap-4 mb-8">
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 col-span-2">
+        {/* Enhanced Stats Cards - Removed Encounters */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-blue-200 text-sm">Total Patients</p>
-                <p className="text-2xl font-bold text-white">{stats.total_patients || 0}</p>
+                <p className="text-3xl font-bold text-white">{stats.total_patients || 0}</p>
               </div>
-              <div className="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center">
-                <span className="text-white text-lg">👥</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 col-span-2">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-green-200 text-sm">Today's Visits</p>
-                <p className="text-2xl font-bold text-white">{stats.completed_encounters_today || 0}</p>
-              </div>
-              <div className="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center">
-                <span className="text-white text-lg">🏥</span>
+              <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">👥</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 col-span-2">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-yellow-200 text-sm">Pending Visits</p>
-                <p className="text-2xl font-bold text-white">{stats.pending_encounters || 0}</p>
+                <p className="text-green-200 text-sm">Total Invoices</p>
+                <p className="text-3xl font-bold text-white">{stats.total_invoices || 0}</p>
               </div>
-              <div className="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center">
-                <span className="text-white text-lg">⏳</span>
+              <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">🧾</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20 col-span-2">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-200 text-sm">Pending Bills</p>
-                <p className="text-2xl font-bold text-white">{stats.pending_invoices || 0}</p>
+                <p className="text-yellow-200 text-sm">Pending Bills</p>
+                <p className="text-3xl font-bold text-white">{stats.pending_invoices || 0}</p>
               </div>
-              <div className="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center">
-                <span className="text-white text-lg">💰</span>
+              <div className="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">💰</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-red-200 text-sm">Low Stock Items</p>
+                <p className="text-3xl font-bold text-white">{stats.low_stock_items || 0}</p>
+              </div>
+              <div className="w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">⚠️</span>
               </div>
             </div>
           </div>
@@ -143,8 +141,8 @@ const Dashboard = ({ setActiveModule }) => {
           ))}
         </div>
 
-        {/* Recent Activity */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Recent Activity - Removed Encounters Section */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
             <h3 className="text-xl font-semibold text-white mb-4">Recent Patients</h3>
             <div className="space-y-3">
@@ -167,28 +165,6 @@ const Dashboard = ({ setActiveModule }) => {
           </div>
 
           <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-            <h3 className="text-xl font-semibold text-white mb-4">Recent Encounters</h3>
-            <div className="space-y-3">
-              {recentEncounters.map((encounter) => (
-                <div key={encounter.id} className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
-                  <div>
-                    <p className="text-white font-medium">{encounter.encounter_number}</p>
-                    <p className="text-blue-200 text-sm">
-                      {encounter.encounter_type?.replace('_', ' ')} - {encounter.provider}
-                    </p>
-                  </div>
-                  <span className={`px-2 py-1 text-white text-xs rounded-full ${
-                    encounter.status === 'completed' ? 'bg-green-500' : 
-                    encounter.status === 'in_progress' ? 'bg-blue-500' : 'bg-gray-500'
-                  }`}>
-                    {encounter.status}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
             <h3 className="text-xl font-semibold text-white mb-4">Recent Invoices</h3>
             <div className="space-y-3">
               {recentInvoices.map((invoice) => (
@@ -197,6 +173,7 @@ const Dashboard = ({ setActiveModule }) => {
                     <p className="text-white font-medium">{invoice.invoice_number}</p>
                     <p className="text-blue-200 text-sm">
                       ${invoice.total_amount?.toFixed(2)}
+                      {invoice.auto_generated && <span className="ml-2 text-xs text-green-400">(Auto)</span>}
                     </p>
                   </div>
                   <span className={`px-2 py-1 text-white text-xs rounded-full ${
