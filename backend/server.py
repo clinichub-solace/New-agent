@@ -3300,8 +3300,8 @@ def get_frequency_period(frequency: str) -> int:
 async def initialize_erx_data(current_user: User = Depends(get_current_active_user)):
     """Initialize sample medication database and drug interactions"""
     try:
-        # Check if medications already exist
-        existing_meds = await db.medications.count_documents({})
+        # Check if FHIR medications already exist
+        existing_meds = await db.fhir_medications.count_documents({})
         if existing_meds > 0:
             return {"message": "eRx data already initialized", "medications_count": existing_meds}
         
