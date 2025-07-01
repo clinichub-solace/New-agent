@@ -440,3 +440,7 @@ backend:
       - working: false
         agent: "testing"
         comment: "Confirmed previous findings. The initialization endpoint /api/communications/init-templates works correctly, but the templates endpoint /api/communications/templates still returns a 500 Internal Server Error. This confirms that the templates endpoint has an implementation issue that needs to be fixed."
+
+agent_communication:
+  - agent: "testing"
+    message: "Tested the two problematic endpoints as requested: 1) Calendar View endpoint (/api/appointments/calendar) is implemented in the code but still returns a 404 error with the message 'Appointment not found'. Tested with parameters (date=2025-01-15&view=week) and without parameters, both return the same error. 2) Communications Templates endpoint - The initialization endpoint (/api/communications/init-templates) works correctly, but the templates endpoint (/api/communications/templates) still returns a 500 Internal Server Error. Both endpoints need implementation fixes."
