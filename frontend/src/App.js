@@ -926,9 +926,22 @@ const Dashboard = ({ setActiveModule, user, onLogout }) => {
   const [stats, setStats] = useState({});
   const [recentPatients, setRecentPatients] = useState([]);
   const [recentInvoices, setRecentInvoices] = useState([]);
+  
+  // New dashboard data states
+  const [erxPatients, setErxPatients] = useState([]);
+  const [dailyLog, setDailyLog] = useState([]);
+  const [patientQueue, setPatientQueue] = useState([]);
+  const [pendingPayments, setPendingPayments] = useState([]);
+  const [quickStats, setQuickStats] = useState({
+    erx_patients_today: 0,
+    daily_revenue: 0,
+    patients_in_queue: 0,
+    pending_payments_total: 0
+  });
 
   useEffect(() => {
     fetchDashboardData();
+    fetchQuickStats();
   }, []);
 
   const fetchDashboardData = async () => {
@@ -940,6 +953,31 @@ const Dashboard = ({ setActiveModule, user, onLogout }) => {
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     }
+  };
+
+  const fetchQuickStats = async () => {
+    try {
+      // Fetch quick stats for the new dashboard cards
+      const [erxResponse, dailyResponse, queueResponse, paymentsResponse] = await Promise.all([
+        axios.get(`${API}/dashboard/erx-patients`),
+        axios.get(`${API}/dashboard/daily-log`),
+        axios.get(`${API}/dashboard/patient-queue`),
+        axios.get(`${API}/dashboard/pending-payments`)
+      ]);
+
+      setQuickStats({
+        erx_patients_today: erxResponse.data.total_scheduled,
+        daily_revenue: dailyResponse.data.summary.total_revenue,
+        patients_in_queue: queueResponse.data.summary.total_patients,
+        pending_payments_total: paymentsResponse.data.summary.total_outstanding_amount
+      });
+    } catch (error) {
+      console.error("Error fetching quick stats:", error);
+    }
+  };
+
+  const handleCardClick = (cardType) => {
+    setActiveModule(cardType);
   };
 
   const modules = [
