@@ -436,3 +436,7 @@ backend:
         comment: "Implemented complete Patient Communications API endpoints: POST /api/communications/init-templates, GET/POST /api/communications/templates, POST /api/communications/send, GET /api/communications/messages, GET /api/communications/messages/patient/{id}, PUT /api/communications/messages/{id}/status. Includes message templates, template variable processing, message sending, and patient-specific communication history."
       - working: false
         agent: "testing"
+        comment: "Partially working. Successfully tested: 1) POST /api/communications/init-templates - Initialized message templates, 2) POST /api/communications/templates - Created a new template, 3) GET /api/communications/messages - Retrieved all messages, 4) GET /api/communications/messages/patient/{id} - Retrieved patient-specific messages. However, found issues with: 1) GET /api/communications/templates - Returns 500 Internal Server Error, 2) POST /api/communications/send - Returns 500 Internal Server Error with message 'list indices must be integers or slices, not str'. These issues need to be fixed."
+      - working: false
+        agent: "testing"
+        comment: "Confirmed previous findings. The initialization endpoint /api/communications/init-templates works correctly, but the templates endpoint /api/communications/templates still returns a 500 Internal Server Error. This confirms that the templates endpoint has an implementation issue that needs to be fixed."
