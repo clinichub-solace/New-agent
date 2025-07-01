@@ -413,6 +413,9 @@ backend:
       - working: false
         agent: "testing"
         comment: "The Calendar Views for Scheduling have not been implemented yet. Attempted to test the /api/appointments/calendar endpoint but received a 404 Not Found error. This feature depends on the Appointment Scheduling System which is not implemented."
+      - working: false
+        agent: "testing"
+        comment: "The Calendar Views endpoint is implemented in the code but still returns a 404 error with the message 'Appointment not found'. Tested with parameters (date=2025-01-15&view=week) and without parameters, both return the same error. The endpoint is accessible but has an implementation issue that needs to be fixed."
 
   - task: "Patient Communications System"
     implemented: true
@@ -846,6 +849,9 @@ backend:
       - working: false
         agent: "testing"
         comment: "The Calendar Views for Scheduling have not been implemented yet. Attempted to test the /api/appointments/calendar endpoint but received a 404 Not Found error. This feature depends on the Appointment Scheduling System which is not implemented."
+      - working: false
+        agent: "testing"
+        comment: "The Calendar Views endpoint is implemented in the code but still returns a 404 error with the message 'Appointment not found'. Tested with parameters (date=2025-01-15&view=week) and without parameters, both return the same error. The endpoint is accessible but has an implementation issue that needs to be fixed."
 
   - task: "Patient Communications System"
     implemented: true
