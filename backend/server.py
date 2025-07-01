@@ -707,7 +707,7 @@ class DrugInteractionSeverity(str, Enum):
     CONTRAINDICATED = "contraindicated"
 
 # FHIR-compliant Medication Resource
-class Medication(BaseModel):
+class FHIRMedication(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     
     # FHIR Medication Resource Fields
