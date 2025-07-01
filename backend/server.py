@@ -3840,45 +3840,80 @@ async def get_pending_payments(current_user: User = Depends(get_current_active_u
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving pending payments: {str(e)}")
 
-# Keep existing dashboard stats for backward compatibility
 @api_router.get("/dashboard/legacy-stats")
 async def get_legacy_dashboard_stats():
-    pass
+    try:
+        total_patients = await db.patients.count_documents({"status": "active"})
+        total_invoices = await db.invoices.count_documents({})
+        total_enhanced_invoices = await db.enhanced_invoices.count_documents({})
+        pending_invoices = await db.invoices.count_documents({"status": {"$in": ["draft", "sent"]}})
+        pending_enhanced_invoices = await db.enhanced_invoices.count_documents({"status": {"$in": ["draft", "sent"]}})
+        low_stock_items = await db.inventory.count_documents({"$expr": {"$lte": ["$current_stock", "$min_stock_level"]}})
+        total_employees = await db.employees.count_documents({"is_active": True})
+        
+        # Recent activity (removed encounters from dashboard)
+        recent_patients = await db.patients.find().sort("created_at", -1).limit(5).to_list(5)
+        recent_invoices = await db.invoices.find().sort("created_at", -1).limit(3).to_list(3)
+        recent_enhanced_invoices = await db.enhanced_invoices.find().sort("created_at", -1).limit(2).to_list(2)
+        
+        # Combine recent invoices
+        all_recent_invoices = []
+        for inv in recent_invoices:
+            all_recent_invoices.append(Invoice(**inv))
+        for inv in recent_enhanced_invoices:
+            all_recent_invoices.append(EnhancedInvoice(**inv))
+        
+        return {
+            "stats": {
+                "total_patients": total_patients,
+                "total_invoices": total_invoices + total_enhanced_invoices,
+                "pending_invoices": pending_invoices + pending_enhanced_invoices,
+                "low_stock_items": low_stock_items,
+                "total_employees": total_employees
+            },
+            "recent_patients": [Patient(**p) for p in recent_patients],
+            "recent_invoices": all_recent_invoices
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving legacy dashboard stats: {str(e)}")
 
 # Dashboard Stats
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats():
-    total_patients = await db.patients.count_documents({"status": "active"})
-    total_invoices = await db.invoices.count_documents({})
-    total_enhanced_invoices = await db.enhanced_invoices.count_documents({})
-    pending_invoices = await db.invoices.count_documents({"status": {"$in": ["draft", "sent"]}})
-    pending_enhanced_invoices = await db.enhanced_invoices.count_documents({"status": {"$in": ["draft", "sent"]}})
-    low_stock_items = await db.inventory.count_documents({"$expr": {"$lte": ["$current_stock", "$min_stock_level"]}})
-    total_employees = await db.employees.count_documents({"is_active": True})
-    
-    # Recent activity (removed encounters from dashboard)
-    recent_patients = await db.patients.find().sort("created_at", -1).limit(5).to_list(5)
-    recent_invoices = await db.invoices.find().sort("created_at", -1).limit(3).to_list(3)
-    recent_enhanced_invoices = await db.enhanced_invoices.find().sort("created_at", -1).limit(2).to_list(2)
-    
-    # Combine recent invoices
-    all_recent_invoices = []
-    for inv in recent_invoices:
-        all_recent_invoices.append(Invoice(**inv))
-    for inv in recent_enhanced_invoices:
-        all_recent_invoices.append(EnhancedInvoice(**inv))
-    
-    return {
-        "stats": {
-            "total_patients": total_patients,
-            "total_invoices": total_invoices + total_enhanced_invoices,
-            "pending_invoices": pending_invoices + pending_enhanced_invoices,
-            "low_stock_items": low_stock_items,
-            "total_employees": total_employees
-        },
-        "recent_patients": [Patient(**p) for p in recent_patients],
-        "recent_invoices": all_recent_invoices
-    }
+    try:
+        total_patients = await db.patients.count_documents({"status": "active"})
+        total_invoices = await db.invoices.count_documents({})
+        total_enhanced_invoices = await db.enhanced_invoices.count_documents({})
+        pending_invoices = await db.invoices.count_documents({"status": {"$in": ["draft", "sent"]}})
+        pending_enhanced_invoices = await db.enhanced_invoices.count_documents({"status": {"$in": ["draft", "sent"]}})
+        low_stock_items = await db.inventory.count_documents({"$expr": {"$lte": ["$current_stock", "$min_stock_level"]}})
+        total_employees = await db.employees.count_documents({"is_active": True})
+        
+        # Recent activity (removed encounters from dashboard)
+        recent_patients = await db.patients.find().sort("created_at", -1).limit(5).to_list(5)
+        recent_invoices = await db.invoices.find().sort("created_at", -1).limit(3).to_list(3)
+        recent_enhanced_invoices = await db.enhanced_invoices.find().sort("created_at", -1).limit(2).to_list(2)
+        
+        # Combine recent invoices
+        all_recent_invoices = []
+        for inv in recent_invoices:
+            all_recent_invoices.append(Invoice(**inv))
+        for inv in recent_enhanced_invoices:
+            all_recent_invoices.append(EnhancedInvoice(**inv))
+        
+        return {
+            "stats": {
+                "total_patients": total_patients,
+                "total_invoices": total_invoices + total_enhanced_invoices,
+                "pending_invoices": pending_invoices + pending_enhanced_invoices,
+                "low_stock_items": low_stock_items,
+                "total_employees": total_employees
+            },
+            "recent_patients": [Patient(**p) for p in recent_patients],
+            "recent_invoices": all_recent_invoices
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving dashboard stats: {str(e)}")
 
 # Enhanced EHR Routes
 
