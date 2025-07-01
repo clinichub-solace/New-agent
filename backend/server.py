@@ -4730,14 +4730,24 @@ async def get_appointment(appointment_id: str):
 @api_router.put("/appointments/{appointment_id}/status")
 async def update_appointment_status(appointment_id: str, status_data: dict):
     try:
-        status_data["updated_at"] = datetime.utcnow()
+        # Validate that status is provided
+        if "status" not in status_data:
+            raise HTTPException(status_code=422, detail="Status field is required")
+        
+        update_data = {
+            "status": status_data["status"],
+            "updated_at": datetime.utcnow()
+        }
+        
         result = await db.appointments.update_one(
             {"id": appointment_id},
-            {"$set": jsonable_encoder(status_data)}
+            {"$set": jsonable_encoder(update_data)}
         )
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Appointment not found")
         return {"message": "Appointment status updated successfully"}
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating appointment: {str(e)}")
 
