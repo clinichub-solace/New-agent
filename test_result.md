@@ -388,8 +388,7 @@ metadata:
 test_plan:
   current_focus:
     - "eRx Electronic Prescribing System (FHIR Compliant)"
-  stuck_tasks:
-    - "eRx Electronic Prescribing System (FHIR Compliant)"
+  stuck_tasks: []
   test_all: false
   test_priority: "high_first"
 
