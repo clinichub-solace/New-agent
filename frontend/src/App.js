@@ -1216,18 +1216,6 @@ const PatientsModule = ({ setActiveModule }) => {
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
   const [showSmartFormSelector, setShowSmartFormSelector] = useState(false);
-  const [formData, setFormData] = useState({
-    first_name: '', 
-    last_name: '', 
-    email: '', 
-    phone: '', 
-    date_of_birth: '', 
-    gender: '', 
-    address_line1: '', 
-    city: '', 
-    state: '', 
-    zip_code: ''
-  });
   
   // eRx States
   const [medications, setMedications] = useState([]);
