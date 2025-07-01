@@ -6827,7 +6827,9 @@ function App() {
       case 'communications':
         return (
           <ProtectedRoute permission="communications:read">
-            <CommunicationsModule setActiveModule={setActiveModule} />
+            <AppHeader>
+              <CommunicationsModule setActiveModule={setActiveModule} />
+            </AppHeader>
           </ProtectedRoute>
         );
       default:
