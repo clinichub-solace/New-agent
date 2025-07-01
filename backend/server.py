@@ -2972,7 +2972,7 @@ async def create_prescription(
     """Create a new prescription with safety checks"""
     try:
         # Get medication details
-        medication = await db.medications.find_one({"id": prescription_data.medication_id})
+        medication = await db.fhir_medications.find_one({"id": prescription_data.medication_id})
         if not medication:
             raise HTTPException(status_code=404, detail="Medication not found")
         
