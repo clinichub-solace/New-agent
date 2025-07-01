@@ -4393,110 +4393,37 @@ async def get_medication(
         raise HTTPException(status_code=500, detail=f"Error retrieving medication: {str(e)}")
 
 @api_router.post("/prescriptions", response_model=MedicationRequest)
-async def create_prescription(
-    prescription_data: MedicationRequestCreate,
-    current_user: User = Depends(get_current_active_user)
-):
-    """Create a new prescription with safety checks"""
+async def create_prescription(prescription_data: dict, current_user: User = Depends(get_current_active_user)):
     try:
-        # Get medication details
-        medication = await db.fhir_medications.find_one({"id": prescription_data.medication_id})
-        if not medication:
-            raise HTTPException(status_code=404, detail="Medication not found")
-        
-        # Get patient details
-        patient = await db.patients.find_one({"id": prescription_data.patient_id})
+        # Validate patient exists
+        patient = await db.patients.find_one({"id": prescription_data["patient_id"]})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
-        # Check for allergies
-        allergy_alerts = await check_drug_allergies(prescription_data.patient_id, prescription_data.medication_id)
-        
-        # Check for drug interactions
-        interaction_alerts = await check_drug_interactions(prescription_data.patient_id, prescription_data.medication_id)
-        
-        # Create FHIR-compliant dosage instruction
-        dosage_instruction = [{
-            "text": prescription_data.dosage_text,
-            "timing": {
-                "repeat": {
-                    "frequency": 1,
-                    "period": get_frequency_period(prescription_data.frequency),
-                    "periodUnit": "d"
-                }
-            },
-            "route": {
-                "coding": [{
-                    "code": prescription_data.route,
-                    "display": prescription_data.route
-                }]
-            },
-            "doseAndRate": [{
-                "doseQuantity": {
-                    "value": prescription_data.dose_quantity,
-                    "unit": prescription_data.dose_unit,
-                    "system": "http://unitsofmeasure.org"
-                }
-            }]
-        }]
-        
-        # Create dispense request
-        dispense_request = {
-            "quantity": {
-                "value": prescription_data.quantity,
-                "unit": medication.get("dosage_forms", ["each"])[0]
-            },
-            "expectedSupplyDuration": {
-                "value": prescription_data.days_supply,
-                "unit": "days",
-                "system": "http://unitsofmeasure.org"
-            },
-            "numberOfRepeatsAllowed": prescription_data.refills
-        }
-        
-        # Create prescription
+        # Create prescription object
         prescription = MedicationRequest(
-            medication_id=prescription_data.medication_id,
-            medication_display=medication["generic_name"],
-            patient_id=prescription_data.patient_id,
-            patient_display=f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
-            encounter_id=prescription_data.encounter_id,
-            prescriber_id=prescription_data.prescriber_id,
-            prescriber_name=prescription_data.prescriber_name,
-            dosage_instruction=dosage_instruction,
-            dispense_request=dispense_request,
-            reason_code=[{
-                "text": prescription_data.indication
-            }] if prescription_data.indication else [],
-            days_supply=prescription_data.days_supply,
-            quantity=prescription_data.quantity,
-            refills=prescription_data.refills,
-            allergies_checked=True,
-            interactions_checked=True,
-            allergy_alerts=allergy_alerts,
-            interaction_alerts=interaction_alerts,
-            status=PrescriptionStatus.DRAFT,
-            created_by=current_user.username
+            id=str(uuid.uuid4()),
+            **prescription_data
         )
         
-        # Save prescription
+        # Store in database
         prescription_dict = jsonable_encoder(prescription)
         await db.prescriptions.insert_one(prescription_dict)
         
-        # Create audit log
-        await create_prescription_audit_log(
-            prescription.id,
-            prescription_data.patient_id,
-            "created",
-            current_user.id,
-            current_user.username,
-            {"prescription_created": True}
-        )
-        
         return prescription
-        
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating prescription: {str(e)}")
+
+@api_router.get("/prescriptions", response_model=List[MedicationRequest])
+async def get_all_prescriptions(current_user: User = Depends(get_current_active_user)):
+    """Get all prescriptions across all patients"""
+    try:
+        prescriptions = await db.prescriptions.find().sort("created_at", -1).limit(100).to_list(100)
+        return [MedicationRequest(**prescription) for prescription in prescriptions]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving prescriptions: {str(e)}")
 
 @api_router.get("/patients/{patient_id}/prescriptions", response_model=List[MedicationRequest])
 async def get_patient_prescriptions(
