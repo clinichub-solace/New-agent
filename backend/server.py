@@ -1230,6 +1230,69 @@ ROLE_PERMISSIONS = {
     ]
 }
 
+# Patient Authentication Models
+class PatientUser(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str  # Link to existing patient record
+    email: str
+    phone: Optional[str] = None
+    password_hash: str
+    is_verified: bool = False
+    verification_token: Optional[str] = None
+    reset_token: Optional[str] = None
+    reset_token_expires: Optional[datetime] = None
+    last_login: Optional[datetime] = None
+    failed_login_attempts: int = 0
+    locked_until: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PatientLogin(BaseModel):
+    email: str
+    password: str
+
+class PatientRegister(BaseModel):
+    patient_id: str
+    email: str
+    phone: Optional[str] = None
+    password: str
+
+class PatientToken(BaseModel):
+    access_token: str
+    token_type: str
+    expires_in: int
+    patient: Dict[str, Any]
+
+# Mock Communication Services
+class MockSMSService:
+    """Mock SMS service for testing - replace with Twilio integration"""
+    
+    @staticmethod
+    async def send_sms(to_phone: str, message: str) -> Dict[str, Any]:
+        print(f"📱 MOCK SMS to {to_phone}: {message}")
+        return {
+            "status": "sent",
+            "message_id": str(uuid.uuid4()),
+            "service": "mock_sms",
+            "to": to_phone,
+            "cost": 0.0075  # Mock cost
+        }
+
+class MockEmailService:
+    """Mock Email service for testing - replace with SendGrid integration"""
+    
+    @staticmethod
+    async def send_email(to_email: str, subject: str, content: str) -> Dict[str, Any]:
+        print(f"📧 MOCK EMAIL to {to_email}")
+        print(f"Subject: {subject}")
+        print(f"Content: {content[:100]}...")
+        return {
+            "status": "sent", 
+            "message_id": str(uuid.uuid4()),
+            "service": "mock_email",
+            "to": to_email
+        }
+
 # Enhanced EHR Models
 
 # Vital Signs Model
