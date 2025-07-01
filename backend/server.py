@@ -3441,7 +3441,7 @@ async def initialize_erx_data(current_user: User = Depends(get_current_active_us
         ]
         
         # Insert medications
-        await db.medications.insert_many(medications)
+        await db.fhir_medications.insert_many(medications)
         
         # Create drug interactions
         med_lookup = {med["generic_name"]: med["id"] for med in medications}
