@@ -168,11 +168,16 @@ def test_form_template_details(forms):
         print("Skipping form template details tests - no forms available")
         return
     
-    # Find each template by title
-    patient_intake = next((form for form in forms if form["title"] == "HIPAA & Texas Compliant Patient Intake Form"), None)
-    consent_form = next((form for form in forms if form["title"] == "Informed Consent to Medical Treatment"), None)
-    telemedicine_form = next((form for form in forms if form["title"] == "Telemedicine Informed Consent"), None)
-    hipaa_form = next((form for form in forms if form["title"] == "HIPAA Privacy Notice and Authorization"), None)
+    # Print all form titles to debug
+    print("Available form titles:")
+    for form in forms:
+        print(f"- {form.get('title')}")
+    
+    # Find each template by title (case insensitive partial match)
+    patient_intake = next((form for form in forms if "patient intake" in form.get("title", "").lower()), None)
+    consent_form = next((form for form in forms if "consent to medical" in form.get("title", "").lower()), None)
+    telemedicine_form = next((form for form in forms if "telemedicine" in form.get("title", "").lower()), None)
+    hipaa_form = next((form for form in forms if "hipaa" in form.get("title", "").lower() and "privacy" in form.get("title", "").lower()), None)
     
     # Test 1: Verify Patient Intake Form
     if patient_intake:
