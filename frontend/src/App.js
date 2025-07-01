@@ -1290,7 +1290,7 @@ const PatientsModule = ({ setActiveModule }) => {
     e.preventDefault();
     try {
       await axios.post(`${API}/patients`, formData);
-      setShowForm(false);
+      setShowPatientForm(false);
       setFormData({
         first_name: '', last_name: '', email: '', phone: '', 
         date_of_birth: '', gender: '', address_line1: '', city: '', state: '', zip_code: ''
