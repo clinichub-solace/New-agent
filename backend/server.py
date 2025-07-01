@@ -944,6 +944,48 @@ class AppointmentStatus(str, Enum):
     NO_SHOW = "no_show"
     RESCHEDULED = "rescheduled"
 
+# Enhanced Appointment Business Rules
+class AppointmentTypeConfig(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str  # "Annual Physical", "Consultation", etc.
+    appointment_type: AppointmentType
+    duration_minutes: int
+    buffer_before_minutes: int = 0  # Time before appointment
+    buffer_after_minutes: int = 0   # Time after appointment
+    max_advance_booking_days: int = 90  # How far in advance can be booked
+    min_advance_booking_hours: int = 2   # Minimum notice required
+    requires_referral: bool = False
+    allowed_patient_ages: Optional[Dict[str, int]] = None  # {"min": 18, "max": 65}
+    provider_specialties_required: List[str] = []  # Required provider specialties
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+# Communication Templates and Services
+class CommunicationService(str, Enum):
+    SMS = "sms"
+    EMAIL = "email"
+    PUSH = "push"
+    VOICE = "voice"
+
+class NotificationTrigger(str, Enum):
+    APPOINTMENT_SCHEDULED = "appointment_scheduled"
+    APPOINTMENT_CONFIRMED = "appointment_confirmed"
+    APPOINTMENT_REMINDER_24H = "appointment_reminder_24h"
+    APPOINTMENT_REMINDER_2H = "appointment_reminder_2h"
+    APPOINTMENT_CANCELLED = "appointment_cancelled"
+    APPOINTMENT_RESCHEDULED = "appointment_rescheduled"
+    APPOINTMENT_COMPLETED = "appointment_completed"
+    NO_SHOW_RECORDED = "no_show_recorded"
+
+class AutomatedNotification(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    trigger: NotificationTrigger
+    service: CommunicationService
+    template_id: str
+    delay_minutes: int = 0  # Delay after trigger (negative for before)
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 class Provider(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     employee_id: Optional[str] = None  # Link to employee record
