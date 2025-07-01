@@ -2500,6 +2500,318 @@ async def get_dashboard_stats():
         "recent_invoices": all_recent_invoices
     }
 
+# New Dashboard Views for Clinic Operations
+@api_router.get("/dashboard/erx-patients")
+async def get_erx_patients(current_user: User = Depends(get_current_active_user)):
+    """Get patients scheduled for today (for eRx management)"""
+    try:
+        today = date.today()
+        
+        # Get patients with encounters scheduled for today
+        todays_encounters = await db.encounters.find({
+            "scheduled_date": {
+                "$gte": datetime.combine(today, datetime.min.time()),
+                "$lt": datetime.combine(today + timedelta(days=1), datetime.min.time())
+            }
+        }).sort("scheduled_date", 1).to_list(100)
+        
+        # Get patient details for each encounter
+        erx_patients = []
+        for encounter in todays_encounters:
+            patient = await db.patients.find_one({"id": encounter["patient_id"]})
+            if patient:
+                # Get active prescriptions count
+                active_prescriptions = await db.prescriptions.count_documents({
+                    "patient_id": encounter["patient_id"],
+                    "status": {"$in": ["active", "draft"]}
+                })
+                
+                erx_patients.append({
+                    "encounter_id": encounter["id"],
+                    "encounter_number": encounter["encounter_number"],
+                    "patient_id": patient["id"],
+                    "patient_name": f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
+                    "scheduled_time": encounter["scheduled_date"],
+                    "encounter_type": encounter["encounter_type"],
+                    "status": encounter["status"],
+                    "provider": encounter.get("provider", "Not assigned"),
+                    "chief_complaint": encounter.get("chief_complaint", ""),
+                    "active_prescriptions": active_prescriptions,
+                    "allergies_count": len(await db.allergies.find({"patient_id": patient["id"]}).to_list(100))
+                })
+        
+        return {
+            "date": today.isoformat(),
+            "total_scheduled": len(erx_patients),
+            "patients": erx_patients
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving eRx patients: {str(e)}")
+
+@api_router.get("/dashboard/daily-log")
+async def get_daily_log(current_user: User = Depends(get_current_active_user)):
+    """Get patients seen today with visit types and payment information"""
+    try:
+        today = date.today()
+        
+        # Get completed encounters for today
+        completed_encounters = await db.encounters.find({
+            "status": "completed",
+            "actual_end_time": {
+                "$gte": datetime.combine(today, datetime.min.time()),
+                "$lt": datetime.combine(today + timedelta(days=1), datetime.min.time())
+            }
+        }).sort("actual_end_time", -1).to_list(100)
+        
+        daily_log = []
+        total_revenue = 0
+        total_paid = 0
+        
+        for encounter in completed_encounters:
+            patient = await db.patients.find_one({"id": encounter["patient_id"]})
+            if patient:
+                # Get related invoices
+                invoices = await db.invoices.find({"encounter_id": encounter["id"]}).to_list(100)
+                enhanced_invoices = await db.enhanced_invoices.find({"encounter_id": encounter["id"]}).to_list(100)
+                
+                # Calculate totals
+                encounter_total = 0
+                encounter_paid = 0
+                payment_status = "unpaid"
+                
+                for invoice in invoices:
+                    encounter_total += invoice.get("total_amount", 0)
+                    if invoice.get("status") == "paid":
+                        encounter_paid += invoice.get("total_amount", 0)
+                
+                for invoice in enhanced_invoices:
+                    encounter_total += invoice.get("total_amount", 0)
+                    if invoice.get("payment_status") == "paid":
+                        encounter_paid += invoice.get("total_amount", 0)
+                
+                if encounter_paid >= encounter_total and encounter_total > 0:
+                    payment_status = "paid"
+                elif encounter_paid > 0:
+                    payment_status = "partial"
+                
+                total_revenue += encounter_total
+                total_paid += encounter_paid
+                
+                daily_log.append({
+                    "encounter_id": encounter["id"],
+                    "encounter_number": encounter["encounter_number"],
+                    "patient_id": patient["id"],
+                    "patient_name": f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
+                    "visit_type": encounter["encounter_type"].replace("_", " ").title(),
+                    "completed_time": encounter.get("actual_end_time"),
+                    "provider": encounter.get("provider", "Not specified"),
+                    "total_amount": encounter_total,
+                    "paid_amount": encounter_paid,
+                    "payment_status": payment_status,
+                    "chief_complaint": encounter.get("chief_complaint", "")
+                })
+        
+        return {
+            "date": today.isoformat(),
+            "summary": {
+                "total_patients_seen": len(daily_log),
+                "total_revenue": total_revenue,
+                "total_paid": total_paid,
+                "outstanding_amount": total_revenue - total_paid
+            },
+            "visits": daily_log
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving daily log: {str(e)}")
+
+@api_router.get("/dashboard/patient-queue")
+async def get_patient_queue(current_user: User = Depends(get_current_active_user)):
+    """Get current patient locations in the clinic"""
+    try:
+        today = date.today()
+        
+        # Get today's encounters that are in progress
+        active_encounters = await db.encounters.find({
+            "scheduled_date": {
+                "$gte": datetime.combine(today, datetime.min.time()),
+                "$lt": datetime.combine(today + timedelta(days=1), datetime.min.time())
+            },
+            "status": {"$in": ["arrived", "in_progress", "waiting"]}
+        }).sort("scheduled_date", 1).to_list(100)
+        
+        # Define clinic locations
+        locations = {
+            "lobby": [],
+            "room_1": [],
+            "room_2": [],
+            "room_3": [],
+            "room_4": [],
+            "iv_room": [],
+            "checkout": []
+        }
+        
+        queue_data = []
+        
+        for encounter in active_encounters:
+            patient = await db.patients.find_one({"id": encounter["patient_id"]})
+            if patient:
+                # Determine location based on encounter status and time
+                location = "lobby"  # default
+                if encounter["status"] == "arrived":
+                    location = "lobby"
+                elif encounter["status"] == "in_progress":
+                    # Assign to rooms based on encounter type or randomly for demo
+                    if "iv" in encounter.get("encounter_type", "").lower():
+                        location = "iv_room"
+                    else:
+                        # Simple assignment based on encounter number
+                        room_num = (len(encounter.get("encounter_number", "")) % 4) + 1
+                        location = f"room_{room_num}"
+                elif encounter["status"] == "waiting":
+                    location = "checkout"
+                
+                # Calculate wait time
+                arrival_time = encounter.get("actual_start_time", encounter["scheduled_date"])
+                if isinstance(arrival_time, str):
+                    arrival_time = datetime.fromisoformat(arrival_time.replace('Z', '+00:00'))
+                wait_minutes = int((datetime.utcnow() - arrival_time).total_seconds() / 60)
+                
+                patient_info = {
+                    "encounter_id": encounter["id"],
+                    "encounter_number": encounter["encounter_number"],
+                    "patient_id": patient["id"],
+                    "patient_name": f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
+                    "scheduled_time": encounter["scheduled_date"],
+                    "encounter_type": encounter["encounter_type"].replace("_", " ").title(),
+                    "status": encounter["status"],
+                    "location": location,
+                    "wait_time_minutes": max(0, wait_minutes),
+                    "provider": encounter.get("provider", "Not assigned"),
+                    "priority": "normal"  # Could be enhanced with priority logic
+                }
+                
+                # Add to appropriate location
+                locations[location].append(patient_info)
+                queue_data.append(patient_info)
+        
+        # Calculate summary stats
+        total_waiting = len(queue_data)
+        avg_wait_time = sum(p["wait_time_minutes"] for p in queue_data) / total_waiting if total_waiting > 0 else 0
+        
+        return {
+            "timestamp": datetime.utcnow().isoformat(),
+            "summary": {
+                "total_patients": total_waiting,
+                "average_wait_time": round(avg_wait_time, 1),
+                "locations_in_use": len([loc for loc, patients in locations.items() if patients])
+            },
+            "locations": locations,
+            "all_patients": queue_data
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving patient queue: {str(e)}")
+
+@api_router.get("/dashboard/pending-payments")
+async def get_pending_payments(current_user: User = Depends(get_current_active_user)):
+    """Get patients with unpaid invoices"""
+    try:
+        # Get all unpaid invoices
+        unpaid_invoices = await db.invoices.find({
+            "status": {"$in": ["draft", "sent"]}
+        }).sort("created_at", -1).to_list(100)
+        
+        unpaid_enhanced_invoices = await db.enhanced_invoices.find({
+            "payment_status": {"$in": ["unpaid", "partial"]}
+        }).sort("created_at", -1).to_list(100)
+        
+        pending_payments = []
+        total_outstanding = 0
+        
+        # Process regular invoices
+        for invoice in unpaid_invoices:
+            patient = await db.patients.find_one({"id": invoice["patient_id"]})
+            if patient:
+                outstanding_amount = invoice.get("total_amount", 0)
+                total_outstanding += outstanding_amount
+                
+                # Get encounter details if available
+                encounter = None
+                if "encounter_id" in invoice:
+                    encounter = await db.encounters.find_one({"id": invoice["encounter_id"]})
+                
+                pending_payments.append({
+                    "invoice_id": invoice["id"],
+                    "invoice_number": invoice["invoice_number"],
+                    "invoice_type": "standard",
+                    "patient_id": patient["id"],
+                    "patient_name": f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
+                    "patient_phone": patient.get("telecom", [{}])[0].get("value", ""),
+                    "total_amount": invoice.get("total_amount", 0),
+                    "outstanding_amount": outstanding_amount,
+                    "invoice_date": invoice.get("issue_date"),
+                    "due_date": invoice.get("due_date"),
+                    "days_overdue": (date.today() - date.fromisoformat(invoice.get("due_date", date.today().isoformat()))).days if invoice.get("due_date") else 0,
+                    "encounter_type": encounter.get("encounter_type", "").replace("_", " ").title() if encounter else "N/A",
+                    "status": invoice.get("status", "draft")
+                })
+        
+        # Process enhanced invoices
+        for invoice in unpaid_enhanced_invoices:
+            patient = await db.patients.find_one({"id": invoice["patient_id"]})
+            if patient:
+                outstanding_amount = invoice.get("total_amount", 0) - invoice.get("amount_paid", 0)
+                total_outstanding += outstanding_amount
+                
+                # Get encounter details if available
+                encounter = None
+                if "encounter_id" in invoice:
+                    encounter = await db.encounters.find_one({"id": invoice["encounter_id"]})
+                
+                pending_payments.append({
+                    "invoice_id": invoice["id"],
+                    "invoice_number": invoice["invoice_number"],
+                    "invoice_type": "enhanced",
+                    "patient_id": patient["id"],
+                    "patient_name": f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
+                    "patient_phone": patient.get("telecom", [{}])[0].get("value", ""),
+                    "total_amount": invoice.get("total_amount", 0),
+                    "outstanding_amount": outstanding_amount,
+                    "invoice_date": invoice.get("issue_date"),
+                    "due_date": invoice.get("due_date"),
+                    "days_overdue": (date.today() - date.fromisoformat(invoice.get("due_date", date.today().isoformat()))).days if invoice.get("due_date") else 0,
+                    "encounter_type": encounter.get("encounter_type", "").replace("_", " ").title() if encounter else "N/A",
+                    "status": invoice.get("payment_status", "unpaid"),
+                    "amount_paid": invoice.get("amount_paid", 0)
+                })
+        
+        # Sort by days overdue (most overdue first)
+        pending_payments.sort(key=lambda x: x["days_overdue"], reverse=True)
+        
+        # Calculate summary statistics
+        overdue_count = len([p for p in pending_payments if p["days_overdue"] > 0])
+        avg_days_overdue = sum(max(0, p["days_overdue"]) for p in pending_payments) / len(pending_payments) if pending_payments else 0
+        
+        return {
+            "summary": {
+                "total_outstanding_amount": total_outstanding,
+                "total_pending_invoices": len(pending_payments),
+                "overdue_invoices": overdue_count,
+                "average_days_overdue": round(avg_days_overdue, 1)
+            },
+            "pending_payments": pending_payments
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving pending payments: {str(e)}")
+
+# Keep existing dashboard stats for backward compatibility
+@api_router.get("/dashboard/legacy-stats")
+async def get_legacy_dashboard_stats():
+    pass
+
 # Dashboard Stats
 @api_router.get("/dashboard/stats")
 async def get_dashboard_stats():
