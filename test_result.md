@@ -155,11 +155,11 @@ backend:
 
   - task: "Inventory Management System"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py"
-    stuck_count: 1
+    stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
@@ -167,6 +167,9 @@ backend:
       - working: false
         agent: "testing"
         comment: "Inventory item creation and retrieval endpoints are working correctly, but the inventory transaction endpoint is failing with a 422 Unprocessable Entity error. The error message indicates that the 'item_id' field is required in the request body, but the API is designed to take it from the URL path parameter. There's a mismatch between the API implementation and the expected request format."
+      - working: true
+        agent: "testing"
+        comment: "The Inventory Management System is now working correctly. Successfully created an inventory item, retrieved all inventory items, and performed both 'in' and 'out' transactions. The issue with the inventory transaction endpoint has been fixed."
 
   - task: "Employee Management System"
     implemented: true
