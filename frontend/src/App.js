@@ -1188,29 +1188,25 @@ const Dashboard = ({ setActiveModule, user, onLogout }) => {
 const PatientsModule = ({ setActiveModule }) => {
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
-  const [showForm, setShowForm] = useState(false);
   const [activeTab, setActiveTab] = useState('overview');
-  const [formData, setFormData] = useState({
-    first_name: '', last_name: '', email: '', phone: '', 
-    date_of_birth: '', gender: '', address_line1: '', city: '', state: '', zip_code: ''
-  });
-
-  // EHR Data States
   const [patientSummary, setPatientSummary] = useState(null);
-  const [encounters, setEncounters] = useState([]);
+  const [showPatientForm, setShowPatientForm] = useState(false);
   const [showEncounterForm, setShowEncounterForm] = useState(false);
   const [showVitalsForm, setShowVitalsForm] = useState(false);
-  const [showAllergyForm, setShowAllergyForm] = useState(false);
-  const [showMedicationForm, setShowMedicationForm] = useState(false);
-  const [showSOAPForm, setShowSOAPForm] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
+  const [showSmartFormSelector, setShowSmartFormSelector] = useState(false);
   
   // eRx States
   const [medications, setMedications] = useState([]);
   const [medicationSearch, setMedicationSearch] = useState('');
   const [selectedMedication, setSelectedMedication] = useState(null);
   const [prescriptions, setPrescriptions] = useState([]);
+  
+  // Smart Forms States
+  const [availableForms, setAvailableForms] = useState([]);
+  const [selectedForm, setSelectedForm] = useState(null);
+  const [formSubmissions, setFormSubmissions] = useState([]);
 
   // Prescription Management Functions
   const activatePrescription = async (prescriptionId) => {
