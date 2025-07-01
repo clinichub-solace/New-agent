@@ -4749,6 +4749,469 @@ const EmployeeModule = ({ setActiveModule }) => {
     </div>
   );
 };
+
+// New Dashboard Views Components
+const ERxPatientsView = ({ setActiveModule }) => {
+  const [erxData, setErxData] = useState({ patients: [], total_scheduled: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchERxPatients();
+  }, []);
+
+  const fetchERxPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/dashboard/erx-patients`);
+      setErxData(response.data);
+    } catch (error) {
+      console.error("Error fetching eRx patients:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-white text-center py-8">Loading...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">eRx - Patients Scheduled Today</h1>
+            <p className="text-blue-200">Electronic prescribing and patient management</p>
+          </div>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg border border-white/20"
+          >
+            ← Back to Dashboard
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-purple-200 text-sm">Total Scheduled</h3>
+            <p className="text-3xl font-bold text-white">{erxData.total_scheduled}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-purple-200 text-sm">With Prescriptions</h3>
+            <p className="text-3xl font-bold text-white">
+              {erxData.patients.filter(p => p.active_prescriptions > 0).length}
+            </p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-purple-200 text-sm">With Allergies</h3>
+            <p className="text-3xl font-bold text-white">
+              {erxData.patients.filter(p => p.allergies_count > 0).length}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
+          <div className="p-6 border-b border-white/20">
+            <h2 className="text-xl font-bold text-white">Scheduled Patients - {erxData.date}</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-white/5">
+                <tr>
+                  <th className="text-left p-4 text-blue-200">Time</th>
+                  <th className="text-left p-4 text-blue-200">Patient</th>
+                  <th className="text-left p-4 text-blue-200">Type</th>
+                  <th className="text-left p-4 text-blue-200">Provider</th>
+                  <th className="text-left p-4 text-blue-200">Prescriptions</th>
+                  <th className="text-left p-4 text-blue-200">Allergies</th>
+                  <th className="text-left p-4 text-blue-200">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {erxData.patients.map((patient, index) => (
+                  <tr key={index} className="border-b border-white/10 hover:bg-white/5">
+                    <td className="p-4 text-white">
+                      {new Date(patient.scheduled_time).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </td>
+                    <td className="p-4 text-white font-medium">{patient.patient_name}</td>
+                    <td className="p-4 text-blue-200 capitalize">
+                      {patient.encounter_type.replace('_', ' ')}
+                    </td>
+                    <td className="p-4 text-blue-200">{patient.provider}</td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        patient.active_prescriptions > 0 ? 'bg-purple-500 text-white' : 'bg-gray-500 text-gray-200'
+                      }`}>
+                        {patient.active_prescriptions}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        patient.allergies_count > 0 ? 'bg-red-500 text-white' : 'bg-gray-500 text-gray-200'
+                      }`}>
+                        {patient.allergies_count}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        patient.status === 'scheduled' ? 'bg-blue-500 text-white' :
+                        patient.status === 'arrived' ? 'bg-green-500 text-white' :
+                        patient.status === 'in_progress' ? 'bg-yellow-500 text-white' :
+                        'bg-gray-500 text-gray-200'
+                      }`}>
+                        {patient.status.replace('_', ' ')}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DailyLogView = ({ setActiveModule }) => {
+  const [dailyData, setDailyData] = useState({ visits: [], summary: {} });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDailyLog();
+  }, []);
+
+  const fetchDailyLog = async () => {
+    try {
+      const response = await axios.get(`${API}/dashboard/daily-log`);
+      setDailyData(response.data);
+    } catch (error) {
+      console.error("Error fetching daily log:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-white text-center py-8">Loading...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Daily Log</h1>
+            <p className="text-blue-200">Patients seen today with visit types and payments</p>
+          </div>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg border border-white/20"
+          >
+            ← Back to Dashboard
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-green-200 text-sm">Patients Seen</h3>
+            <p className="text-3xl font-bold text-white">{dailyData.summary.total_patients_seen || 0}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-green-200 text-sm">Total Revenue</h3>
+            <p className="text-3xl font-bold text-white">${dailyData.summary.total_revenue?.toFixed(2) || '0.00'}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-green-200 text-sm">Amount Paid</h3>
+            <p className="text-3xl font-bold text-white">${dailyData.summary.total_paid?.toFixed(2) || '0.00'}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-yellow-200 text-sm">Outstanding</h3>
+            <p className="text-3xl font-bold text-white">${dailyData.summary.outstanding_amount?.toFixed(2) || '0.00'}</p>
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
+          <div className="p-6 border-b border-white/20">
+            <h2 className="text-xl font-bold text-white">Daily Visits - {dailyData.date}</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-white/5">
+                <tr>
+                  <th className="text-left p-4 text-blue-200">Time</th>
+                  <th className="text-left p-4 text-blue-200">Patient</th>
+                  <th className="text-left p-4 text-blue-200">Visit Type</th>
+                  <th className="text-left p-4 text-blue-200">Provider</th>
+                  <th className="text-left p-4 text-blue-200">Amount</th>
+                  <th className="text-left p-4 text-blue-200">Paid</th>
+                  <th className="text-left p-4 text-blue-200">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {dailyData.visits.map((visit, index) => (
+                  <tr key={index} className="border-b border-white/10 hover:bg-white/5">
+                    <td className="p-4 text-white">
+                      {new Date(visit.completed_time).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </td>
+                    <td className="p-4 text-white font-medium">{visit.patient_name}</td>
+                    <td className="p-4 text-blue-200">{visit.visit_type}</td>
+                    <td className="p-4 text-blue-200">{visit.provider}</td>
+                    <td className="p-4 text-white">${visit.total_amount?.toFixed(2) || '0.00'}</td>
+                    <td className="p-4 text-white">${visit.paid_amount?.toFixed(2) || '0.00'}</td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        visit.payment_status === 'paid' ? 'bg-green-500 text-white' :
+                        visit.payment_status === 'partial' ? 'bg-yellow-500 text-white' :
+                        'bg-red-500 text-white'
+                      }`}>
+                        {visit.payment_status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PatientQueueView = ({ setActiveModule }) => {
+  const [queueData, setQueueData] = useState({ locations: {}, summary: {} });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPatientQueue();
+    const interval = setInterval(fetchPatientQueue, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchPatientQueue = async () => {
+    try {
+      const response = await axios.get(`${API}/dashboard/patient-queue`);
+      setQueueData(response.data);
+    } catch (error) {
+      console.error("Error fetching patient queue:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getLocationColor = (location) => {
+    const colors = {
+      lobby: 'bg-blue-500',
+      room_1: 'bg-green-500',
+      room_2: 'bg-green-600',
+      room_3: 'bg-green-700',
+      room_4: 'bg-green-800',
+      iv_room: 'bg-purple-500',
+      checkout: 'bg-orange-500'
+    };
+    return colors[location] || 'bg-gray-500';
+  };
+
+  const getLocationName = (location) => {
+    const names = {
+      lobby: 'Lobby',
+      room_1: 'Room 1',
+      room_2: 'Room 2',
+      room_3: 'Room 3',
+      room_4: 'Room 4',
+      iv_room: 'IV Room',
+      checkout: 'Checkout'
+    };
+    return names[location] || location;
+  };
+
+  if (loading) {
+    return <div className="text-white text-center py-8">Loading...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Patient Queue</h1>
+            <p className="text-blue-200">Real-time patient locations in clinic</p>
+            <p className="text-blue-300 text-sm">Last updated: {new Date(queueData.timestamp).toLocaleTimeString()}</p>
+          </div>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg border border-white/20"
+          >
+            ← Back to Dashboard
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-blue-200 text-sm">Total Patients</h3>
+            <p className="text-3xl font-bold text-white">{queueData.summary.total_patients || 0}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-blue-200 text-sm">Average Wait</h3>
+            <p className="text-3xl font-bold text-white">{queueData.summary.average_wait_time || 0} min</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-blue-200 text-sm">Locations In Use</h3>
+            <p className="text-3xl font-bold text-white">{queueData.summary.locations_in_use || 0}</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {Object.entries(queueData.locations || {}).map(([location, patients]) => (
+            <div key={location} className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+              <div className={`p-4 ${getLocationColor(location)} rounded-t-xl`}>
+                <h3 className="text-white font-bold text-lg">{getLocationName(location)}</h3>
+                <p className="text-white/80">{patients.length} patient{patients.length !== 1 ? 's' : ''}</p>
+              </div>
+              <div className="p-4 space-y-3">
+                {patients.length === 0 ? (
+                  <p className="text-blue-200 text-center py-4">Empty</p>
+                ) : (
+                  patients.map((patient, index) => (
+                    <div key={index} className="bg-white/5 rounded-lg p-3">
+                      <div className="flex justify-between items-start mb-2">
+                        <p className="text-white font-medium text-sm">{patient.patient_name}</p>
+                        <span className="text-blue-200 text-xs">{patient.wait_time_minutes}m</span>
+                      </div>
+                      <p className="text-blue-200 text-xs capitalize">{patient.encounter_type}</p>
+                      <p className="text-blue-300 text-xs">{patient.provider}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const PendingPaymentsView = ({ setActiveModule }) => {
+  const [paymentsData, setPaymentsData] = useState({ pending_payments: [], summary: {} });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPendingPayments();
+  }, []);
+
+  const fetchPendingPayments = async () => {
+    try {
+      const response = await axios.get(`${API}/dashboard/pending-payments`);
+      setPaymentsData(response.data);
+    } catch (error) {
+      console.error("Error fetching pending payments:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="text-white text-center py-8">Loading...</div>;
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-white mb-2">Pending Payments</h1>
+            <p className="text-blue-200">Outstanding invoices and payment tracking</p>
+          </div>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg border border-white/20"
+          >
+            ← Back to Dashboard
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-yellow-200 text-sm">Total Outstanding</h3>
+            <p className="text-3xl font-bold text-white">${paymentsData.summary.total_outstanding_amount?.toFixed(2) || '0.00'}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-yellow-200 text-sm">Pending Invoices</h3>
+            <p className="text-3xl font-bold text-white">{paymentsData.summary.total_pending_invoices || 0}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-red-200 text-sm">Overdue</h3>
+            <p className="text-3xl font-bold text-white">{paymentsData.summary.overdue_invoices || 0}</p>
+          </div>
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+            <h3 className="text-red-200 text-sm">Avg Days Overdue</h3>
+            <p className="text-3xl font-bold text-white">{paymentsData.summary.average_days_overdue?.toFixed(1) || '0.0'}</p>
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
+          <div className="p-6 border-b border-white/20">
+            <h2 className="text-xl font-bold text-white">Outstanding Invoices</h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-white/5">
+                <tr>
+                  <th className="text-left p-4 text-blue-200">Invoice #</th>
+                  <th className="text-left p-4 text-blue-200">Patient</th>
+                  <th className="text-left p-4 text-blue-200">Visit Type</th>
+                  <th className="text-left p-4 text-blue-200">Total</th>
+                  <th className="text-left p-4 text-blue-200">Outstanding</th>
+                  <th className="text-left p-4 text-blue-200">Days Overdue</th>
+                  <th className="text-left p-4 text-blue-200">Status</th>
+                  <th className="text-left p-4 text-blue-200">Phone</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paymentsData.pending_payments.map((payment, index) => (
+                  <tr key={index} className="border-b border-white/10 hover:bg-white/5">
+                    <td className="p-4 text-white font-mono text-sm">{payment.invoice_number}</td>
+                    <td className="p-4 text-white font-medium">{payment.patient_name}</td>
+                    <td className="p-4 text-blue-200">{payment.encounter_type}</td>
+                    <td className="p-4 text-white">${payment.total_amount?.toFixed(2) || '0.00'}</td>
+                    <td className="p-4 text-white font-medium">${payment.outstanding_amount?.toFixed(2) || '0.00'}</td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        payment.days_overdue > 30 ? 'bg-red-500 text-white' :
+                        payment.days_overdue > 0 ? 'bg-orange-500 text-white' :
+                        'bg-green-500 text-white'
+                      }`}>
+                        {payment.days_overdue} days
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        payment.status === 'paid' ? 'bg-green-500 text-white' :
+                        payment.status === 'partial' ? 'bg-yellow-500 text-white' :
+                        'bg-red-500 text-white'
+                      }`}>
+                        {payment.status}
+                      </span>
+                    </td>
+                    <td className="p-4 text-blue-200 text-sm">{payment.patient_phone || 'N/A'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Main App Component with Authentication
 function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
