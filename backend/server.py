@@ -3814,7 +3814,7 @@ async def get_pending_payments(current_user: User = Depends(get_current_active_u
                     "outstanding_amount": outstanding_amount,
                     "invoice_date": invoice.get("issue_date"),
                     "due_date": invoice.get("due_date"),
-                    "days_overdue": (date.today() - date.fromisoformat(invoice.get("due_date", date.today().isoformat()))).days if invoice.get("due_date") else 0,
+                    "days_overdue": (datetime.now().date() - invoice.get("due_date", datetime.now().date())).days if invoice.get("due_date") else 0,
                     "encounter_type": encounter.get("encounter_type", "").replace("_", " ").title() if encounter else "N/A",
                     "status": invoice.get("payment_status", "unpaid"),
                     "amount_paid": invoice.get("amount_paid", 0)
