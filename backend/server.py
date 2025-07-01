@@ -1667,34 +1667,635 @@ async def get_patient(patient_id: str):
 
 # Smart Form Routes
 @api_router.post("/forms", response_model=SmartForm)
-async def create_form(form: SmartForm):
+async def create_form(form: SmartForm, current_user: User = Depends(get_current_active_user)):
+    form.created_by = current_user.username
     form_dict = jsonable_encoder(form)
     await db.forms.insert_one(form_dict)
     return form
 
 @api_router.get("/forms", response_model=List[SmartForm])
-async def get_forms():
-    forms = await db.forms.find().to_list(1000)
+async def get_forms(
+    category: Optional[str] = None,
+    is_template: Optional[bool] = None,
+    current_user: User = Depends(get_current_active_user)
+):
+    query = {}
+    if category:
+        query["category"] = category
+    if is_template is not None:
+        query["is_template"] = is_template
+    
+    forms = await db.forms.find(query).to_list(1000)
     return [SmartForm(**form) for form in forms]
 
+@api_router.get("/forms/{form_id}", response_model=SmartForm)
+async def get_form(form_id: str, current_user: User = Depends(get_current_active_user)):
+    form = await db.forms.find_one({"id": form_id})
+    if not form:
+        raise HTTPException(status_code=404, detail="Form not found")
+    return SmartForm(**form)
+
+@api_router.put("/forms/{form_id}", response_model=SmartForm)
+async def update_form(
+    form_id: str, 
+    form_update: SmartForm, 
+    current_user: User = Depends(get_current_active_user)
+):
+    form_update.updated_at = datetime.utcnow()
+    form_dict = jsonable_encoder(form_update)
+    
+    result = await db.forms.update_one(
+        {"id": form_id},
+        {"$set": form_dict}
+    )
+    
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Form not found")
+    
+    return form_update
+
+@api_router.delete("/forms/{form_id}")
+async def delete_form(form_id: str, current_user: User = Depends(get_current_active_user)):
+    result = await db.forms.delete_one({"id": form_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Form not found")
+    return {"message": "Form deleted successfully"}
+
 @api_router.post("/forms/{form_id}/submit", response_model=FormSubmission)
-async def submit_form(form_id: str, submission_data: Dict[str, Any], patient_id: str):
-    # Process smart tags and create FHIR-compliant data
+async def submit_form(
+    form_id: str, 
+    submission_data: Dict[str, Any],
+    patient_id: str,
+    encounter_id: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user)
+):
+    # Get form details
     form = await db.forms.find_one({"id": form_id})
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
     
+    # Get patient details for smart tag processing
+    patient = await db.patients.find_one({"id": patient_id})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    # Process smart tags in the data
+    processed_data = await process_smart_tags(submission_data, patient, encounter_id)
+    
+    # Generate FHIR data if mapping exists
+    fhir_data = None
+    if form.get("fhir_mapping"):
+        fhir_data = await generate_fhir_data(processed_data, form["fhir_mapping"], patient)
+    
     # Create submission
     submission = FormSubmission(
         form_id=form_id,
+        form_title=form["title"],
         patient_id=patient_id,
-        data=submission_data
-        # TODO: Add FHIR mapping logic
+        patient_name=f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
+        encounter_id=encounter_id,
+        data=submission_data,
+        processed_data=processed_data,
+        fhir_data=fhir_data,
+        submitted_by=current_user.username
     )
     
     submission_dict = jsonable_encoder(submission)
     await db.form_submissions.insert_one(submission_dict)
+    
+    # Link to patient record if encounter provided
+    if encounter_id:
+        await link_form_to_encounter(encounter_id, submission.id)
+    
     return submission
+
+@api_router.get("/forms/{form_id}/submissions", response_model=List[FormSubmission])
+async def get_form_submissions(
+    form_id: str,
+    patient_id: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user)
+):
+    query = {"form_id": form_id}
+    if patient_id:
+        query["patient_id"] = patient_id
+    
+    submissions = await db.form_submissions.find(query).sort("submitted_at", -1).to_list(1000)
+    return [FormSubmission(**submission) for submission in submissions]
+
+@api_router.get("/patients/{patient_id}/form-submissions", response_model=List[FormSubmission])
+async def get_patient_form_submissions(
+    patient_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    submissions = await db.form_submissions.find({"patient_id": patient_id}).sort("submitted_at", -1).to_list(1000)
+    return [FormSubmission(**submission) for submission in submissions]
+
+@api_router.get("/form-submissions/{submission_id}", response_model=FormSubmission)
+async def get_form_submission(
+    submission_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    submission = await db.form_submissions.find_one({"id": submission_id})
+    if not submission:
+        raise HTTPException(status_code=404, detail="Form submission not found")
+    return FormSubmission(**submission)
+
+@api_router.post("/forms/templates/init")
+async def initialize_form_templates(current_user: User = Depends(get_current_active_user)):
+    """Initialize pre-built medical form templates"""
+    try:
+        # Check if templates already exist
+        existing_templates = await db.forms.count_documents({"is_template": True})
+        if existing_templates > 0:
+            return {"message": "Form templates already initialized", "templates_count": existing_templates}
+        
+        templates = await create_medical_form_templates()
+        
+        # Insert templates
+        await db.forms.insert_many(templates)
+        
+        return {
+            "message": "Medical form templates initialized successfully",
+            "templates_added": len(templates)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error initializing templates: {str(e)}")
+
+@api_router.post("/forms/from-template/{template_id}", response_model=SmartForm)
+async def create_form_from_template(
+    template_id: str,
+    title: str,
+    description: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Create a new form from a template"""
+    template = await db.forms.find_one({"id": template_id, "is_template": True})
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    
+    # Create new form from template
+    new_form = SmartForm(
+        title=title,
+        description=description or template.get("description"),
+        fields=template["fields"],
+        category=template.get("category", "custom"),
+        fhir_mapping=template.get("fhir_mapping"),
+        is_template=False,
+        created_by=current_user.username
+    )
+    
+    form_dict = jsonable_encoder(new_form)
+    await db.forms.insert_one(form_dict)
+    
+    return new_form
+
+# Helper Functions for Smart Forms
+
+async def process_smart_tags(data: Dict[str, Any], patient: Dict[str, Any], encounter_id: Optional[str] = None) -> Dict[str, Any]:
+    """Process smart tags in form submission data"""
+    processed = data.copy()
+    
+    # Get encounter if provided
+    encounter = None
+    if encounter_id:
+        encounter = await db.encounters.find_one({"id": encounter_id})
+    
+    # Smart tag mappings
+    smart_tag_values = {
+        "{patient_name}": f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
+        "{patient_dob}": patient.get("birth_date", ""),
+        "{patient_gender}": patient.get("gender", ""),
+        "{patient_phone}": patient.get("telecom", [{}])[0].get("value", ""),
+        "{patient_address}": f"{patient.get('address', [{}])[0].get('line', [''])[0]}, {patient.get('address', [{}])[0].get('city', '')}",
+        "{current_date}": date.today().isoformat(),
+        "{current_time}": datetime.now().strftime("%H:%M"),
+        "{current_datetime}": datetime.now().isoformat(),
+        "{provider_name}": encounter.get("provider", "Dr. Provider") if encounter else "Dr. Provider",
+        "{clinic_name}": "ClinicHub Medical Center",
+        "{encounter_date}": encounter.get("scheduled_date", "").split("T")[0] if encounter else "",
+        "{chief_complaint}": encounter.get("chief_complaint", "") if encounter else ""
+    }
+    
+    # Replace smart tags in all string values
+    for key, value in processed.items():
+        if isinstance(value, str):
+            for tag, replacement in smart_tag_values.items():
+                value = value.replace(tag, str(replacement))
+            processed[key] = value
+    
+    return processed
+
+async def generate_fhir_data(data: Dict[str, Any], fhir_mapping: Dict[str, str], patient: Dict[str, Any]) -> Dict[str, Any]:
+    """Generate FHIR-compliant data from form submission"""
+    fhir_data = {
+        "resourceType": "QuestionnaireResponse",
+        "id": str(uuid.uuid4()),
+        "status": "completed",
+        "subject": {
+            "reference": f"Patient/{patient['id']}"
+        },
+        "authored": datetime.utcnow().isoformat(),
+        "item": []
+    }
+    
+    # Map form data to FHIR structure based on mapping
+    for field_id, value in data.items():
+        if field_id in fhir_mapping:
+            fhir_path = fhir_mapping[field_id]
+            fhir_data["item"].append({
+                "linkId": field_id,
+                "text": fhir_path,
+                "answer": [{"valueString": str(value)}]
+            })
+    
+    return fhir_data
+
+async def link_form_to_encounter(encounter_id: str, submission_id: str):
+    """Link form submission to patient encounter"""
+    await db.encounters.update_one(
+        {"id": encounter_id},
+        {"$addToSet": {"form_submissions": submission_id}}
+    )
+
+async def create_medical_form_templates():
+    """Create pre-built medical form templates"""
+    templates = []
+    
+    # Patient Intake Form
+    intake_fields = [
+        FormField(
+            type="text",
+            label="Patient Name",
+            smart_tag="{patient_name}",
+            required=True,
+            order=1
+        ),
+        FormField(
+            type="date",
+            label="Date of Birth",
+            smart_tag="{patient_dob}",
+            required=True,
+            order=2
+        ),
+        FormField(
+            type="select",
+            label="Gender",
+            options=["Male", "Female", "Other", "Prefer not to say"],
+            smart_tag="{patient_gender}",
+            required=True,
+            order=3
+        ),
+        FormField(
+            type="text",
+            label="Phone Number",
+            smart_tag="{patient_phone}",
+            required=True,
+            order=4
+        ),
+        FormField(
+            type="textarea",
+            label="Address",
+            smart_tag="{patient_address}",
+            required=True,
+            order=5
+        ),
+        FormField(
+            type="textarea",
+            label="Chief Complaint",
+            placeholder="Describe your primary concern or reason for visit",
+            required=True,
+            order=6
+        ),
+        FormField(
+            type="textarea",
+            label="Current Medications",
+            placeholder="List all current medications, supplements, and dosages",
+            order=7
+        ),
+        FormField(
+            type="textarea",
+            label="Allergies",
+            placeholder="List any known allergies to medications, foods, or environmental factors",
+            order=8
+        ),
+        FormField(
+            type="textarea",
+            label="Medical History",
+            placeholder="Previous surgeries, chronic conditions, family history",
+            order=9
+        ),
+        FormField(
+            type="checkbox",
+            label="Insurance Information Verified",
+            order=10
+        )
+    ]
+    
+    templates.append({
+        "id": str(uuid.uuid4()),
+        "title": "Patient Intake Form",
+        "description": "Comprehensive patient intake and registration form",
+        "fields": [jsonable_encoder(field) for field in intake_fields],
+        "category": "intake",
+        "is_template": True,
+        "template_name": "patient_intake",
+        "status": "active",
+        "fhir_mapping": {
+            "patient_name": "Patient.name",
+            "dob": "Patient.birthDate",
+            "gender": "Patient.gender",
+            "phone": "Patient.telecom",
+            "address": "Patient.address",
+            "chief_complaint": "Encounter.reasonCode",
+            "medications": "MedicationStatement.medicationCodeableConcept",
+            "allergies": "AllergyIntolerance.code",
+            "medical_history": "Condition.code"
+        },
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    })
+    
+    # Vital Signs Form
+    vitals_fields = [
+        FormField(
+            type="text",
+            label="Patient Name",
+            smart_tag="{patient_name}",
+            required=True,
+            order=1
+        ),
+        FormField(
+            type="date",
+            label="Date",
+            smart_tag="{current_date}",
+            required=True,
+            order=2
+        ),
+        FormField(
+            type="number",
+            label="Height (inches)",
+            placeholder="Height in inches",
+            validation_rules={"min": 12, "max": 96},
+            required=True,
+            order=3
+        ),
+        FormField(
+            type="number",
+            label="Weight (lbs)",
+            placeholder="Weight in pounds",
+            validation_rules={"min": 1, "max": 1000},
+            required=True,
+            order=4
+        ),
+        FormField(
+            type="text",
+            label="Blood Pressure",
+            placeholder="120/80",
+            required=True,
+            order=5
+        ),
+        FormField(
+            type="number",
+            label="Heart Rate (BPM)",
+            placeholder="Beats per minute",
+            validation_rules={"min": 30, "max": 200},
+            required=True,
+            order=6
+        ),
+        FormField(
+            type="number",
+            label="Temperature (°F)",
+            placeholder="98.6",
+            validation_rules={"min": 90, "max": 110},
+            required=True,
+            order=7
+        ),
+        FormField(
+            type="number",
+            label="Oxygen Saturation (%)",
+            placeholder="98",
+            validation_rules={"min": 70, "max": 100},
+            order=8
+        ),
+        FormField(
+            type="number",
+            label="Respiratory Rate",
+            placeholder="Breaths per minute",
+            validation_rules={"min": 8, "max": 40},
+            order=9
+        ),
+        FormField(
+            type="textarea",
+            label="Notes",
+            placeholder="Additional vital signs notes",
+            order=10
+        )
+    ]
+    
+    templates.append({
+        "id": str(uuid.uuid4()),
+        "title": "Vital Signs Assessment",
+        "description": "Standard vital signs measurement form",
+        "fields": [jsonable_encoder(field) for field in vitals_fields],
+        "category": "vitals",
+        "is_template": True,
+        "template_name": "vital_signs",
+        "status": "active",
+        "fhir_mapping": {
+            "height": "Observation.valueQuantity (height)",
+            "weight": "Observation.valueQuantity (weight)",
+            "blood_pressure": "Observation.component (systolic/diastolic)",
+            "heart_rate": "Observation.valueQuantity (heart rate)",
+            "temperature": "Observation.valueQuantity (body temperature)",
+            "oxygen_saturation": "Observation.valueQuantity (oxygen saturation)",
+            "respiratory_rate": "Observation.valueQuantity (respiratory rate)"
+        },
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    })
+    
+    # Pain Assessment Form
+    pain_fields = [
+        FormField(
+            type="text",
+            label="Patient Name",
+            smart_tag="{patient_name}",
+            required=True,
+            order=1
+        ),
+        FormField(
+            type="date",
+            label="Assessment Date",
+            smart_tag="{current_date}",
+            required=True,
+            order=2
+        ),
+        FormField(
+            type="select",
+            label="Pain Scale (0-10)",
+            options=["0 - No Pain", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10 - Worst Pain"],
+            required=True,
+            order=3
+        ),
+        FormField(
+            type="textarea",
+            label="Pain Location",
+            placeholder="Describe where you feel pain",
+            required=True,
+            order=4
+        ),
+        FormField(
+            type="select",
+            label="Pain Character",
+            options=["Sharp", "Dull", "Burning", "Stabbing", "Throbbing", "Cramping", "Aching"],
+            order=5
+        ),
+        FormField(
+            type="select",
+            label="Pain Duration",
+            options=["Constant", "Intermittent", "Only with movement", "Only at rest"],
+            order=6
+        ),
+        FormField(
+            type="textarea",
+            label="What makes it better?",
+            placeholder="Activities, medications, positions that help",
+            order=7
+        ),
+        FormField(
+            type="textarea",
+            label="What makes it worse?",
+            placeholder="Activities, positions, times that worsen pain",
+            order=8
+        ),
+        FormField(
+            type="checkbox",
+            label="Pain interferes with sleep",
+            order=9
+        ),
+        FormField(
+            type="checkbox",
+            label="Pain interferes with daily activities",
+            order=10
+        )
+    ]
+    
+    templates.append({
+        "id": str(uuid.uuid4()),
+        "title": "Pain Assessment",
+        "description": "Comprehensive pain evaluation form",
+        "fields": [jsonable_encoder(field) for field in pain_fields],
+        "category": "assessment",
+        "is_template": True,
+        "template_name": "pain_assessment",
+        "status": "active",
+        "fhir_mapping": {
+            "pain_scale": "Observation.valueInteger (pain intensity)",
+            "pain_location": "Observation.bodySite",
+            "pain_character": "Observation.component (pain character)",
+            "pain_duration": "Observation.component (pain duration)"
+        },
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    })
+    
+    # Discharge Instructions Form
+    discharge_fields = [
+        FormField(
+            type="text",
+            label="Patient Name",
+            smart_tag="{patient_name}",
+            required=True,
+            order=1
+        ),
+        FormField(
+            type="date",
+            label="Discharge Date",
+            smart_tag="{current_date}",
+            required=True,
+            order=2
+        ),
+        FormField(
+            type="text",
+            label="Attending Physician",
+            smart_tag="{provider_name}",
+            required=True,
+            order=3
+        ),
+        FormField(
+            type="textarea",
+            label="Diagnosis",
+            placeholder="Primary diagnosis and any secondary conditions",
+            required=True,
+            order=4
+        ),
+        FormField(
+            type="textarea",
+            label="Treatment Provided",
+            placeholder="Summary of treatment received",
+            required=True,
+            order=5
+        ),
+        FormField(
+            type="textarea",
+            label="Medications Prescribed",
+            placeholder="List medications, dosages, and instructions",
+            order=6
+        ),
+        FormField(
+            type="textarea",
+            label="Activity Restrictions",
+            placeholder="Physical limitations, work restrictions, etc.",
+            order=7
+        ),
+        FormField(
+            type="textarea",
+            label="Follow-up Instructions",
+            placeholder="When to return, who to see, warning signs",
+            required=True,
+            order=8
+        ),
+        FormField(
+            type="date",
+            label="Follow-up Appointment Date",
+            order=9
+        ),
+        FormField(
+            type="textarea",
+            label="Warning Signs",
+            placeholder="When to seek immediate medical attention",
+            required=True,
+            order=10
+        ),
+        FormField(
+            type="checkbox",
+            label="Patient understands discharge instructions",
+            required=True,
+            order=11
+        )
+    ]
+    
+    templates.append({
+        "id": str(uuid.uuid4()),
+        "title": "Discharge Instructions",
+        "description": "Patient discharge planning and instructions form",
+        "fields": [jsonable_encoder(field) for field in discharge_fields],
+        "category": "discharge",
+        "is_template": True,
+        "template_name": "discharge_instructions",
+        "status": "active",
+        "fhir_mapping": {
+            "diagnosis": "Condition.code",
+            "treatment": "Procedure.code",
+            "medications": "MedicationRequest.medicationCodeableConcept",
+            "follow_up": "Appointment.description"
+        },
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    })
+    
+    return templates
 
 # Invoice Routes
 @api_router.post("/invoices", response_model=Invoice)
