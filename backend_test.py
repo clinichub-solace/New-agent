@@ -1024,6 +1024,253 @@ def test_authentication():
     
     return admin_token
 
+def test_erx_system(patient_id, admin_token):
+    print("\n--- Testing eRx (Electronic Prescribing) System ---")
+    
+    # Test 1: Initialize eRx Data
+    try:
+        url = f"{API_URL}/init-erx-data"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.post(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Initialize eRx Data", True, result)
+    except Exception as e:
+        print(f"Error initializing eRx data: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Initialize eRx Data", False)
+        return None, None
+    
+    # Test 2: Search Medications
+    medication_id = None
+    try:
+        url = f"{API_URL}/medications"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        params = {"search": "Lisinopril"}
+        
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        result = response.json()
+        
+        # Verify FHIR-compliant medication structure
+        assert len(result) > 0
+        assert result[0]["resource_type"] == "Medication"
+        assert "code" in result[0]
+        assert "generic_name" in result[0]
+        
+        medication_id = result[0]["id"]
+        print_test_result("Search Medications", True, result)
+    except Exception as e:
+        print(f"Error searching medications: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Search Medications", False)
+    
+    # Test 3: Filter Medications by Drug Class
+    try:
+        url = f"{API_URL}/medications"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        params = {"drug_class": "antibiotic"}
+        
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        result = response.json()
+        
+        # Verify filtering works
+        assert len(result) > 0
+        assert all(med["drug_class"] == "antibiotic" for med in result)
+        
+        print_test_result("Filter Medications by Drug Class", True, result)
+    except Exception as e:
+        print(f"Error filtering medications: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Filter Medications by Drug Class", False)
+    
+    # Test 4: Get Medication Details
+    if medication_id:
+        try:
+            url = f"{API_URL}/medications/{medication_id}"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            result = response.json()
+            
+            # Verify detailed medication information
+            assert result["id"] == medication_id
+            assert "contraindications" in result
+            assert "warnings" in result
+            assert "standard_dosing" in result
+            
+            print_test_result("Get Medication Details", True, result)
+        except Exception as e:
+            print(f"Error getting medication details: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Get Medication Details", False)
+    
+    # Test 5: Create Prescription
+    prescription_id = None
+    if medication_id and patient_id:
+        try:
+            url = f"{API_URL}/prescriptions"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            data = {
+                "medication_id": medication_id,
+                "patient_id": patient_id,
+                "prescriber_id": "prescriber-123",
+                "prescriber_name": "Dr. Sarah Johnson",
+                
+                # Dosage Information
+                "dosage_text": "Take 1 tablet by mouth once daily",
+                "dose_quantity": 1.0,
+                "dose_unit": "tablet",
+                "frequency": "DAILY",
+                "route": "oral",
+                
+                # Prescription Details
+                "quantity": 30.0,
+                "days_supply": 30,
+                "refills": 2,
+                
+                # Clinical Context
+                "indication": "Hypertension",
+                "diagnosis_codes": ["I10"],
+                "special_instructions": "Take in the morning",
+                
+                "created_by": "admin"
+            }
+            
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            result = response.json()
+            
+            # Verify FHIR MedicationRequest structure
+            assert result["resource_type"] == "MedicationRequest"
+            assert result["medication_id"] == medication_id
+            assert result["patient_id"] == patient_id
+            assert "prescription_number" in result
+            assert result["prescription_number"].startswith("RX")
+            assert "allergies_checked" in result
+            assert "interactions_checked" in result
+            
+            prescription_id = result["id"]
+            print_test_result("Create Prescription", True, result)
+        except Exception as e:
+            print(f"Error creating prescription: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Create Prescription", False)
+    
+    # Test 6: Get Patient Prescriptions
+    if patient_id:
+        try:
+            url = f"{API_URL}/patients/{patient_id}/prescriptions"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            result = response.json()
+            
+            # Verify prescriptions are returned
+            assert isinstance(result, list)
+            if len(result) > 0:
+                assert result[0]["patient_id"] == patient_id
+            
+            print_test_result("Get Patient Prescriptions", True, result)
+        except Exception as e:
+            print(f"Error getting patient prescriptions: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Get Patient Prescriptions", False)
+    
+    # Test 7: Update Prescription Status
+    if prescription_id:
+        try:
+            url = f"{API_URL}/prescriptions/{prescription_id}/status"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            params = {"status": "active"}
+            
+            response = requests.put(url, headers=headers, params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Update Prescription Status", True, result)
+        except Exception as e:
+            print(f"Error updating prescription status: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Update Prescription Status", False)
+    
+    # Test 8: Check Prescription Interactions
+    if prescription_id:
+        try:
+            url = f"{API_URL}/prescriptions/{prescription_id}/interactions"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            result = response.json()
+            
+            # Verify interaction checking
+            assert "interactions" in result
+            
+            print_test_result("Check Prescription Interactions", True, result)
+        except Exception as e:
+            print(f"Error checking prescription interactions: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Check Prescription Interactions", False)
+    
+    # Test 9: Check Drug-Drug Interactions
+    try:
+        # First get two medication IDs
+        url = f"{API_URL}/medications"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        medications = response.json()
+        
+        if len(medications) >= 2:
+            drug1_id = medications[0]["id"]
+            drug2_id = medications[1]["id"]
+            
+            url = f"{API_URL}/drug-interactions"
+            params = {"drug1_id": drug1_id, "drug2_id": drug2_id}
+            
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            # Verify interaction data structure
+            assert "interaction" in result
+            
+            print_test_result("Check Drug-Drug Interactions", True, result)
+        else:
+            print("Not enough medications to test drug interactions")
+            print_test_result("Check Drug-Drug Interactions", False)
+    except Exception as e:
+        print(f"Error checking drug interactions: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Check Drug-Drug Interactions", False)
+    
+    return medication_id, prescription_id
+
 def run_all_tests():
     print("\n" + "=" * 80)
     print("TESTING CLINICHUB BACKEND API")
@@ -1048,6 +1295,10 @@ def run_all_tests():
     test_medical_history(patient_id)
     test_diagnosis_procedure(patient_id, encounter_id if encounter_id else soap_encounter_id)
     test_patient_summary(patient_id)
+    
+    # Test eRx system
+    if admin_token and patient_id:
+        test_erx_system(patient_id, admin_token)
     
     test_dashboard_analytics()
     
