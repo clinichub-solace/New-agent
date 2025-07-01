@@ -2925,7 +2925,7 @@ async def get_billable_inventory_items():
 
 # eRx API Endpoints
 
-@api_router.get("/medications", response_model=List[Medication])
+@api_router.get("/medications", response_model=List[FHIRMedication])
 async def get_medications(
     search: Optional[str] = None,
     drug_class: Optional[DrugClass] = None,
@@ -2950,7 +2950,7 @@ async def get_medications(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving medications: {str(e)}")
 
-@api_router.get("/medications/{medication_id}", response_model=Medication)
+@api_router.get("/medications/{medication_id}", response_model=FHIRMedication)
 async def get_medication(
     medication_id: str,
     current_user: User = Depends(get_current_active_user)
