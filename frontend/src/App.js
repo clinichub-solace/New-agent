@@ -1199,6 +1199,18 @@ const PatientsModule = ({ setActiveModule }) => {
   const [activeTab, setActiveTab] = useState('overview');
   const [patientSummary, setPatientSummary] = useState(null);
   const [showPatientForm, setShowPatientForm] = useState(false);
+  const [formData, setFormData] = useState({
+    first_name: '', 
+    last_name: '', 
+    email: '', 
+    phone: '', 
+    date_of_birth: '', 
+    gender: '', 
+    address_line1: '', 
+    city: '', 
+    state: '', 
+    zip_code: ''
+  });
   const [showEncounterForm, setShowEncounterForm] = useState(false);
   const [showVitalsForm, setShowVitalsForm] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
