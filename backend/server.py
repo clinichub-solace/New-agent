@@ -4810,52 +4810,6 @@ async def cancel_appointment(appointment_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error cancelling appointment: {str(e)}")
 
-# Calendar View
-@api_router.get("/appointments/calendar")
-async def get_calendar_view(date: str, view: str = "week"):
-    try:
-        from datetime import datetime, timedelta
-        
-        # Parse date
-        base_date = datetime.fromisoformat(date)
-        
-        if view == "day":
-            start_date = base_date.date()
-            end_date = start_date
-        elif view == "week":
-            # Get start of week (Monday)
-            start_date = (base_date - timedelta(days=base_date.weekday())).date()
-            end_date = start_date + timedelta(days=6)
-        elif view == "month":
-            start_date = base_date.replace(day=1).date()
-            # Get last day of month
-            if base_date.month == 12:
-                next_month = base_date.replace(year=base_date.year + 1, month=1, day=1)
-            else:
-                next_month = base_date.replace(month=base_date.month + 1, day=1)
-            end_date = (next_month - timedelta(days=1)).date()
-        else:
-            raise HTTPException(status_code=400, detail="Invalid view type. Use 'day', 'week', or 'month'")
-        
-        # Get appointments in date range
-        appointments = await db.appointments.find({
-            "appointment_date": {
-                "$gte": start_date.isoformat(),
-                "$lte": end_date.isoformat()
-            }
-        }).sort("appointment_date", 1).to_list(1000)
-        
-        return {
-            "view": view,
-            "start_date": start_date.isoformat(),
-            "end_date": end_date.isoformat(),
-            "appointments": [Appointment(**apt) for apt in appointments]
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching calendar: {str(e)}")
-
 # Patient Communications System API Endpoints
 
 # Message Templates
