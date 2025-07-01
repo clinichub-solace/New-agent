@@ -6738,6 +6738,372 @@ const PendingPaymentsView = ({ setActiveModule }) => {
   );
 };
 
+// Patient Authentication Context
+const PatientAuthContext = createContext();
+
+export const usePatientAuth = () => {
+  const context = useContext(PatientAuthContext);
+  if (!context) {
+    throw new Error('usePatientAuth must be used within a PatientAuthProvider');
+  }
+  return context;
+};
+
+const PatientAuthProvider = ({ children }) => {
+  const [patient, setPatient] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [token, setToken] = useState(localStorage.getItem('patient_token'));
+
+  useEffect(() => {
+    if (token) {
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      fetchCurrentPatient();
+    } else {
+      setLoading(false);
+    }
+  }, [token]);
+
+  const fetchCurrentPatient = async () => {
+    try {
+      // For now, we'll store patient info in token storage
+      const patientData = localStorage.getItem('patient_data');
+      if (patientData) {
+        setPatient(JSON.parse(patientData));
+      }
+    } catch (error) {
+      console.error('Error fetching patient:', error);
+      logout();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const login = async (email, password) => {
+    try {
+      const response = await axios.post(`${API}/patient-auth/login`, { email, password });
+      const { access_token, patient: patientData } = response.data;
+      
+      localStorage.setItem('patient_token', access_token);
+      localStorage.setItem('patient_data', JSON.stringify(patientData));
+      setToken(access_token);
+      setPatient(patientData);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      
+      return { success: true };
+    } catch (error) {
+      return { 
+        success: false, 
+        error: error.response?.data?.detail || 'Login failed' 
+      };
+    }
+  };
+
+  const logout = () => {
+    localStorage.removeItem('patient_token');
+    localStorage.removeItem('patient_data');
+    setToken(null);
+    setPatient(null);
+    delete axios.defaults.headers.common['Authorization'];
+  };
+
+  const value = {
+    patient,
+    login,
+    logout,
+    loading,
+    isAuthenticated: !!patient
+  };
+
+  return (
+    <PatientAuthContext.Provider value={value}>
+      {children}
+    </PatientAuthContext.Provider>
+  );
+};
+
+// Patient Login Page
+const PatientLoginPage = ({ onSwitchToStaff }) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const { login } = usePatientAuth();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+
+    const result = await login(email, password);
+    if (!result.success) {
+      setError(result.error);
+    }
+    setLoading(false);
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 flex items-center justify-center">
+      <div className="bg-white/10 backdrop-blur-lg rounded-2xl shadow-2xl p-8 w-full max-w-md border border-white/20">
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-white mb-2">Patient Portal</h1>
+          <p className="text-blue-200">Access your medical records and appointments</p>
+        </div>
+        
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <label className="block text-sm font-medium text-blue-100 mb-2">
+              Email Address
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+              placeholder="Enter your email"
+              required
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-blue-100 mb-2">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-blue-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent"
+              placeholder="Enter your password"
+              required
+            />
+          </div>
+          
+          {error && (
+            <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-3">
+              <p className="text-red-200 text-sm">{error}</p>
+            </div>
+          )}
+          
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white py-3 px-4 rounded-lg font-medium hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 focus:ring-offset-transparent transition-all duration-200 disabled:opacity-50"
+          >
+            {loading ? 'Signing In...' : 'Sign In'}
+          </button>
+        </form>
+        
+        <div className="mt-6 text-center">
+          <button
+            onClick={onSwitchToStaff}
+            className="text-blue-200 hover:text-white text-sm transition-colors duration-200"
+          >
+            Staff Login →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Patient Portal Dashboard
+const PatientPortal = () => {
+  const { patient, logout } = usePatientAuth();
+  const [appointments, setAppointments] = useState([]);
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [showBooking, setShowBooking] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPatientAppointments();
+    fetchAvailableSlots();
+  }, []);
+
+  const fetchPatientAppointments = async () => {
+    try {
+      const response = await axios.get(`${API}/appointments`, {
+        params: { patient_id: patient.id }
+      });
+      setAppointments(response.data);
+    } catch (error) {
+      console.error("Error fetching appointments:", error);
+    }
+  };
+
+  const fetchAvailableSlots = async () => {
+    try {
+      const response = await axios.get(`${API}/patient-portal/available-slots`);
+      setAvailableSlots(response.data.available_slots);
+    } catch (error) {
+      console.error("Error fetching available slots:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleBookAppointment = async (slotData) => {
+    try {
+      const appointmentData = {
+        provider_id: slotData.provider_id,
+        appointment_date: slotData.date,
+        start_time: slotData.start_time,
+        end_time: slotData.end_time,
+        appointment_type: "consultation",
+        reason: "Patient portal booking"
+      };
+
+      await axios.post(`${API}/patient-portal/book-appointment`, appointmentData);
+      
+      setShowBooking(false);
+      fetchPatientAppointments();
+      fetchAvailableSlots();
+      
+      alert('Appointment booked successfully!');
+    } catch (error) {
+      console.error("Error booking appointment:", error);
+      alert('Error booking appointment. Please try again.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white shadow-sm border-b">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-between items-center py-4">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Patient Portal</h1>
+              <p className="text-gray-600">Welcome, {patient.name?.given?.[0]} {patient.name?.family}</p>
+            </div>
+            <button
+              onClick={logout}
+              className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors"
+            >
+              Sign Out
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* My Appointments */}
+          <div className="bg-white rounded-lg shadow p-6">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">My Appointments</h2>
+              <button
+                onClick={() => setShowBooking(true)}
+                className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors"
+              >
+                Book New
+              </button>
+            </div>
+            
+            <div className="space-y-3">
+              {appointments.length > 0 ? (
+                appointments.map((appointment) => (
+                  <div key={appointment.id} className="border rounded-lg p-4 hover:bg-gray-50">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="font-medium text-gray-900">
+                          {appointment.provider_name}
+                        </h3>
+                        <p className="text-sm text-gray-600">
+                          {appointment.appointment_date} at {appointment.start_time}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {appointment.reason}
+                        </p>
+                      </div>
+                      <span className={`px-2 py-1 text-xs font-semibold rounded-full ${
+                        appointment.status === 'confirmed' ? 'bg-green-100 text-green-800' :
+                        appointment.status === 'scheduled' ? 'bg-blue-100 text-blue-800' :
+                        'bg-gray-100 text-gray-800'
+                      }`}>
+                        {appointment.status}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">No appointments scheduled</p>
+              )}
+            </div>
+          </div>
+
+          {/* Available Slots for Booking */}
+          {showBooking && (
+            <div className="bg-white rounded-lg shadow p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-900">Available Appointments</h2>
+                <button
+                  onClick={() => setShowBooking(false)}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  ✕
+                </button>
+              </div>
+              
+              <div className="space-y-3 max-h-96 overflow-y-auto">
+                {availableSlots.length > 0 ? (
+                  availableSlots.slice(0, 10).map((slot, index) => (
+                    <div key={index} className="border rounded-lg p-4 hover:bg-blue-50">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <h3 className="font-medium text-gray-900">
+                            {slot.provider_name}
+                          </h3>
+                          <p className="text-sm text-gray-600">
+                            {slot.date} at {slot.start_time}
+                          </p>
+                          <p className="text-sm text-gray-500">
+                            {slot.specialty}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => handleBookAppointment(slot)}
+                          className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
+                        >
+                          Book
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No available slots</p>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Patient App Component
+const PatientApp = ({ onSwitchToStaff }) => {
+  const { isAuthenticated, loading } = usePatientAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      </div>
+    );
+  }
+
+  return isAuthenticated ? <PatientPortal /> : <PatientLoginPage onSwitchToStaff={onSwitchToStaff} />;
+};
+
 // Main App Component with Authentication
 function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
