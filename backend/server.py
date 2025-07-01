@@ -4862,11 +4862,11 @@ async def init_message_templates():
 @api_router.get("/communications/templates")
 async def get_message_templates(type: str = None):
     try:
-        query = {"active": True}
+        query = {"is_active": True}
         if type:
-            query["type"] = type
+            query["message_type"] = type
         
-        templates = await db.message_templates.find(query).sort("name", 1).to_list(1000)
+        templates = await db.communication_templates.find(query).sort("name", 1).to_list(1000)
         return templates
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching templates: {str(e)}")
@@ -4877,7 +4877,7 @@ async def create_message_template(template_data: dict):
         template_data["id"] = str(uuid.uuid4())
         template_data["created_at"] = datetime.utcnow()
         
-        await db.message_templates.insert_one(jsonable_encoder(template_data))
+        await db.communication_templates.insert_one(jsonable_encoder(template_data))
         return {"message": "Template created successfully", "id": template_data["id"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating template: {str(e)}")
