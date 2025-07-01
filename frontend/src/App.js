@@ -1024,6 +1024,10 @@ const Dashboard = ({ setActiveModule, user, onLogout }) => {
     }
   };
 
+  const handleCardClick = (cardType) => {
+    setActiveModule(cardType);
+  };
+
   const modules = [
     { name: "Patients/EHR", key: "patients", icon: "👥", color: "bg-blue-500", permission: "patients:read" },
     { name: "Smart Forms", key: "forms", icon: "📋", color: "bg-green-500", permission: "forms:read" },
