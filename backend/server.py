@@ -2957,7 +2957,7 @@ async def get_medication(
 ):
     """Get specific medication details"""
     try:
-        medication = await db.medications.find_one({"id": medication_id})
+        medication = await db.fhir_medications.find_one({"id": medication_id})
         if not medication:
             raise HTTPException(status_code=404, detail="Medication not found")
         return medication
