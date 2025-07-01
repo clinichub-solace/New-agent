@@ -3196,7 +3196,7 @@ async def check_drug_allergies(patient_id: str, medication_id: str) -> List[Dict
         allergies = await db.allergies.find({"patient_id": patient_id}).to_list(100)
         
         # Get medication details
-        medication = await db.medications.find_one({"id": medication_id})
+        medication = await db.fhir_medications.find_one({"id": medication_id})
         
         alerts = []
         for allergy in allergies:
