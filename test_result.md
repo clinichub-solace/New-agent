@@ -828,6 +828,9 @@ backend:
       - working: false
         agent: "testing"
         comment: "Partially working. Successfully tested: 1) POST /api/appointments - Created an appointment with patient and provider data, 2) GET /api/appointments - Retrieved all appointments, 3) GET /api/appointments/{id} - Retrieved a specific appointment by ID, 4) DELETE /api/appointments/{id} - Successfully cancelled an appointment. However, found issues with: 1) PUT /api/appointments/{id}/status - Returns 422 Unprocessable Entity error, expecting a body parameter but none is defined, 2) GET /api/appointments/calendar - Returns 404 Not Found error. These issues need to be fixed."
+      - working: true
+        agent: "testing"
+        comment: "Successfully tested the appointment status update endpoint. The PUT /api/appointments/{id}/status endpoint now works correctly when provided with a JSON body containing the 'status' field. However, the GET /api/appointments/calendar endpoint still returns a 404 Not Found error with the message 'Appointment not found'. This suggests the calendar view functionality is not fully implemented or has a different issue."
 
   - task: "Calendar Views for Scheduling"
     implemented: false
