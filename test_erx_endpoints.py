@@ -87,12 +87,13 @@ def test_authentication():
         return None
 
 # Test GET /api/vital-signs
-def test_vital_signs_endpoint():
+def test_vital_signs_endpoint(admin_token):
     print("\n--- Testing GET /api/vital-signs Endpoint ---")
     
     try:
         url = f"{API_URL}/vital-signs"
-        response = requests.get(url)
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
         result = response.json()
         
