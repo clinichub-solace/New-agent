@@ -137,11 +137,11 @@ backend:
 
   - task: "Invoice/Receipt Management System"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py"
-    stuck_count: 1
+    stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
@@ -149,6 +149,9 @@ backend:
       - working: false
         agent: "testing"
         comment: "Invoice creation endpoint is failing with a 500 Internal Server Error. The server is not providing detailed error information, suggesting a potential server-side issue in the invoice creation logic. This needs to be fixed before further testing can be done on the invoice management system."
+      - working: true
+        agent: "testing"
+        comment: "The Invoice/Receipt Management System is now working correctly. Successfully created an invoice with auto-numbering, retrieved all invoices, and retrieved a specific invoice by ID. The issue appears to have been fixed."
 
   - task: "Inventory Management System"
     implemented: true
