@@ -377,6 +377,9 @@ backend:
       - working: false
         agent: "testing"
         comment: "Tested the eRx functionality and found several issues: 1) Creating prescriptions works correctly, 2) However, retrieving prescriptions fails with Method Not Allowed (405) error, 3) Several eRx-specific endpoints are missing: /api/erx/medications, /api/erx/init, and /api/erx/formulary all return 404 Not Found. The system needs further development to fully support electronic prescribing workflows according to the requirements."
+      - working: false
+        agent: "testing"
+        comment: "Retested the eRx functionality. The GET /api/prescriptions endpoint is now working correctly, returning prescription data with a 200 OK response. The POST /api/erx/init endpoint is also working correctly, initializing the eRx system. However, the GET /api/erx/medications and GET /api/erx/formulary endpoints are still failing with 500 Internal Server Error. These endpoints need to be fixed to properly support the eRx workflow."
 
   - task: "Provider Management System"
     implemented: true
