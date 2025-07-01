@@ -2855,6 +2855,89 @@ const PatientsModule = ({ setActiveModule }) => {
                 </div>
               )}
 
+              {activeTab === 'forms' && patientSummary && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-white">Patient Forms</h3>
+                    <button
+                      onClick={() => setShowSmartFormSelector(true)}
+                      className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg text-sm"
+                    >
+                      + Fill Out Form
+                    </button>
+                  </div>
+                  
+                  {/* Form Submissions History */}
+                  {patientSummary.form_submissions?.length > 0 ? (
+                    <div className="space-y-3">
+                      {patientSummary.form_submissions.map((submission) => (
+                        <div key={submission.id} className="bg-white/5 rounded-lg p-4">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-2">
+                                <p className="text-white font-medium text-lg">
+                                  {submission.form_title}
+                                </p>
+                                <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                                  submission.status === 'completed' ? 'bg-green-500' :
+                                  submission.status === 'reviewed' ? 'bg-blue-500' : 'bg-yellow-500'
+                                }`}>
+                                  {submission.status}
+                                </span>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-3">
+                                <div>
+                                  <p className="text-blue-200 text-sm">Submitted</p>
+                                  <p className="text-white">
+                                    {formatDate(submission.submitted_at)}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-blue-200 text-sm">Submitted By</p>
+                                  <p className="text-white">{submission.submitted_by}</p>
+                                </div>
+                                {submission.encounter_id && (
+                                  <div>
+                                    <p className="text-blue-200 text-sm">Encounter</p>
+                                    <p className="text-white">Linked</p>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                            
+                            <div className="flex flex-col space-y-2 ml-4">
+                              <button
+                                onClick={() => viewFormSubmission(submission.id)}
+                                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                              >
+                                View
+                              </button>
+                              {submission.fhir_data && (
+                                <button
+                                  onClick={() => exportToFHIR(submission.id)}
+                                  className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                                >
+                                  Export FHIR
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-blue-300 text-2xl">📋</span>
+                      </div>
+                      <p className="text-blue-200">No forms submitted yet</p>
+                      <p className="text-blue-300 text-sm">Click "Fill Out Form" to start with a medical form</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Keep existing medications, allergies, history tabs */}
               {activeTab === 'medications' && patientSummary && (
                 <div className="space-y-4">
