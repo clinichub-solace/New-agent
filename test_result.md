@@ -104,6 +104,55 @@
 
 user_problem_statement: "Build ClinicHub - AI-Powered Medical Practice Management System with core modules: SmartForm, EHR, Receipts/Invoice, Inventory, Employee Management, Check Printing, Finances. FHIR standard compliance required."
 
+frontend:
+  - task: "Patient Portal Access"
+    implemented: false
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "There is no dedicated Patient Portal or Patient Login functionality in the current implementation. No links or buttons for patient portal access were found in the UI. The application currently only has a staff interface with no separate patient-facing portal."
+
+  - task: "Add Patient Functionality in EHR"
+    implemented: true
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: "The Add Patient button exists in the Patients/EHR module, but there are issues with the form submission. The formData variable is referenced in the handleSubmit function but is not defined in the component scope. This causes the form submission to fail when attempting to add a new patient."
+
+  - task: "eRx Functionality"
+    implemented: true
+    working: true
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: true
+        agent: "testing"
+        comment: "The eRx card on the dashboard correctly redirects to the Patients module as expected. This behavior is correct according to the application design, as the eRx functionality is integrated into the Patients/EHR module rather than being a separate module."
+
+  - task: "General System Health Check"
+    implemented: true
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: "The application has authentication working, but there are issues with form handling in the Patients module. The main issue is with the Add Patient functionality where the formData variable is referenced but not defined. Additionally, there is no dedicated Patient Portal functionality as requested in the requirements."
+
 backend:
   - task: "Dashboard Views for Clinic Operations"
     implemented: true
