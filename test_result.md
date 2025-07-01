@@ -152,6 +152,9 @@ backend:
       - working: true
         agent: "testing"
         comment: "Successfully tested the enhanced Smart Forms module with all advanced features. All tests passed successfully across all four phases: 1) Medical Templates Initialization - The /api/forms/templates/init endpoint correctly creates all four required medical templates (patient_intake, vital_signs, pain_assessment, discharge_instructions), 2) Enhanced Form Management - Successfully tested form filtering by category, individual form retrieval, form updates, and creating forms from templates, 3) Form Submission & Smart Tags - Verified that smart tags are properly processed and replaced with actual patient data, and FHIR data is correctly generated from form submissions, 4) Submission Management - All submission management endpoints are working correctly, including form-specific submissions, patient submissions, and individual submission details."
+      - working: true
+        agent: "testing"
+        comment: "Successfully tested the HIPAA and Texas compliant form templates. The /api/forms/templates/init-compliant endpoint correctly creates all four required compliant templates: 1) HIPAA & Texas Compliant Patient Intake Form - Contains comprehensive patient information fields with proper demographic, emergency contact, and insurance sections, 2) Informed Consent to Medical Treatment - Includes proper consent language and required signature fields, 3) Telemedicine Informed Consent - Contains Texas-compliant telemedicine consent language and signature fields, 4) HIPAA Privacy Notice and Authorization - Includes complete HIPAA privacy notice and authorization options. All forms have the correct structure, fields, and signature requirements."
 
   - task: "Invoice/Receipt Management System"
     implemented: true
@@ -441,6 +444,23 @@ backend:
         agent: "testing"
         comment: "Confirmed previous findings. The initialization endpoint /api/communications/init-templates works correctly, but the templates endpoint /api/communications/templates still returns a 500 Internal Server Error. This confirms that the templates endpoint has an implementation issue that needs to be fixed."
 
+  - task: "HIPAA and Texas Compliant Form Templates"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Implemented HIPAA and Texas compliant form templates with the /api/forms/templates/init-compliant endpoint. Created four compliant templates: patient intake form, informed consent form, telemedicine consent form, and HIPAA privacy notice form."
+      - working: true
+        agent: "testing"
+        comment: "Successfully tested the HIPAA and Texas compliant form templates. The /api/forms/templates/init-compliant endpoint correctly creates all four required compliant templates: 1) HIPAA & Texas Compliant Patient Intake Form - Contains comprehensive patient information fields with proper demographic, emergency contact, and insurance sections, 2) Informed Consent to Medical Treatment - Includes proper consent language and required signature fields, 3) Telemedicine Informed Consent - Contains Texas-compliant telemedicine consent language and signature fields, 4) HIPAA Privacy Notice and Authorization - Includes complete HIPAA privacy notice and authorization options. All forms have the correct structure, fields, and signature requirements."
+
 agent_communication:
   - agent: "testing"
     message: "Tested the two problematic endpoints as requested: 1) Calendar View endpoint (/api/appointments/calendar) is implemented in the code but still returns a 404 error with the message 'Appointment not found'. Tested with parameters (date=2025-01-15&view=week) and without parameters, both return the same error. 2) Communications Templates endpoint - The initialization endpoint (/api/communications/init-templates) works correctly, but the templates endpoint (/api/communications/templates) still returns a 500 Internal Server Error. Both endpoints need implementation fixes."
+  - agent: "testing"
+    message: "Successfully tested the HIPAA and Texas compliant form templates. The /api/forms/templates/init-compliant endpoint correctly creates all four required compliant templates with proper structure and fields. All forms include appropriate signature fields and required legal language. The patient intake form includes comprehensive demographic, emergency contact, and insurance sections. The consent forms have proper informed consent language, and the HIPAA form includes privacy rights and authorization options. All tests passed successfully."
