@@ -383,11 +383,11 @@ backend:
 
   - task: "Appointment Scheduling System"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "testing"
@@ -485,7 +485,10 @@ backend:
 ##
 ## agent_communication:
 ##     -agent: "main"  # or "testing" or "user"
-##     -message: "Communication message between agents"
+##     -message: "Communication message between agents"      - working: false
+        agent: "testing"
+        comment: "Partially working. Successfully tested template initialization and creation. The POST /api/communications/init-templates endpoint works correctly and initializes message templates. However, there are issues with: 1) GET /api/communications/templates - Returns 500 Internal Server Error, 2) POST /api/communications/send - Has issues with template variable processing. The message sending functionality works when using a manually created template, but the template variable processing needs to be fixed."
+
 
 # Protocol Guidelines for Main agent
 #
@@ -810,11 +813,11 @@ backend:
 
   - task: "Appointment Scheduling System"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "testing"
@@ -846,11 +849,11 @@ backend:
 
   - task: "Patient Communications System"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "testing"
