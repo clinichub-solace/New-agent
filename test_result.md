@@ -383,7 +383,7 @@ backend:
 
   - task: "Appointment Scheduling System"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
@@ -398,6 +398,9 @@ backend:
       - working: "NA"
         agent: "main"
         comment: "Implemented complete Appointment Scheduling API endpoints: POST/GET /api/appointments, GET /api/appointments/{id}, PUT /api/appointments/{id}/status, DELETE /api/appointments/{id}, GET /api/appointments/calendar. Includes appointment CRUD operations, status management, and calendar views with proper patient/provider validation."
+      - working: false
+        agent: "testing"
+        comment: "Partially working. Successfully tested: 1) POST /api/appointments - Created an appointment with patient and provider data, 2) GET /api/appointments - Retrieved all appointments, 3) GET /api/appointments/{id} - Retrieved a specific appointment by ID, 4) DELETE /api/appointments/{id} - Successfully cancelled an appointment. However, found issues with: 1) PUT /api/appointments/{id}/status - Returns 422 Unprocessable Entity error, expecting a body parameter but none is defined, 2) GET /api/appointments/calendar - Returns 404 Not Found error. These issues need to be fixed."
 
   - task: "Calendar Views for Scheduling"
     implemented: false
