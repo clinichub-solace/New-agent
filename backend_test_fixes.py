@@ -159,11 +159,36 @@ def create_test_provider(admin_token):
 def create_test_appointment(admin_token, patient_id, provider_id):
     print("\n--- Creating Test Appointment ---")
     try:
-        url = f"{API_URL}/appointments"
+        # First get patient and provider details to include names
+        patient_url = f"{API_URL}/patients/{patient_id}"
+        provider_url = f"{API_URL}/providers/{provider_id}"
         headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        patient_response = requests.get(patient_url, headers=headers)
+        patient_response.raise_for_status()
+        patient_data = patient_response.json()
+        
+        provider_response = requests.get(provider_url, headers=headers)
+        provider_response.raise_for_status()
+        provider_data = provider_response.json()
+        
+        # Extract patient name
+        patient_name = ""
+        if "name" in patient_data and len(patient_data["name"]) > 0:
+            name_obj = patient_data["name"][0]
+            given = name_obj.get("given", [""])[0] if name_obj.get("given") else ""
+            family = name_obj.get("family", "")
+            patient_name = f"{given} {family}".strip()
+        
+        # Extract provider name
+        provider_name = f"{provider_data['title']} {provider_data['first_name']} {provider_data['last_name']}".strip()
+        
+        url = f"{API_URL}/appointments"
         data = {
             "patient_id": patient_id,
+            "patient_name": patient_name,
             "provider_id": provider_id,
+            "provider_name": provider_name,
             "appointment_date": date.today().isoformat(),
             "start_time": "10:00",
             "end_time": "10:30",
