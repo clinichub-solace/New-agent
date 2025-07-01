@@ -505,6 +505,18 @@ frontend:
         agent: "main"
         comment: "Fixed compilation errors and login page now renders successfully. Authentication system fully integrated with role-based module access."
 
+  - task: "Scheduling and Communications Module Components"
+    implemented: true
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Found duplicate component definitions for SchedulingModule and CommunicationsModule in App.js (lines 5543 and 6404). Components are defined but have duplicate definitions which could cause runtime errors. Frontend components are calling backend APIs but backend endpoints are not implemented (404 errors). Need to clean up duplicates and ensure proper frontend-backend integration."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
