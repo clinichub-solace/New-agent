@@ -378,11 +378,14 @@ backend:
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
       - working: "NA"
         agent: "testing"
         comment: "The Appointment Scheduling System has not been implemented yet. Attempted to test the /api/appointments endpoint but received a 404 Not Found error. This system depends on the Provider Management System which is also not implemented."
+      - working: "NA"
+        agent: "main"
+        comment: "Found that scheduling models (Appointment, Provider, ProviderSchedule, AppointmentSlot) are defined but NO API endpoints are implemented. Need to implement full CRUD operations for appointments, providers, and calendar functionality."
 
   - task: "Calendar Views for Scheduling"
     implemented: false
