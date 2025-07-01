@@ -388,11 +388,8 @@ metadata:
 test_plan:
   current_focus:
     - "eRx Electronic Prescribing System (FHIR Compliant)"
-    - "Invoice/Receipt Management System"
-    - "Inventory Management System"
   stuck_tasks:
-    - "Invoice/Receipt Management System"
-    - "Inventory Management System"
+    - "eRx Electronic Prescribing System (FHIR Compliant)"
   test_all: false
   test_priority: "high_first"
 
