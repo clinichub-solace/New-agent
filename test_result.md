@@ -865,6 +865,9 @@ backend:
         agent: "main"
         comment: "Implemented complete Patient Communications API endpoints: POST /api/communications/init-templates, GET/POST /api/communications/templates, POST /api/communications/send, GET /api/communications/messages, GET /api/communications/messages/patient/{id}, PUT /api/communications/messages/{id}/status. Includes message templates, template variable processing, message management, and patient-specific communication history."
 
+      - working: false
+        agent: "testing"
+        comment: "Partially working. Successfully tested template initialization and creation. The POST /api/communications/init-templates endpoint works correctly and initializes message templates. However, there are issues with: 1) GET /api/communications/templates - Returns 500 Internal Server Error, 2) POST /api/communications/send - Has issues with template variable processing. The message sending functionality works when using a manually created template, but the template variable processing needs to be fixed."
 frontend:
   - task: "Medical Dashboard with Practice Analytics"
     implemented: true
