@@ -3463,7 +3463,7 @@ const InvoicesModule = ({ setActiveModule }) => {
                 <div className="flex justify-end space-x-4 pt-4">
                   <button
                     type="button"
-                    onClick={() => setShowForm(false)}
+                    onClick={() => setShowPatientForm(false)}
                     className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                   >
                     Cancel
