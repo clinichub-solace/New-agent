@@ -1946,6 +1946,148 @@ const PatientsModule = ({ setActiveModule }) => {
                 </div>
               )}
 
+              {activeTab === 'prescriptions' && patientSummary && (
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <h3 className="text-lg font-semibold text-white">eRx - Electronic Prescriptions</h3>
+                    <button
+                      onClick={() => setShowPrescriptionForm(true)}
+                      className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg text-sm"
+                    >
+                      + New Prescription
+                    </button>
+                  </div>
+                  
+                  {/* Safety Alerts */}
+                  {patientSummary.prescription_alerts?.length > 0 && (
+                    <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-4">
+                      <h4 className="text-red-200 font-semibold mb-2">⚠️ Safety Alerts</h4>
+                      {patientSummary.prescription_alerts.map((alert, index) => (
+                        <div key={index} className="text-red-200 text-sm mb-1">
+                          • {alert.message}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Current Prescriptions */}
+                  {patientSummary.prescriptions?.length > 0 ? (
+                    <div className="space-y-3">
+                      {patientSummary.prescriptions.map((prescription) => (
+                        <div key={prescription.id} className="bg-white/5 rounded-lg p-4">
+                          <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-3 mb-2">
+                                <p className="text-white font-medium text-lg">
+                                  {prescription.medication_display}
+                                </p>
+                                <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                                  prescription.status === 'active' ? 'bg-green-500' :
+                                  prescription.status === 'draft' ? 'bg-yellow-500' :
+                                  prescription.status === 'cancelled' ? 'bg-red-500' : 'bg-gray-500'
+                                }`}>
+                                  {prescription.status}
+                                </span>
+                                <span className="text-purple-300 text-sm font-mono">
+                                  {prescription.prescription_number}
+                                </span>
+                              </div>
+                              
+                              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3">
+                                <div>
+                                  <p className="text-blue-200 text-sm">Dosage</p>
+                                  <p className="text-white">
+                                    {prescription.dosage_instruction?.[0]?.text || 'Not specified'}
+                                  </p>
+                                </div>
+                                <div>
+                                  <p className="text-blue-200 text-sm">Quantity</p>
+                                  <p className="text-white">{prescription.quantity || 'Not specified'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-blue-200 text-sm">Days Supply</p>
+                                  <p className="text-white">{prescription.days_supply || 'Not specified'}</p>
+                                </div>
+                                <div>
+                                  <p className="text-blue-200 text-sm">Refills</p>
+                                  <p className="text-white">{prescription.refills}</p>
+                                </div>
+                              </div>
+                              
+                              <div className="flex items-center space-x-4 text-sm">
+                                <p className="text-blue-200">
+                                  Prescribed: {formatDate(prescription.authored_on)}
+                                </p>
+                                <p className="text-blue-200">
+                                  By: {prescription.prescriber_name}
+                                </p>
+                                {prescription.reason_code?.[0]?.text && (
+                                  <p className="text-blue-200">
+                                    For: {prescription.reason_code[0].text}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Safety Alerts for this prescription */}
+                              {(prescription.allergy_alerts?.length > 0 || prescription.interaction_alerts?.length > 0) && (
+                                <div className="mt-3 p-3 bg-yellow-500/20 rounded-lg">
+                                  <p className="text-yellow-200 font-semibold text-sm mb-2">Safety Alerts:</p>
+                                  {prescription.allergy_alerts?.map((alert, idx) => (
+                                    <p key={idx} className="text-yellow-200 text-sm">• {alert.message}</p>
+                                  ))}
+                                  {prescription.interaction_alerts?.map((alert, idx) => (
+                                    <p key={idx} className="text-yellow-200 text-sm">• {alert.message}</p>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            
+                            <div className="flex flex-col space-y-2 ml-4">
+                              {prescription.status === 'draft' && (
+                                <button
+                                  onClick={() => activatePrescription(prescription.id)}
+                                  className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                                >
+                                  Activate
+                                </button>
+                              )}
+                              {prescription.status === 'active' && (
+                                <button
+                                  onClick={() => updatePrescriptionStatus(prescription.id, 'on-hold')}
+                                  className="bg-orange-500 hover:bg-orange-600 text-white px-3 py-1 rounded text-sm"
+                                >
+                                  Hold
+                                </button>
+                              )}
+                              <button
+                                onClick={() => checkPrescriptionInteractions(prescription.id)}
+                                className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                              >
+                                Check Interactions
+                              </button>
+                              <button
+                                onClick={() => updatePrescriptionStatus(prescription.id, 'cancelled')}
+                                className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
+                              >
+                                Cancel
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8">
+                      <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <span className="text-purple-300 text-2xl">💊</span>
+                      </div>
+                      <p className="text-blue-200">No prescriptions found</p>
+                      <p className="text-blue-300 text-sm">Click "New Prescription" to create the first prescription</p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Keep existing medications, allergies, history tabs */}
               {activeTab === 'medications' && patientSummary && (
                 <div className="space-y-4">
