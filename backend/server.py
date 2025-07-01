@@ -4870,11 +4870,11 @@ async def init_message_templates():
         raise HTTPException(status_code=500, detail=f"Error initializing templates: {str(e)}")
 
 @api_router.get("/communications/templates")
-async def get_message_templates(type: str = None):
+async def get_message_templates(template_type: str = None):
     try:
         query = {"is_active": True}
-        if type:
-            query["message_type"] = type
+        if template_type:
+            query["message_type"] = template_type
         
         templates = await db.communication_templates.find(query).sort("name", 1).to_list(1000)
         return templates
