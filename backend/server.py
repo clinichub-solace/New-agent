@@ -4918,9 +4918,28 @@ async def send_message(message_data: dict):
                 message_data["subject"] = subject
                 message_data["message_type"] = template["message_type"]
         
+        # Extract patient name properly
+        patient_name = ""
+        if "name" in patient:
+            if isinstance(patient["name"], dict):
+                # Single name object
+                given = patient["name"].get("given", [""])[0] if patient["name"].get("given") else ""
+                family = patient["name"].get("family", "")
+                patient_name = f"{given} {family}".strip()
+            elif isinstance(patient["name"], list) and len(patient["name"]) > 0:
+                # Array of name objects - use first one
+                name_obj = patient["name"][0]
+                given = name_obj.get("given", [""])[0] if name_obj.get("given") else ""
+                family = name_obj.get("family", "")
+                patient_name = f"{given} {family}".strip()
+            else:
+                patient_name = "Unknown Patient"
+        else:
+            patient_name = "Unknown Patient"
+        
         message = PatientMessage(
             id=str(uuid.uuid4()),
-            patient_name=patient["name"]["given"][0] + " " + patient["name"]["family"],
+            patient_name=patient_name,
             **message_data
         )
         
