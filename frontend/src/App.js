@@ -1256,67 +1256,6 @@ const PatientsModule = ({ setActiveModule }) => {
     }
   };
 
-  // Smart Forms Integration Functions
-  const fetchAvailableForms = async () => {
-    try {
-      const response = await axios.get(`${API}/forms`, {
-        params: { is_template: false }
-      });
-      setAvailableForms(response.data);
-    } catch (error) {
-      console.error("Error fetching forms:", error);
-    }
-  };
-
-  const fetchPatientFormSubmissions = async (patientId) => {
-    try {
-      const response = await axios.get(`${API}/patients/${patientId}/form-submissions`);
-      setFormSubmissions(response.data);
-      return response.data;
-    } catch (error) {
-      console.error("Error fetching form submissions:", error);
-      return [];
-    }
-  };
-
-  const viewFormSubmission = async (submissionId) => {
-    try {
-      const response = await axios.get(`${API}/form-submissions/${submissionId}`);
-      const submission = response.data;
-      
-      // Create a modal to display submission details
-      alert(`Form: ${submission.form_title}\nSubmitted: ${submission.submitted_at}\nStatus: ${submission.status}`);
-    } catch (error) {
-      console.error("Error viewing form submission:", error);
-    }
-  };
-
-  const exportToFHIR = async (submissionId) => {
-    try {
-      const response = await axios.get(`${API}/form-submissions/${submissionId}`);
-      const submission = response.data;
-      
-      if (submission.fhir_data) {
-        // Create downloadable FHIR file
-        const dataStr = JSON.stringify(submission.fhir_data, null, 2);
-        const dataBlob = new Blob([dataStr], { type: 'application/json' });
-        const url = URL.createObjectURL(dataBlob);
-        
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `fhir-${submission.form_title}-${submission.submitted_at.split('T')[0]}.json`;
-        link.click();
-        
-        URL.revokeObjectURL(url);
-        alert('FHIR data exported successfully!');
-      } else {
-        alert('No FHIR data available for this submission.');
-      }
-    } catch (error) {
-      console.error("Error exporting FHIR data:", error);
-    }
-  };
-
   useEffect(() => {
     fetchPatients();
   }, []);
