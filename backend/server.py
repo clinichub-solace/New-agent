@@ -156,12 +156,15 @@ class PatientCreate(BaseModel):
 # Smart Form Models
 class FormField(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    type: str  # text, number, date, select, checkbox, textarea
+    type: str  # text, number, date, select, checkbox, textarea, signature, file
     label: str
     placeholder: Optional[str] = None
     required: bool = False
     options: List[str] = []  # for select fields
     smart_tag: Optional[str] = None  # {patient_name}, {date}, etc.
+    validation_rules: Dict[str, Any] = {}  # min, max, pattern, etc.
+    conditional_logic: Optional[Dict[str, Any]] = None  # show/hide conditions
+    order: int = 0
 
 class SmartForm(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
@@ -170,16 +173,35 @@ class SmartForm(BaseModel):
     fields: List[FormField]
     status: FormStatus = FormStatus.DRAFT
     fhir_mapping: Optional[Dict[str, str]] = None
+    category: str = "custom"  # intake, assessment, vitals, discharge, custom
+    is_template: bool = False
+    template_name: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_by: Optional[str] = None
 
 class FormSubmission(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     form_id: str
+    form_title: str
     patient_id: str
+    patient_name: str
+    encounter_id: Optional[str] = None
     data: Dict[str, Any]
+    processed_data: Dict[str, Any] = {}  # Smart tags processed
     fhir_data: Optional[Dict[str, Any]] = None
+    submitted_by: str
     submitted_at: datetime = Field(default_factory=datetime.utcnow)
+    status: str = "completed"  # draft, completed, reviewed
+
+class FormTemplate(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: str
+    category: str
+    fields: List[FormField]
+    fhir_mapping: Dict[str, str] = {}
+    is_active: bool = True
 
 # Invoice/Receipt Models
 class InvoiceItem(BaseModel):
