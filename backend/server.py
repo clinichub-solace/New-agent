@@ -677,6 +677,229 @@ class DailyFinancialSummary(BaseModel):
     created_by: str
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+# eRx (Electronic Prescribing) Models - FHIR R4 Compliant
+
+class DrugClass(str, Enum):
+    ANTIBIOTIC = "antibiotic"
+    ANTIHYPERTENSIVE = "antihypertensive"
+    ANTIDIABETIC = "antidiabetic"
+    ANALGESIC = "analgesic"
+    ANTICOAGULANT = "anticoagulant"
+    ANTIDEPRESSANT = "antidepressant"
+    BRONCHODILATOR = "bronchodilator"
+    STEROID = "steroid"
+    ANTIHISTAMINE = "antihistamine"
+    OTHER = "other"
+
+class PrescriptionStatus(str, Enum):
+    DRAFT = "draft"
+    ACTIVE = "active"
+    ON_HOLD = "on-hold"
+    CANCELLED = "cancelled"
+    COMPLETED = "completed"
+    ENTERED_IN_ERROR = "entered-in-error"
+    STOPPED = "stopped"
+
+class DrugInteractionSeverity(str, Enum):
+    MINOR = "minor"
+    MODERATE = "moderate"
+    MAJOR = "major"
+    CONTRAINDICATED = "contraindicated"
+
+# FHIR-compliant Medication Resource
+class Medication(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    
+    # FHIR Medication Resource Fields
+    resource_type: str = "Medication"
+    identifier: List[Dict[str, Any]] = []  # NDC, RxNorm codes
+    code: Dict[str, Any]  # CodeableConcept for medication coding
+    status: str = "active"  # active | inactive | entered-in-error
+    manufacturer: Optional[str] = None
+    form: Optional[Dict[str, Any]] = None  # tablet, capsule, liquid, etc.
+    
+    # Clinical Information
+    generic_name: str
+    brand_names: List[str] = []
+    strength: str  # e.g., "500mg", "10mg/5ml"
+    dosage_forms: List[str] = []  # tablet, capsule, injection, etc.
+    route_of_administration: List[str] = []  # oral, IV, IM, topical, etc.
+    drug_class: DrugClass
+    controlled_substance_schedule: Optional[str] = None  # I, II, III, IV, V
+    
+    # Safety Information
+    contraindications: List[str] = []
+    warnings: List[str] = []
+    pregnancy_category: Optional[str] = None  # A, B, C, D, X
+    
+    # Prescribing Information
+    standard_dosing: Dict[str, Any] = {}  # age/weight-based dosing
+    max_daily_dose: Optional[str] = None
+    duration_limits: Optional[str] = None
+    
+    # Reference Information
+    rxnorm_code: Optional[str] = None
+    ndc_codes: List[str] = []
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+# FHIR-compliant MedicationRequest Resource
+class MedicationRequest(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    
+    # FHIR MedicationRequest Resource Fields
+    resource_type: str = "MedicationRequest"
+    identifier: List[Dict[str, Any]] = []
+    status: PrescriptionStatus
+    intent: str = "order"  # proposal | plan | order | original-order
+    category: List[Dict[str, Any]] = []  # inpatient | outpatient | community
+    priority: str = "routine"  # routine | urgent | asap | stat
+    
+    # Medication Reference
+    medication_id: str  # Reference to Medication resource
+    medication_display: str  # Human-readable medication name
+    
+    # Patient Information
+    patient_id: str  # Reference to Patient resource
+    patient_display: str
+    
+    # Encounter Context
+    encounter_id: Optional[str] = None
+    
+    # Prescriber Information (FHIR Practitioner)
+    prescriber_id: str
+    prescriber_name: str
+    prescriber_npi: Optional[str] = None
+    prescriber_dea: Optional[str] = None
+    
+    # Prescription Details
+    authored_on: datetime = Field(default_factory=datetime.utcnow)
+    dosage_instruction: List[Dict[str, Any]] = []  # FHIR Dosage datatype
+    
+    # Dispense Request
+    dispense_request: Dict[str, Any] = {}
+    substitution: Dict[str, Any] = {"allowed": True}
+    
+    # Clinical Information
+    reason_code: List[Dict[str, Any]] = []  # ICD-10 codes
+    reason_reference: List[str] = []  # Reference to conditions
+    note: List[Dict[str, Any]] = []  # Additional instructions
+    
+    # Prescription Tracking
+    prescription_number: str = Field(default_factory=lambda: f"RX{datetime.now().strftime('%Y%m%d')}{str(uuid.uuid4())[:6].upper()}")
+    days_supply: Optional[int] = None
+    quantity: Optional[float] = None
+    refills: int = 0
+    
+    # Safety Checks
+    allergies_checked: bool = False
+    interactions_checked: bool = False
+    allergy_alerts: List[Dict[str, Any]] = []
+    interaction_alerts: List[Dict[str, Any]] = []
+    
+    # Pharmacy Information
+    pharmacy_id: Optional[str] = None
+    pharmacy_name: Optional[str] = None
+    
+    # Audit Trail
+    created_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Electronic Signature
+    electronically_signed: bool = False
+    signature_timestamp: Optional[datetime] = None
+
+class MedicationRequestCreate(BaseModel):
+    medication_id: str
+    patient_id: str
+    prescriber_id: str
+    prescriber_name: str
+    encounter_id: Optional[str] = None
+    
+    # Dosage Information
+    dosage_text: str  # Human-readable dosage instruction
+    dose_quantity: float
+    dose_unit: str
+    frequency: str  # BID, TID, QID, etc.
+    route: str  # oral, IV, IM, topical, etc.
+    
+    # Prescription Details
+    quantity: float
+    days_supply: int
+    refills: int = 0
+    generic_substitution_allowed: bool = True
+    
+    # Clinical Context
+    indication: str  # Reason for prescription
+    diagnosis_codes: List[str] = []  # ICD-10 codes
+    special_instructions: Optional[str] = None
+    
+    # Pharmacy (optional)
+    pharmacy_id: Optional[str] = None
+    
+    created_by: str
+
+# Drug Interaction Model
+class DrugInteraction(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    drug1_id: str
+    drug1_name: str
+    drug2_id: str
+    drug2_name: str
+    severity: DrugInteractionSeverity
+    description: str
+    clinical_consequence: str
+    management_recommendation: str
+    evidence_level: str  # established, probable, theoretical
+    onset: str  # rapid, delayed
+    documentation: str  # excellent, good, fair, poor
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+# Prescription Audit Log for HIPAA Compliance
+class PrescriptionAuditLog(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    prescription_id: str
+    patient_id: str
+    action: str  # created, modified, viewed, cancelled, transmitted
+    performed_by: str  # User ID
+    performed_by_name: str
+    performed_at: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Detailed Action Information
+    action_details: Dict[str, Any] = {}
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    
+    # HIPAA Audit Requirements
+    access_reason: Optional[str] = None
+    changes_made: Dict[str, Any] = {}
+    
+    # System Information
+    system_version: Optional[str] = None
+    
+class DrugAllergy(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    medication_id: str
+    medication_name: str
+    allergen: str
+    reaction_type: str  # allergy, intolerance, side_effect
+    severity: str  # mild, moderate, severe, life_threatening
+    reaction_description: str
+    onset_date: Optional[date] = None
+    documented_by: str
+    documentation_date: datetime = Field(default_factory=datetime.utcnow)
+    
+    # FHIR AllergyIntolerance fields
+    clinical_status: str = "active"  # active, inactive, resolved
+    verification_status: str = "confirmed"  # unconfirmed, confirmed, refuted
+    category: str = "medication"  # food, medication, environment, biologic
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 # User and Authentication Models
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
