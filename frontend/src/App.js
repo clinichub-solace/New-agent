@@ -2864,6 +2864,7 @@ const PatientsModule = ({ setActiveModule }) => {
         {showEncounterForm && <EncounterForm />}
         {showVitalsForm && <VitalsForm />}
         {showDocumentUpload && <DocumentUploadForm />}
+        {showPrescriptionForm && <PrescriptionForm />}
       </div>
     );
   }
