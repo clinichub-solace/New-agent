@@ -1032,52 +1032,68 @@ const Dashboard = ({ setActiveModule, user, onLogout }) => {
       </div>
 
       <div className="max-w-7xl mx-auto px-6 py-8">
-        {/* Enhanced Stats Cards - Removed Encounters */}
+        {/* New Clinic Operations Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+          <div 
+            onClick={() => handleCardClick('erx-patients')}
+            className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 cursor-pointer hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-1"
+          >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-200 text-sm">Total Patients</p>
-                <p className="text-3xl font-bold text-white">{stats.total_patients || 0}</p>
+                <p className="text-purple-200 text-sm">eRx</p>
+                <p className="text-3xl font-bold text-white">{quickStats.erx_patients_today || 0}</p>
+                <p className="text-purple-300 text-xs">Patients Today</p>
               </div>
-              <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xl">👥</span>
+              <div className="w-12 h-12 bg-purple-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">💊</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+          <div 
+            onClick={() => handleCardClick('daily-log')}
+            className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 cursor-pointer hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-1"
+          >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-200 text-sm">Total Invoices</p>
-                <p className="text-3xl font-bold text-white">{stats.total_invoices || 0}</p>
+                <p className="text-green-200 text-sm">Daily Total</p>
+                <p className="text-3xl font-bold text-white">${quickStats.daily_revenue?.toFixed(0) || 0}</p>
+                <p className="text-green-300 text-xs">Revenue Today</p>
               </div>
               <div className="w-12 h-12 bg-green-500 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xl">🧾</span>
+                <span className="text-white text-xl">📊</span>
               </div>
             </div>
           </div>
 
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+          <div 
+            onClick={() => handleCardClick('patient-queue')}
+            className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 cursor-pointer hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-1"
+          >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-yellow-200 text-sm">Pending Bills</p>
-                <p className="text-3xl font-bold text-white">{stats.pending_invoices || 0}</p>
+                <p className="text-blue-200 text-sm">Patient Queue</p>
+                <p className="text-3xl font-bold text-white">{quickStats.patients_in_queue || 0}</p>
+                <p className="text-blue-300 text-xs">In Clinic Now</p>
+              </div>
+              <div className="w-12 h-12 bg-blue-500 rounded-lg flex items-center justify-center">
+                <span className="text-white text-xl">🏥</span>
+              </div>
+            </div>
+          </div>
+
+          <div 
+            onClick={() => handleCardClick('pending-payments')}
+            className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 cursor-pointer hover:bg-white/20 transition-all duration-300 transform hover:-translate-y-1"
+          >
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-yellow-200 text-sm">Pending Payments</p>
+                <p className="text-3xl font-bold text-white">${quickStats.pending_payments_total?.toFixed(0) || 0}</p>
+                <p className="text-yellow-300 text-xs">Outstanding</p>
               </div>
               <div className="w-12 h-12 bg-yellow-500 rounded-lg flex items-center justify-center">
                 <span className="text-white text-xl">💰</span>
-              </div>
-            </div>
-          </div>
-
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-red-200 text-sm">Low Stock Items</p>
-                <p className="text-3xl font-bold text-white">{stats.low_stock_items || 0}</p>
-              </div>
-              <div className="w-12 h-12 bg-red-500 rounded-lg flex items-center justify-center">
-                <span className="text-white text-xl">⚠️</span>
               </div>
             </div>
           </div>
