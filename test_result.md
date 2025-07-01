@@ -985,6 +985,8 @@ test_plan:
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
+  - agent: "testing"
+    message: "FIXED BACKEND API ENDPOINTS TESTING COMPLETED! Successfully tested the appointment status update endpoint (PUT /api/appointments/{id}/status) which now works correctly when provided with a JSON body containing the 'status' field. However, the calendar view endpoint (GET /api/appointments/calendar) still returns a 404 Not Found error. For the Patient Communications System, template initialization works correctly, but there are still issues with template retrieval (500 error) and message sending (variable processing issues). The message sending functionality works when using a manually created template, but the template variable processing needs to be fixed."
 
 agent_communication:
   - agent: "main"
