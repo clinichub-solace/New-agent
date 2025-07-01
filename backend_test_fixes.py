@@ -217,7 +217,10 @@ def test_appointment_status_update(admin_token, appointment_id):
     print("\n--- Testing Appointment Status Update ---")
     try:
         url = f"{API_URL}/appointments/{appointment_id}/status"
-        headers = {"Authorization": f"Bearer {admin_token}"}
+        headers = {
+            "Authorization": f"Bearer {admin_token}",
+            "Content-Type": "application/json"
+        }
         data = {"status": "confirmed"}
         
         response = requests.put(url, json=data, headers=headers)
