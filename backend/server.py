@@ -2923,6 +2923,379 @@ async def get_billable_inventory_items():
     }).to_list(1000)
     return [InventoryItem(**item) for item in items]
 
+# eRx API Endpoints
+
+@api_router.get("/medications", response_model=List[Medication])
+async def get_medications(
+    search: Optional[str] = None,
+    drug_class: Optional[DrugClass] = None,
+    limit: int = 50,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get medications with optional search and filtering"""
+    try:
+        query = {}
+        
+        if search:
+            query["$or"] = [
+                {"generic_name": {"$regex": search, "$options": "i"}},
+                {"brand_names": {"$regex": search, "$options": "i"}}
+            ]
+        
+        if drug_class:
+            query["drug_class"] = drug_class
+        
+        medications = await db.medications.find(query).limit(limit).to_list(limit)
+        return medications
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving medications: {str(e)}")
+
+@api_router.get("/medications/{medication_id}", response_model=Medication)
+async def get_medication(
+    medication_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get specific medication details"""
+    try:
+        medication = await db.medications.find_one({"id": medication_id})
+        if not medication:
+            raise HTTPException(status_code=404, detail="Medication not found")
+        return medication
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving medication: {str(e)}")
+
+@api_router.post("/prescriptions", response_model=MedicationRequest)
+async def create_prescription(
+    prescription_data: MedicationRequestCreate,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Create a new prescription with safety checks"""
+    try:
+        # Get medication details
+        medication = await db.medications.find_one({"id": prescription_data.medication_id})
+        if not medication:
+            raise HTTPException(status_code=404, detail="Medication not found")
+        
+        # Get patient details
+        patient = await db.patients.find_one({"id": prescription_data.patient_id})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Check for allergies
+        allergy_alerts = await check_drug_allergies(prescription_data.patient_id, prescription_data.medication_id)
+        
+        # Check for drug interactions
+        interaction_alerts = await check_drug_interactions(prescription_data.patient_id, prescription_data.medication_id)
+        
+        # Create FHIR-compliant dosage instruction
+        dosage_instruction = [{
+            "text": prescription_data.dosage_text,
+            "timing": {
+                "repeat": {
+                    "frequency": 1,
+                    "period": get_frequency_period(prescription_data.frequency),
+                    "periodUnit": "d"
+                }
+            },
+            "route": {
+                "coding": [{
+                    "code": prescription_data.route,
+                    "display": prescription_data.route
+                }]
+            },
+            "doseAndRate": [{
+                "doseQuantity": {
+                    "value": prescription_data.dose_quantity,
+                    "unit": prescription_data.dose_unit,
+                    "system": "http://unitsofmeasure.org"
+                }
+            }]
+        }]
+        
+        # Create dispense request
+        dispense_request = {
+            "quantity": {
+                "value": prescription_data.quantity,
+                "unit": medication.get("dosage_forms", ["each"])[0]
+            },
+            "expectedSupplyDuration": {
+                "value": prescription_data.days_supply,
+                "unit": "days",
+                "system": "http://unitsofmeasure.org"
+            },
+            "numberOfRepeatsAllowed": prescription_data.refills
+        }
+        
+        # Create prescription
+        prescription = MedicationRequest(
+            medication_id=prescription_data.medication_id,
+            medication_display=medication["generic_name"],
+            patient_id=prescription_data.patient_id,
+            patient_display=f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
+            encounter_id=prescription_data.encounter_id,
+            prescriber_id=prescription_data.prescriber_id,
+            prescriber_name=prescription_data.prescriber_name,
+            dosage_instruction=dosage_instruction,
+            dispense_request=dispense_request,
+            reason_code=[{
+                "text": prescription_data.indication
+            }] if prescription_data.indication else [],
+            days_supply=prescription_data.days_supply,
+            quantity=prescription_data.quantity,
+            refills=prescription_data.refills,
+            allergies_checked=True,
+            interactions_checked=True,
+            allergy_alerts=allergy_alerts,
+            interaction_alerts=interaction_alerts,
+            status=PrescriptionStatus.DRAFT,
+            created_by=current_user.username
+        )
+        
+        # Save prescription
+        prescription_dict = jsonable_encoder(prescription)
+        await db.prescriptions.insert_one(prescription_dict)
+        
+        # Create audit log
+        await create_prescription_audit_log(
+            prescription.id,
+            prescription_data.patient_id,
+            "created",
+            current_user.id,
+            current_user.username,
+            {"prescription_created": True}
+        )
+        
+        return prescription
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating prescription: {str(e)}")
+
+@api_router.get("/patients/{patient_id}/prescriptions", response_model=List[MedicationRequest])
+async def get_patient_prescriptions(
+    patient_id: str,
+    status: Optional[PrescriptionStatus] = None,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get all prescriptions for a patient"""
+    try:
+        query = {"patient_id": patient_id}
+        if status:
+            query["status"] = status
+        
+        prescriptions = await db.prescriptions.find(query).sort("created_at", -1).to_list(100)
+        
+        # Log access for HIPAA compliance
+        await create_prescription_audit_log(
+            None,
+            patient_id,
+            "viewed",
+            current_user.id,
+            current_user.username,
+            {"prescriptions_accessed": len(prescriptions)}
+        )
+        
+        return prescriptions
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving prescriptions: {str(e)}")
+
+@api_router.put("/prescriptions/{prescription_id}/status")
+async def update_prescription_status(
+    prescription_id: str,
+    status: PrescriptionStatus,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Update prescription status"""
+    try:
+        prescription = await db.prescriptions.find_one({"id": prescription_id})
+        if not prescription:
+            raise HTTPException(status_code=404, detail="Prescription not found")
+        
+        old_status = prescription["status"]
+        
+        # Update prescription
+        update_result = await db.prescriptions.update_one(
+            {"id": prescription_id},
+            {
+                "$set": {
+                    "status": status,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        if update_result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="Prescription not found")
+        
+        # Create audit log
+        await create_prescription_audit_log(
+            prescription_id,
+            prescription["patient_id"],
+            "modified",
+            current_user.id,
+            current_user.username,
+            {
+                "status_changed": {
+                    "from": old_status,
+                    "to": status
+                }
+            }
+        )
+        
+        return {"message": "Prescription status updated successfully"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating prescription: {str(e)}")
+
+@api_router.get("/prescriptions/{prescription_id}/interactions")
+async def check_prescription_interactions(
+    prescription_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Check for drug interactions for a specific prescription"""
+    try:
+        prescription = await db.prescriptions.find_one({"id": prescription_id})
+        if not prescription:
+            raise HTTPException(status_code=404, detail="Prescription not found")
+        
+        interactions = await check_drug_interactions(
+            prescription["patient_id"], 
+            prescription["medication_id"]
+        )
+        
+        return {"interactions": interactions}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking interactions: {str(e)}")
+
+@api_router.get("/drug-interactions")
+async def search_drug_interactions(
+    drug1_id: str,
+    drug2_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Search for interactions between two specific drugs"""
+    try:
+        interaction = await db.drug_interactions.find_one({
+            "$or": [
+                {"drug1_id": drug1_id, "drug2_id": drug2_id},
+                {"drug1_id": drug2_id, "drug2_id": drug1_id}
+            ]
+        })
+        
+        return {"interaction": interaction}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking drug interaction: {str(e)}")
+
+# Helper Functions
+
+async def check_drug_allergies(patient_id: str, medication_id: str) -> List[Dict[str, Any]]:
+    """Check for drug allergies"""
+    try:
+        # Get patient allergies
+        allergies = await db.allergies.find({"patient_id": patient_id}).to_list(100)
+        
+        # Get medication details
+        medication = await db.medications.find_one({"id": medication_id})
+        
+        alerts = []
+        for allergy in allergies:
+            # Check direct medication match
+            if allergy["allergen"].lower() in medication["generic_name"].lower():
+                alerts.append({
+                    "type": "allergy",
+                    "severity": allergy["severity"],
+                    "message": f"Patient is allergic to {allergy['allergen']}",
+                    "reaction": allergy["reaction"]
+                })
+            
+            # Check drug class allergies
+            if allergy["allergen"].lower() in medication.get("drug_class", "").lower():
+                alerts.append({
+                    "type": "class_allergy",
+                    "severity": allergy["severity"],
+                    "message": f"Patient is allergic to {medication['drug_class']} class drugs",
+                    "reaction": allergy["reaction"]
+                })
+        
+        return alerts
+        
+    except Exception as e:
+        print(f"Error checking allergies: {str(e)}")
+        return []
+
+async def check_drug_interactions(patient_id: str, new_medication_id: str) -> List[Dict[str, Any]]:
+    """Check for drug-drug interactions"""
+    try:
+        # Get patient's current active prescriptions
+        current_prescriptions = await db.prescriptions.find({
+            "patient_id": patient_id,
+            "status": {"$in": ["active", "draft"]}
+        }).to_list(100)
+        
+        alerts = []
+        for prescription in current_prescriptions:
+            if prescription["medication_id"] != new_medication_id:
+                # Check for interaction
+                interaction = await db.drug_interactions.find_one({
+                    "$or": [
+                        {"drug1_id": prescription["medication_id"], "drug2_id": new_medication_id},
+                        {"drug1_id": new_medication_id, "drug2_id": prescription["medication_id"]}
+                    ]
+                })
+                
+                if interaction:
+                    alerts.append({
+                        "type": "drug_interaction",
+                        "severity": interaction["severity"],
+                        "message": f"Interaction with {prescription['medication_display']}",
+                        "description": interaction["description"],
+                        "clinical_consequence": interaction["clinical_consequence"],
+                        "management": interaction["management_recommendation"]
+                    })
+        
+        return alerts
+        
+    except Exception as e:
+        print(f"Error checking interactions: {str(e)}")
+        return []
+
+async def create_prescription_audit_log(
+    prescription_id: Optional[str],
+    patient_id: str,
+    action: str,
+    performed_by: str,
+    performed_by_name: str,
+    action_details: Dict[str, Any]
+):
+    """Create audit log entry for HIPAA compliance"""
+    try:
+        audit_log = PrescriptionAuditLog(
+            prescription_id=prescription_id or "N/A",
+            patient_id=patient_id,
+            action=action,
+            performed_by=performed_by,
+            performed_by_name=performed_by_name,
+            action_details=action_details
+        )
+        
+        audit_dict = jsonable_encoder(audit_log)
+        await db.prescription_audit_logs.insert_one(audit_dict)
+        
+    except Exception as e:
+        print(f"Error creating audit log: {str(e)}")
+
+def get_frequency_period(frequency: str) -> int:
+    """Convert frequency to period for FHIR timing"""
+    frequency_map = {
+        "QD": 1, "DAILY": 1, "ONCE_DAILY": 1,
+        "BID": 2, "TWICE_DAILY": 2,
+        "TID": 3, "THREE_TIMES_DAILY": 3,
+        "QID": 4, "FOUR_TIMES_DAILY": 4,
+        "Q6H": 4, "Q8H": 3, "Q12H": 2
+    }
+    return frequency_map.get(frequency.upper(), 1)
+
 # Include the router in the main app
 app.include_router(api_router)
 
