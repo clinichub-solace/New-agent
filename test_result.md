@@ -119,6 +119,12 @@ backend:
       - working: true
         agent: "testing"
         comment: "All four new dashboard API endpoints are working correctly. Successfully tested: 1) eRx Patients Dashboard - Returns patients scheduled for today with prescription counts and allergy information, 2) Daily Log Dashboard - Returns completed encounters for today with payment status and revenue totals, 3) Patient Queue Dashboard - Returns active encounters with clinic locations and wait times, 4) Pending Payments Dashboard - Returns unpaid/partial invoices with overdue amounts and days. All endpoints return properly structured data with correct calculations."
+      - working: false
+        agent: "testing"
+        comment: "Found BSON datetime encoding error in the dashboard/stats endpoint. The error occurs because Python date objects cannot be directly encoded to BSON. The issue was in the dashboard/stats endpoint where date.today() was being used directly in a MongoDB query."
+      - working: true
+        agent: "testing"
+        comment: "Fixed the BSON datetime encoding error by: 1) Converting date objects to datetime objects before using them in MongoDB queries, 2) Adding proper error handling for date calculations in the pending-payments endpoint, 3) Adding try-except blocks to catch and report errors properly. All dashboard endpoints are now working correctly."
 
   - task: "FHIR-Compliant Patient Management System"
     implemented: true
