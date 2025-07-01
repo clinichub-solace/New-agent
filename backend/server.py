@@ -1313,6 +1313,20 @@ class VitalSigns(BaseModel):
     recorded_by: str
     recorded_at: datetime = Field(default_factory=datetime.utcnow)
 
+class VitalSignsCreate(BaseModel):
+    patient_id: str
+    encounter_id: Optional[str] = None
+    height: Optional[float] = None  # in cm
+    weight: Optional[float] = None  # in kg
+    bmi: Optional[float] = None
+    systolic_bp: Optional[int] = None  # mmHg
+    diastolic_bp: Optional[int] = None  # mmHg
+    heart_rate: Optional[int] = None  # bpm
+    respiratory_rate: Optional[int] = None  # breaths per minute
+    temperature: Optional[float] = None  # in Celsius
+    oxygen_saturation: Optional[int] = None  # percentage
+    pain_scale: Optional[int] = None  # 0-10 scale
+
 # Allergy Model
 class Allergy(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
