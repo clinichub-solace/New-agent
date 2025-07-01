@@ -6077,6 +6077,18 @@ function App() {
             <PendingPaymentsView setActiveModule={setActiveModule} />
           </ProtectedRoute>
         );
+      case 'scheduling':
+        return (
+          <ProtectedRoute permission="scheduling:read">
+            <SchedulingModule setActiveModule={setActiveModule} />
+          </ProtectedRoute>
+        );
+      case 'communications':
+        return (
+          <ProtectedRoute permission="communications:read">
+            <CommunicationsModule setActiveModule={setActiveModule} />
+          </ProtectedRoute>
+        );
       default:
         return (
           <ProtectedRoute>
