@@ -245,7 +245,7 @@ backend:
 
   - task: "Vital Signs Recording System"
     implemented: true
-    working: true
+    working: false
     file: "/app/backend/server.py"
     stuck_count: 1
     priority: "high"
@@ -257,6 +257,9 @@ backend:
       - working: true
         agent: "testing"
         comment: "Vital signs API endpoints are working correctly. Successfully created vital signs record with comprehensive measurements and retrieved vital signs history by patient."
+      - working: false
+        agent: "testing"
+        comment: "The vital signs system is partially working. Creating vital signs records works correctly, but retrieving vital signs data fails with Method Not Allowed (405) error. The /api/vital-signs endpoint exists but doesn't support the GET method. This needs to be fixed by implementing GET support for the endpoint."
 
   - task: "Allergy Management System"
     implemented: true
