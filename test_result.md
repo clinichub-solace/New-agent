@@ -359,7 +359,7 @@ backend:
 
   - task: "eRx Electronic Prescribing System (FHIR Compliant)"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 1
     priority: "high"
@@ -380,6 +380,9 @@ backend:
       - working: false
         agent: "testing"
         comment: "Retested the eRx functionality. The GET /api/prescriptions endpoint is now working correctly, returning prescription data with a 200 OK response. The POST /api/erx/init endpoint is also working correctly, initializing the eRx system. However, the GET /api/erx/medications and GET /api/erx/formulary endpoints are still failing with 500 Internal Server Error. These endpoints need to be fixed to properly support the eRx workflow."
+      - working: true
+        agent: "testing"
+        comment: "Completed comprehensive testing of all eRx endpoints. All tests passed successfully: 1) POST /api/erx/init - Successfully initializes the eRx system with sample medications, 2) GET /api/erx/medications - Successfully retrieves all eRx medications with proper FHIR structure, 3) GET /api/erx/formulary - Successfully retrieves the preferred drug list, 4) GET /api/prescriptions - Successfully retrieves prescription data. The eRx system is now fully functional with all required endpoints working correctly."
 
   - task: "Provider Management System"
     implemented: true
