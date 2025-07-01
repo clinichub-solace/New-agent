@@ -5433,6 +5433,7 @@ async def initialize_fhir_medications():
     """Initialize sample FHIR medications for electronic prescribing"""
     default_medications = [
         {
+            "id": str(uuid.uuid4()),
             "resource_type": "Medication",
             "code": {"coding": [{"system": "RxNorm", "code": "314076"}]},
             "status": "active",
@@ -5445,6 +5446,7 @@ async def initialize_fhir_medications():
             "standard_dosing": {"adult": "10-40mg once daily"}
         },
         {
+            "id": str(uuid.uuid4()),
             "resource_type": "Medication",
             "code": {"coding": [{"system": "RxNorm", "code": "860981"}]},
             "status": "active",
@@ -5465,7 +5467,13 @@ async def get_erx_medications(current_user: User = Depends(get_current_active_us
     """Get FHIR medications for electronic prescribing"""
     try:
         medications = await db.fhir_medications.find().sort("generic_name", 1).to_list(1000)
-        return medications
+        # Remove MongoDB ObjectId and return clean data
+        clean_medications = []
+        for med in medications:
+            if "_id" in med:
+                del med["_id"]
+            clean_medications.append(med)
+        return clean_medications
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving eRx medications: {str(e)}")
 
@@ -5479,9 +5487,9 @@ async def initialize_erx_system(current_user: User = Depends(get_current_active_
             return {"message": "eRx system already initialized", "medications_count": existing}
         
         # Initialize with sample FHIR medications
-        await initialize_fhir_medications()
+        count = await initialize_fhir_medications()
         
-        return {"message": "eRx system initialized successfully", "status": "ready"}
+        return {"message": "eRx system initialized successfully", "status": "ready", "medications_added": count}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error initializing eRx system: {str(e)}")
 
@@ -5497,9 +5505,16 @@ async def get_formulary(current_user: User = Depends(get_current_active_user)):
             ]}
         }).sort("generic_name", 1).to_list(100)
         
+        # Remove MongoDB ObjectId and return clean data
+        clean_formulary = []
+        for med in formulary:
+            if "_id" in med:
+                del med["_id"]
+            clean_formulary.append(med)
+        
         return {
-            "formulary_medications": formulary,
-            "total_count": len(formulary),
+            "formulary_medications": clean_formulary,
+            "total_count": len(clean_formulary),
             "description": "Preferred drug list for electronic prescribing"
         }
     except Exception as e:
