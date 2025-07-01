@@ -4893,10 +4893,10 @@ async def send_message(message_data: dict):
         
         # Process template variables if template_id provided
         if "template_id" in message_data:
-            template = await db.message_templates.find_one({"id": message_data["template_id"]})
+            template = await db.communication_templates.find_one({"id": message_data["template_id"]})
             if template:
-                content = template["content"]
-                subject = template.get("subject", "")
+                content = template["content_template"]
+                subject = template.get("subject_template", "")
                 
                 # Replace variables with actual values
                 variables = message_data.get("variables", {})
@@ -4906,7 +4906,7 @@ async def send_message(message_data: dict):
                 
                 message_data["content"] = content
                 message_data["subject"] = subject
-                message_data["message_type"] = template["type"]
+                message_data["message_type"] = template["message_type"]
         
         message = PatientMessage(
             id=str(uuid.uuid4()),
