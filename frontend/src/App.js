@@ -3973,13 +3973,215 @@ const SmartFormsModule = ({ setActiveModule }) => {
             </button>
             <h1 className="text-3xl font-bold text-white">Smart Forms</h1>
           </div>
-          <button
-            onClick={() => setShowFormBuilder(true)}
-            className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium"
-          >
-            + Create Form
-          </button>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowTemplateSelector(true)}
+              className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg font-medium"
+            >
+              📋 Use Template
+            </button>
+            <button
+              onClick={initializeTemplates}
+              className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg font-medium"
+            >
+              🏥 Init Medical Templates
+            </button>
+            <button
+              onClick={() => setShowFormBuilder(true)}
+              className="bg-green-500 hover:bg-green-600 text-white px-6 py-2 rounded-lg font-medium"
+            >
+              + Create Form
+            </button>
+          </div>
         </div>
+
+        {/* Tabs */}
+        <div className="flex space-x-6 mb-8">
+          {['forms', 'templates', 'submissions'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => {
+                setActiveTab(tab);
+                if (tab === 'submissions') fetchSubmissions();
+              }}
+              className={`px-4 py-2 rounded-lg font-medium ${
+                activeTab === tab
+                  ? 'bg-white/20 text-white'
+                  : 'text-blue-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* Forms Tab */}
+        {activeTab === 'forms' && (
+          <div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden border border-white/20">
+            <div className="p-6 border-b border-white/20">
+              <h2 className="text-xl font-bold text-white">Active Forms</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-white/5 border-b border-white/20">
+                  <tr>
+                    <th className="text-left p-4 text-white font-semibold">Form Title</th>
+                    <th className="text-left p-4 text-white font-semibold">Category</th>
+                    <th className="text-left p-4 text-white font-semibold">Fields</th>
+                    <th className="text-left p-4 text-white font-semibold">Status</th>
+                    <th className="text-left p-4 text-white font-semibold">Created</th>
+                    <th className="text-left p-4 text-white font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {forms.map((form) => (
+                    <tr key={form.id} className="border-b border-white/10 hover:bg-white/5">
+                      <td className="p-4 text-white font-medium">{form.title}</td>
+                      <td className="p-4 text-blue-200 capitalize">{form.category?.replace('_', ' ')}</td>
+                      <td className="p-4 text-blue-200">{form.fields?.length || 0} fields</td>
+                      <td className="p-4">
+                        <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                          form.status === 'active' ? 'bg-green-500' : 'bg-gray-500'
+                        }`}>
+                          {form.status}
+                        </span>
+                      </td>
+                      <td className="p-4 text-blue-200">
+                        {formatDate(form.created_at)}
+                      </td>
+                      <td className="p-4 space-x-2">
+                        <button 
+                          onClick={() => {
+                            setSelectedForm(form);
+                            setShowFormSubmission(true);
+                          }}
+                          className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Fill Out
+                        </button>
+                        <button 
+                          onClick={() => {
+                            fetchSubmissions(form.id);
+                            setSelectedForm(form);
+                            setActiveTab('submissions');
+                          }}
+                          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Responses
+                        </button>
+                        <button 
+                          onClick={() => deleteForm(form.id)}
+                          className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Delete
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Templates Tab */}
+        {activeTab === 'templates' && (
+          <div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden border border-white/20">
+            <div className="p-6 border-b border-white/20">
+              <h2 className="text-xl font-bold text-white">Medical Form Templates</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-white/5 border-b border-white/20">
+                  <tr>
+                    <th className="text-left p-4 text-white font-semibold">Template Name</th>
+                    <th className="text-left p-4 text-white font-semibold">Category</th>
+                    <th className="text-left p-4 text-white font-semibold">Description</th>
+                    <th className="text-left p-4 text-white font-semibold">Fields</th>
+                    <th className="text-left p-4 text-white font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {templates.map((template) => (
+                    <tr key={template.id} className="border-b border-white/10 hover:bg-white/5">
+                      <td className="p-4 text-white font-medium">{template.title}</td>
+                      <td className="p-4 text-blue-200 capitalize">{template.category?.replace('_', ' ')}</td>
+                      <td className="p-4 text-blue-200">{template.description}</td>
+                      <td className="p-4 text-blue-200">{template.fields?.length || 0} fields</td>
+                      <td className="p-4">
+                        <button 
+                          onClick={() => {
+                            const title = prompt('Enter form title:', template.title);
+                            const description = prompt('Enter description (optional):', template.description);
+                            if (title) {
+                              createFormFromTemplate(template.id, title, description);
+                            }
+                          }}
+                          className="bg-purple-500 hover:bg-purple-600 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Use Template
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Submissions Tab */}
+        {activeTab === 'submissions' && (
+          <div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden border border-white/20">
+            <div className="p-6 border-b border-white/20">
+              <h2 className="text-xl font-bold text-white">
+                Form Submissions {selectedForm && `- ${selectedForm.title}`}
+              </h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-white/5 border-b border-white/20">
+                  <tr>
+                    <th className="text-left p-4 text-white font-semibold">Form</th>
+                    <th className="text-left p-4 text-white font-semibold">Patient</th>
+                    <th className="text-left p-4 text-white font-semibold">Submitted</th>
+                    <th className="text-left p-4 text-white font-semibold">Status</th>
+                    <th className="text-left p-4 text-white font-semibold">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {submissions.map((submission) => (
+                    <tr key={submission.id} className="border-b border-white/10 hover:bg-white/5">
+                      <td className="p-4 text-white font-medium">{submission.form_title}</td>
+                      <td className="p-4 text-blue-200">{submission.patient_name}</td>
+                      <td className="p-4 text-blue-200">
+                        {formatDate(submission.submitted_at)}
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                          submission.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'
+                        }`}>
+                          {submission.status}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <button 
+                          onClick={() => {
+                            setSelectedSubmission(submission);
+                            setShowSubmissionViewer(true);
+                          }}
+                          className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                        >
+                          View
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {showFormBuilder && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
