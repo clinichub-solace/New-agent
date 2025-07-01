@@ -6739,11 +6739,6 @@ const PendingPaymentsView = ({ setActiveModule }) => {
 };
 
 // Main App Component with Authentication
-
-  return isAuthenticated ? <PatientPortal /> : <PatientLoginPage onSwitchToStaff={onSwitchToStaff} />;
-};
-
-// Main App Component with Authentication
 function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
 
