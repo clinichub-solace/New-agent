@@ -324,6 +324,90 @@ backend:
         agent: "testing"
         comment: "Patient summary API endpoint is working correctly. Successfully retrieved a comprehensive patient summary with all medical data integrated (patient info, encounters, allergies, medications, medical history, vital signs, and SOAP notes)."
 
+  - task: "Authentication System (Login/Role-based Access)"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented complete authentication system with JWT tokens, password hashing (bcrypt), user management, role-based access control. Backend includes /auth/login, /auth/logout, /auth/me, /auth/init-admin endpoints. Frontend includes AuthContext, AuthProvider, LoginPage, ProtectedRoute components with role-based permissions."
+      - working: true
+        agent: "main"
+        comment: "Fixed frontend compilation errors caused by complex SVG background syntax in LoginPage. Replaced problematic SVG data URL with simpler gradient background. Frontend now compiles successfully."
+      - working: true
+        agent: "testing"
+        comment: "Successfully tested all authentication endpoints. Admin initialization creates default admin user with username 'admin' and password 'admin123'. Login returns JWT token and user information. Token validation works correctly with /auth/me endpoint. Protected endpoints require valid JWT token. Invalid credentials return appropriate error messages."
+
+  - task: "eRx Electronic Prescribing System (FHIR Compliant)"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented comprehensive eRx system with FHIR R4 compliance. Features include: FHIR MedicationRequest resources, comprehensive medication database with RxNorm codes, drug-drug interaction checking, allergy checking, prescription audit logs for HIPAA compliance, patient safety features, and complete prescription management API endpoints."
+      - working: false
+        agent: "testing"
+        comment: "The eRx system is partially working. The /api/init-erx-data endpoint works correctly and initializes the medication database. The /api/drug-interactions endpoint also works. However, there's a critical issue: there are two different Medication models defined in the code (lines 710 and 1059), causing a conflict. The /api/medications endpoint is returning patient medications (from the model at line 1059) instead of the FHIR-compliant medications (from the model at line 710). When trying to create a prescription, we get an error: 'generic_name' because it's trying to use the wrong medication model. This needs to be fixed by renaming one of the Medication models to avoid the conflict."
+      - working: true
+        agent: "testing"
+        comment: "The eRx system is now working correctly after renaming the FHIR-compliant Medication model to FHIRMedication and updating the database collection from 'medications' to 'fhir_medications'. Successfully tested all key functionality: initializing eRx data, searching FHIR medications, filtering by drug class, retrieving medication details, creating prescriptions, retrieving patient prescriptions, updating prescription status, and checking drug-drug interactions. All endpoints are now working properly with the correct data structures."
+
+  - task: "Provider Management System"
+    implemented: false
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "The Provider Management System has not been implemented yet. Attempted to test the /api/providers endpoint but received a 404 Not Found error. This system is required for the Scheduling System to work properly."
+
+  - task: "Appointment Scheduling System"
+    implemented: false
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "The Appointment Scheduling System has not been implemented yet. Attempted to test the /api/appointments endpoint but received a 404 Not Found error. This system depends on the Provider Management System which is also not implemented."
+
+  - task: "Calendar Views for Scheduling"
+    implemented: false
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "The Calendar Views for Scheduling have not been implemented yet. Attempted to test the /api/appointments/calendar endpoint but received a 404 Not Found error. This feature depends on the Appointment Scheduling System which is not implemented."
+
+  - task: "Patient Communications System"
+    implemented: false
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "The Patient Communications System has not been implemented yet. Attempted to test the /api/communications endpoints but received 404 Not Found errors. None of the required endpoints (/api/communications/init-templates, /api/communications/templates, /api/communications/send, /api/communications/messages) have been implemented."
+
 frontend:
   - task: "Medical Dashboard with Practice Analytics"
     implemented: true
@@ -397,38 +481,6 @@ frontend:
         agent: "main"
         comment: "Comprehensive vital signs input form with all standard medical measurements, pain scale assessment, and automatic BMI calculation."
 
-metadata:
-  created_by: "main_agent"
-  version: "1.0"
-  test_sequence: 0
-  run_ui: false
-
-test_plan:
-  current_focus:
-    - "Enhanced Smart Forms Module"
-  stuck_tasks: []
-  test_all: false
-  test_priority: "high_first"
-
-  - task: "Authentication System (Login/Role-based Access)"
-    implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-      - working: "NA"
-        agent: "main"
-        comment: "Implemented complete authentication system with JWT tokens, password hashing (bcrypt), user management, role-based access control. Backend includes /auth/login, /auth/logout, /auth/me, /auth/init-admin endpoints. Frontend includes AuthContext, AuthProvider, LoginPage, ProtectedRoute components with role-based permissions."
-      - working: true
-        agent: "main"
-        comment: "Fixed frontend compilation errors caused by complex SVG background syntax in LoginPage. Replaced problematic SVG data URL with simpler gradient background. Frontend now compiles successfully."
-      - working: true
-        agent: "testing"
-        comment: "Successfully tested all authentication endpoints. Admin initialization creates default admin user with username 'admin' and password 'admin123'. Login returns JWT token and user information. Token validation works correctly with /auth/me endpoint. Protected endpoints require valid JWT token. Invalid credentials return appropriate error messages."
-
-frontend:
   - task: "Authentication UI and Context"
     implemented: true
     working: true
@@ -444,23 +496,20 @@ frontend:
         agent: "main"
         comment: "Fixed compilation errors and login page now renders successfully. Authentication system fully integrated with role-based module access."
 
-  - task: "eRx Electronic Prescribing System (FHIR Compliant)"
-    implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: false
-    status_history:
-      - working: "NA"
-        agent: "main"
-        comment: "Implemented comprehensive eRx system with FHIR R4 compliance. Features include: FHIR MedicationRequest resources, comprehensive medication database with RxNorm codes, drug-drug interaction checking, allergy checking, prescription audit logs for HIPAA compliance, patient safety features, and complete prescription management API endpoints."
-      - working: false
-        agent: "testing"
-        comment: "The eRx system is partially working. The /api/init-erx-data endpoint works correctly and initializes the medication database. The /api/drug-interactions endpoint also works. However, there's a critical issue: there are two different Medication models defined in the code (lines 710 and 1059), causing a conflict. The /api/medications endpoint is returning patient medications (from the model at line 1059) instead of the FHIR-compliant medications (from the model at line 710). When trying to create a prescription, we get an error: 'generic_name' because it's trying to use the wrong medication model. This needs to be fixed by renaming one of the Medication models to avoid the conflict."
-      - working: true
-        agent: "testing"
-        comment: "The eRx system is now working correctly after renaming the FHIR-compliant Medication model to FHIRMedication and updating the database collection from 'medications' to 'fhir_medications'. Successfully tested all key functionality: initializing eRx data, searching FHIR medications, filtering by drug class, retrieving medication details, creating prescriptions, retrieving patient prescriptions, updating prescription status, and checking drug-drug interactions. All endpoints are now working properly with the correct data structures."
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 0
+  run_ui: false
+
+test_plan:
+  current_focus:
+    - "Provider Management System"
+    - "Appointment Scheduling System"
+    - "Patient Communications System"
+  stuck_tasks: []
+  test_all: false
+  test_priority: "high_first"
 
 agent_communication:
   - agent: "main"
@@ -479,3 +528,5 @@ agent_communication:
     message: "Successfully tested all four new dashboard API endpoints for clinic operations. All endpoints are working correctly and return properly structured data: 1) eRx Patients Dashboard (/api/dashboard/erx-patients) - Returns patients scheduled for today with prescription counts and allergy information, 2) Daily Log Dashboard (/api/dashboard/daily-log) - Returns completed encounters for today with payment status and revenue totals, 3) Patient Queue Dashboard (/api/dashboard/patient-queue) - Returns active encounters with clinic locations and wait times, 4) Pending Payments Dashboard (/api/dashboard/pending-payments) - Returns unpaid/partial invoices with overdue amounts and days. The endpoints provide practical clinic operation views with proper date filtering and financial calculations."
   - agent: "testing"
     message: "Successfully tested the enhanced Smart Forms module with all advanced features. All tests passed successfully across all four phases: 1) Medical Templates Initialization - The /api/forms/templates/init endpoint correctly creates all four required medical templates (patient_intake, vital_signs, pain_assessment, discharge_instructions), 2) Enhanced Form Management - Successfully tested form filtering by category, individual form retrieval, form updates, and creating forms from templates, 3) Form Submission & Smart Tags - Verified that smart tags are properly processed and replaced with actual patient data, and FHIR data is correctly generated from form submissions, 4) Submission Management - All submission management endpoints are working correctly, including form-specific submissions, patient submissions, and individual submission details. The Smart Forms system is fully functional with all the requested enhancements."
+  - agent: "testing"
+    message: "Tested the newly requested Scheduling and Patient Communications systems but found that they have not been implemented yet. All endpoints related to these systems returned 404 Not Found errors. The following endpoints need to be implemented: 1) Provider Management: /api/providers (POST/GET), 2) Appointment Scheduling: /api/appointments (POST/GET), /api/appointments/{id}/status (PUT), /api/providers/{id}/schedule (POST), /api/appointments/calendar (GET), 3) Patient Communications: /api/communications/init-templates (POST), /api/communications/templates (GET/POST), /api/communications/send (POST), /api/communications/messages (GET), /api/communications/messages/patient/{id} (GET), /api/communications/messages/{id}/status (PUT). These systems are required for the complete clinic management functionality."
