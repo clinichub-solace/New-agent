@@ -7104,9 +7104,6 @@ const PatientApp = ({ onSwitchToStaff }) => {
   return isAuthenticated ? <PatientPortal /> : <PatientLoginPage onSwitchToStaff={onSwitchToStaff} />;
 };
 
-  return isAuthenticated ? <PatientPortal /> : <PatientLoginPage onSwitchToStaff={onSwitchToStaff} />;
-};
-
 // Main App Component with Authentication
 function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
