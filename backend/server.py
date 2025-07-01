@@ -2110,6 +2110,27 @@ async def initialize_form_templates(current_user: User = Depends(get_current_act
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error initializing templates: {str(e)}")
 
+@api_router.post("/forms/templates/init-compliant")
+async def initialize_compliant_form_templates(current_user: User = Depends(get_current_active_user)):
+    """Initialize HIPAA and Texas compliant medical form templates (replaces existing)"""
+    try:
+        # Clear existing templates
+        await db.forms.delete_many({"is_template": True})
+        
+        templates = await create_medical_form_templates()
+        
+        # Insert new compliant templates
+        await db.forms.insert_many(templates)
+        
+        return {
+            "message": "HIPAA and Texas compliant form templates initialized successfully",
+            "templates_added": len(templates),
+            "compliance_info": "Forms are compliant with HIPAA Privacy Rule, Texas Medical Practice Act, and Texas Medical Board requirements"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error initializing compliant templates: {str(e)}")
+
 @api_router.post("/forms/from-template/{template_id}", response_model=SmartForm)
 async def create_form_from_template(
     template_id: str,
