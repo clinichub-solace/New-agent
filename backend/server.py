@@ -4020,7 +4020,11 @@ async def get_patient_soap_notes(patient_id: str):
 # Vital Signs
 @api_router.post("/vital-signs", response_model=VitalSigns)
 async def create_vital_signs(vital_signs_data: VitalSignsCreate, current_user: User = Depends(get_current_active_user)):
-    vital_signs = VitalSigns(id=str(uuid.uuid4()), **vital_signs_data.dict())
+    vital_signs = VitalSigns(
+        id=str(uuid.uuid4()),
+        recorded_by=current_user.username,
+        **vital_signs_data.dict()
+    )
     vital_signs_dict = jsonable_encoder(vital_signs)
     await db.vital_signs.insert_one(vital_signs_dict)
     return vital_signs
