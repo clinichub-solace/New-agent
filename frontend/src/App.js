@@ -128,7 +128,7 @@ const LoginPage = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 flex items-center justify-center">
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml,<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 1000 1000\"><defs><radialGradient id=\"a\" cx=\".5\" cy=\".5\" r=\".5\"><stop offset=\"0%\" stop-color=\"%23ffffff\" stop-opacity=\".1\"/><stop offset=\"100%\" stop-color=\"%23000000\" stop-opacity=\".1\"/></radialGradient></defs><rect width=\"100%\" height=\"100%\" fill=\"url(%23a)\"/></svg>')] opacity-20"></div>
+      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-white/5 to-transparent opacity-20"></div>
       
       <div className="relative w-full max-w-md">
         {/* Login Card */}
