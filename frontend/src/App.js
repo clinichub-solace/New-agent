@@ -5266,6 +5266,30 @@ function App() {
             </AppHeader>
           </ProtectedRoute>
         );
+      case 'erx-patients':
+        return (
+          <ProtectedRoute>
+            <ERxPatientsView setActiveModule={setActiveModule} />
+          </ProtectedRoute>
+        );
+      case 'daily-log':
+        return (
+          <ProtectedRoute>
+            <DailyLogView setActiveModule={setActiveModule} />
+          </ProtectedRoute>
+        );
+      case 'patient-queue':
+        return (
+          <ProtectedRoute>
+            <PatientQueueView setActiveModule={setActiveModule} />
+          </ProtectedRoute>
+        );
+      case 'pending-payments':
+        return (
+          <ProtectedRoute>
+            <PendingPaymentsView setActiveModule={setActiveModule} />
+          </ProtectedRoute>
+        );
       default:
         return (
           <ProtectedRoute>
