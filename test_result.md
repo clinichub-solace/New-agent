@@ -379,7 +379,7 @@ backend:
         comment: "Implemented complete Provider Management API endpoints: POST/GET /api/providers, GET/PUT /api/providers/{id}, POST/GET /api/providers/{id}/schedule. Includes provider CRUD operations and schedule management with proper validation."
 
   - task: "Appointment Scheduling System"
-    implemented: false
+    implemented: true
     working: "NA"
     file: "/app/backend/server.py"
     stuck_count: 0
@@ -392,6 +392,9 @@ backend:
       - working: "NA"
         agent: "main"
         comment: "Found that scheduling models (Appointment, Provider, ProviderSchedule, AppointmentSlot) are defined but NO API endpoints are implemented. Need to implement full CRUD operations for appointments, providers, and calendar functionality."
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented complete Appointment Scheduling API endpoints: POST/GET /api/appointments, GET /api/appointments/{id}, PUT /api/appointments/{id}/status, DELETE /api/appointments/{id}, GET /api/appointments/calendar. Includes appointment CRUD operations, status management, and calendar views with proper patient/provider validation."
 
   - task: "Calendar Views for Scheduling"
     implemented: false
