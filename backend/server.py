@@ -4019,10 +4019,17 @@ async def get_patient_soap_notes(patient_id: str):
 
 # Vital Signs
 @api_router.post("/vital-signs", response_model=VitalSigns)
-async def create_vital_signs(vitals_data: VitalSigns):
-    vitals_dict = jsonable_encoder(vitals_data)
-    await db.vital_signs.insert_one(vitals_dict)
-    return vitals_data
+async def create_vital_signs(vital_signs_data: VitalSignsCreate, current_user: User = Depends(get_current_active_user)):
+    vital_signs = VitalSigns(id=str(uuid.uuid4()), **vital_signs_data.dict())
+    vital_signs_dict = jsonable_encoder(vital_signs)
+    await db.vital_signs.insert_one(vital_signs_dict)
+    return vital_signs
+
+@api_router.get("/vital-signs", response_model=List[VitalSigns])
+async def get_all_vital_signs(current_user: User = Depends(get_current_active_user)):
+    """Get all vital signs across all patients"""
+    vital_signs = await db.vital_signs.find().sort("recorded_at", -1).limit(100).to_list(100)
+    return [VitalSigns(**vs) for vs in vital_signs]
 
 @api_router.get("/vital-signs/patient/{patient_id}", response_model=List[VitalSigns])
 async def get_patient_vital_signs(patient_id: str):
