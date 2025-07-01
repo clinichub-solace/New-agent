@@ -173,11 +173,26 @@ def test_form_template_details(forms):
     for form in forms:
         print(f"- {form.get('title')}")
     
-    # Find each template by title (case insensitive partial match)
-    patient_intake = next((form for form in forms if "patient intake" in form.get("title", "").lower()), None)
-    consent_form = next((form for form in forms if "consent to medical" in form.get("title", "").lower()), None)
-    telemedicine_form = next((form for form in forms if "telemedicine" in form.get("title", "").lower()), None)
-    hipaa_form = next((form for form in forms if "hipaa" in form.get("title", "").lower() and "privacy" in form.get("title", "").lower()), None)
+    # Find each template by title (exact match)
+    patient_intake = next((form for form in forms if form.get("title") == "HIPAA & Texas Compliant Patient Intake Form"), None)
+    consent_form = next((form for form in forms if form.get("title") == "Informed Consent to Medical Treatment"), None)
+    telemedicine_form = next((form for form in forms if form.get("title") == "Telemedicine Informed Consent"), None)
+    hipaa_form = next((form for form in forms if form.get("title") == "HIPAA Privacy Notice and Authorization"), None)
+    
+    # Debug form structure
+    if patient_intake:
+        print("\nPatient Intake Form Structure:")
+        print(f"Keys: {list(patient_intake.keys())}")
+        print(f"Has compliance_notes: {'compliance_notes' in patient_intake}")
+        print(f"Has legal_requirements: {'legal_requirements' in patient_intake}")
+        print(f"Has fhir_mapping: {'fhir_mapping' in patient_intake}")
+        print(f"Has fields: {'fields' in patient_intake}")
+        if 'fields' in patient_intake:
+            print(f"Number of fields: {len(patient_intake['fields'])}")
+            if len(patient_intake['fields']) > 0:
+                print(f"First field keys: {list(patient_intake['fields'][0].keys())}")
+    else:
+        print("\nPatient Intake Form not found")
     
     # Test 1: Verify Patient Intake Form
     if patient_intake:
