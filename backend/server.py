@@ -4807,7 +4807,7 @@ async def get_calendar_view(date: str, view: str = "week"):
 async def init_message_templates():
     try:
         # Check if templates already exist
-        existing = await db.message_templates.count_documents({})
+        existing = await db.communication_templates.count_documents({})
         if existing > 0:
             return {"message": "Templates already initialized", "count": existing}
         
