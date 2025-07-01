@@ -1005,6 +1005,12 @@ const Dashboard = ({ setActiveModule, user, onLogout }) => {
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-white">ClinicHub</h1>
+                <button
+                  onClick={() => window.open('/patient-portal', '_blank')}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm"
+                >
+                  Patient Portal
+                </button>
                 <p className="text-blue-200 text-sm">FHIR-Compliant Practice Management</p>
               </div>
             </div>
