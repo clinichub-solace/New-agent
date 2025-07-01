@@ -10,7 +10,7 @@ from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 import uuid
 from datetime import datetime, date, timedelta
-from enum import Enum, str
+from enum import Enum
 from fastapi.encoders import jsonable_encoder
 import hashlib
 import jwt
