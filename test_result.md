@@ -426,15 +426,18 @@ frontend:
 
   - task: "eRx Electronic Prescribing System (FHIR Compliant)"
     implemented: true
-    working: true
+    working: false
     file: "/app/backend/server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: true
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented comprehensive eRx system with FHIR R4 compliance. Features include: FHIR MedicationRequest resources, comprehensive medication database with RxNorm codes, drug-drug interaction checking, allergy checking, prescription audit logs for HIPAA compliance, patient safety features, and complete prescription management API endpoints."
+      - working: false
+        agent: "testing"
+        comment: "The eRx system is partially working. The /api/init-erx-data endpoint works correctly and initializes the medication database. The /api/drug-interactions endpoint also works. However, there are issues with the /api/medications endpoint - searching and filtering medications returns empty results even though medications are initialized. This prevents creating prescriptions since we can't get medication IDs. The /api/patients/{patient_id}/prescriptions endpoint works but returns empty results since we can't create prescriptions."
 
 agent_communication:
   - agent: "main"
