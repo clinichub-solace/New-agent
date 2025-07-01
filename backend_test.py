@@ -881,10 +881,156 @@ def test_patient_summary(patient_id):
         print(f"Error getting patient summary: {str(e)}")
         print_test_result("Get Patient Summary", False)
 
+# Test Authentication System
+def test_authentication():
+    print("\n--- Testing Authentication System ---")
+    
+    # Test variables to store authentication data
+    admin_token = None
+    
+    # Test 1: Initialize Admin User
+    try:
+        url = f"{API_URL}/auth/init-admin"
+        response = requests.post(url)
+        response.raise_for_status()
+        result = response.json()
+        
+        # Verify admin initialization response
+        assert "message" in result
+        assert "username" in result
+        assert "password" in result
+        assert result["username"] == "admin"
+        assert result["password"] == "admin123"
+        
+        print_test_result("Initialize Admin User", True, result)
+    except Exception as e:
+        print(f"Error initializing admin user: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Initialize Admin User", False)
+    
+    # Test 2: Login with Admin Credentials
+    try:
+        url = f"{API_URL}/auth/login"
+        data = {
+            "username": "admin",
+            "password": "admin123"
+        }
+        
+        response = requests.post(url, json=data)
+        response.raise_for_status()
+        result = response.json()
+        
+        # Verify login response
+        assert "access_token" in result
+        assert "token_type" in result
+        assert "expires_in" in result
+        assert "user" in result
+        assert result["user"]["username"] == "admin"
+        assert result["user"]["role"] == "admin"
+        
+        # Store token for subsequent tests
+        admin_token = result["access_token"]
+        
+        print_test_result("Admin Login", True, result)
+    except Exception as e:
+        print(f"Error logging in as admin: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Admin Login", False)
+    
+    # Test 3: Get Current User Info
+    if admin_token:
+        try:
+            url = f"{API_URL}/auth/me"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            result = response.json()
+            
+            # Verify user info
+            assert result["username"] == "admin"
+            assert result["role"] == "admin"
+            
+            print_test_result("Get Current User", True, result)
+        except Exception as e:
+            print(f"Error getting current user: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Get Current User", False)
+    
+    # Test 4: Access Protected Endpoint
+    if admin_token:
+        try:
+            # Try to access a protected endpoint (get users)
+            url = f"{API_URL}/users"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Access Protected Endpoint", True, result)
+        except Exception as e:
+            print(f"Error accessing protected endpoint: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Access Protected Endpoint", False)
+    
+    # Test 5: Login with Invalid Credentials
+    try:
+        url = f"{API_URL}/auth/login"
+        data = {
+            "username": "admin",
+            "password": "wrongpassword"
+        }
+        
+        response = requests.post(url, json=data)
+        
+        # This should fail with 401
+        assert response.status_code == 401
+        result = response.json()
+        assert "detail" in result
+        
+        print_test_result("Login with Invalid Credentials (Expected to Fail)", True, {"status_code": response.status_code, "detail": result.get("detail")})
+    except Exception as e:
+        print(f"Error testing invalid login: {str(e)}")
+        print_test_result("Login with Invalid Credentials", False)
+    
+    # Test 6: Logout
+    if admin_token:
+        try:
+            url = f"{API_URL}/auth/logout"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            
+            response = requests.post(url, headers=headers)
+            response.raise_for_status()
+            result = response.json()
+            
+            assert "message" in result
+            
+            print_test_result("Logout", True, result)
+        except Exception as e:
+            print(f"Error logging out: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Logout", False)
+    
+    return admin_token
+
 def run_all_tests():
     print("\n" + "=" * 80)
     print("TESTING CLINICHUB BACKEND API")
     print("=" * 80)
+    
+    # Test authentication first
+    admin_token = test_authentication()
     
     # Run all tests in sequence
     patient_id = test_patient_management()
