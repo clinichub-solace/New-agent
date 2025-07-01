@@ -1271,6 +1271,436 @@ def test_erx_system(patient_id, admin_token):
     
     return medication_id, prescription_id
 
+def test_scheduling_system(patient_id, admin_token):
+    print("\n--- Testing Scheduling System ---")
+    
+    # Test 1: Create Provider
+    provider_id = None
+    try:
+        url = f"{API_URL}/providers"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        data = {
+            "first_name": "Robert",
+            "last_name": "Wilson",
+            "title": "Dr.",
+            "specialties": ["Cardiology", "Internal Medicine"],
+            "license_number": "MD12345",
+            "npi_number": "1234567890",
+            "email": "dr.wilson@clinichub.com",
+            "phone": "+1-555-789-0123",
+            "default_appointment_duration": 30,
+            "schedule_start_time": "08:00",
+            "schedule_end_time": "17:00",
+            "working_days": ["monday", "tuesday", "wednesday", "thursday", "friday"]
+        }
+        
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        result = response.json()
+        
+        provider_id = result["id"]
+        print_test_result("Create Provider", True, result)
+    except Exception as e:
+        print(f"Error creating provider: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Create Provider", False)
+    
+    # Test 2: Get All Providers
+    try:
+        url = f"{API_URL}/providers"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get All Providers", True, result)
+    except Exception as e:
+        print(f"Error getting providers: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Get All Providers", False)
+    
+    # Test 3: Generate Provider Schedule
+    if provider_id:
+        try:
+            url = f"{API_URL}/providers/{provider_id}/schedule"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            params = {
+                "start_date": date.today().isoformat(),
+                "end_date": (date.today() + timedelta(days=7)).isoformat()
+            }
+            
+            response = requests.post(url, headers=headers, params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Generate Provider Schedule", True, result)
+        except Exception as e:
+            print(f"Error generating provider schedule: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Generate Provider Schedule", False)
+    
+    # Test 4: Create Appointment
+    appointment_id = None
+    if provider_id and patient_id:
+        try:
+            url = f"{API_URL}/appointments"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            data = {
+                "patient_id": patient_id,
+                "provider_id": provider_id,
+                "appointment_date": date.today().isoformat(),
+                "start_time": "10:00",
+                "end_time": "10:30",
+                "appointment_type": "consultation",
+                "reason": "Initial cardiology consultation",
+                "location": "Main Clinic",
+                "scheduled_by": "admin"
+            }
+            
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            result = response.json()
+            
+            # Verify appointment creation
+            assert "appointment_number" in result
+            assert result["appointment_number"].startswith("APT")
+            
+            appointment_id = result["id"]
+            print_test_result("Create Appointment", True, result)
+        except Exception as e:
+            print(f"Error creating appointment: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Create Appointment", False)
+    
+    # Test 5: Get All Appointments
+    try:
+        url = f"{API_URL}/appointments"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get All Appointments", True, result)
+    except Exception as e:
+        print(f"Error getting appointments: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Get All Appointments", False)
+    
+    # Test 6: Get Patient Appointments
+    if patient_id:
+        try:
+            url = f"{API_URL}/appointments/patient/{patient_id}"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Get Patient Appointments", True, result)
+        except Exception as e:
+            print(f"Error getting patient appointments: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Get Patient Appointments", False)
+    
+    # Test 7: Update Appointment Status
+    if appointment_id:
+        try:
+            url = f"{API_URL}/appointments/{appointment_id}/status"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            params = {"status": "confirmed"}
+            
+            response = requests.put(url, headers=headers, params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Update Appointment Status (Confirmed)", True, result)
+            
+            # Update to arrived
+            params = {"status": "arrived"}
+            response = requests.put(url, headers=headers, params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Update Appointment Status (Arrived)", True, result)
+        except Exception as e:
+            print(f"Error updating appointment status: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Update Appointment Status", False)
+    
+    # Test 8: Get Calendar View
+    try:
+        url = f"{API_URL}/appointments/calendar"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        params = {
+            "view_type": "week",
+            "start_date": date.today().isoformat()
+        }
+        
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Calendar View (Week)", True, result)
+        
+        # Test day view
+        params["view_type"] = "day"
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Calendar View (Day)", True, result)
+        
+        # Test month view
+        params["view_type"] = "month"
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Calendar View (Month)", True, result)
+    except Exception as e:
+        print(f"Error getting calendar view: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Get Calendar View", False)
+    
+    # Test 9: Appointment Conflict Detection
+    if provider_id and patient_id:
+        try:
+            # Try to create an overlapping appointment
+            url = f"{API_URL}/appointments"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            data = {
+                "patient_id": patient_id,
+                "provider_id": provider_id,
+                "appointment_date": date.today().isoformat(),
+                "start_time": "10:15",  # Overlaps with existing 10:00-10:30 appointment
+                "end_time": "10:45",
+                "appointment_type": "follow_up",
+                "reason": "This should fail due to conflict",
+                "location": "Main Clinic",
+                "scheduled_by": "admin"
+            }
+            
+            response = requests.post(url, headers=headers, json=data)
+            
+            # This should fail with 409 Conflict
+            assert response.status_code == 409
+            result = response.json()
+            assert "detail" in result
+            
+            print_test_result("Appointment Conflict Detection (Expected to Fail)", True, {"status_code": response.status_code, "detail": result.get("detail")})
+        except Exception as e:
+            print(f"Error testing appointment conflict: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Appointment Conflict Detection", False)
+    
+    return provider_id, appointment_id
+
+def test_patient_communications(patient_id, admin_token):
+    print("\n--- Testing Patient Communications System ---")
+    
+    # Test 1: Initialize Communication Templates
+    try:
+        url = f"{API_URL}/communications/init-templates"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.post(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Initialize Communication Templates", True, result)
+    except Exception as e:
+        print(f"Error initializing communication templates: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Initialize Communication Templates", False)
+    
+    # Test 2: Get Communication Templates
+    template_id = None
+    try:
+        url = f"{API_URL}/communications/templates"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        if len(result) > 0:
+            template_id = result[0]["id"]
+        
+        print_test_result("Get Communication Templates", True, result)
+    except Exception as e:
+        print(f"Error getting communication templates: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Get Communication Templates", False)
+    
+    # Test 3: Create Custom Template
+    if not template_id:
+        try:
+            url = f"{API_URL}/communications/templates"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            data = {
+                "name": "Lab Results Notification",
+                "message_type": "test_results",
+                "subject_template": "Your Lab Results from {clinic_name}",
+                "content_template": "Dear {patient_name},\n\nYour recent lab results are now available. Please log in to your patient portal to view them or contact our office at {clinic_phone}.\n\nRegards,\n{provider_name}"
+            }
+            
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            result = response.json()
+            
+            template_id = result["id"]
+            print_test_result("Create Custom Template", True, result)
+        except Exception as e:
+            print(f"Error creating custom template: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Create Custom Template", False)
+    
+    # Test 4: Send Message to Patient
+    message_id = None
+    if patient_id and template_id:
+        try:
+            url = f"{API_URL}/communications/send"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            data = {
+                "patient_id": patient_id,
+                "template_id": template_id,
+                "sender_id": "admin",
+                "sender_name": "Dr. Admin",
+                "template_variables": {
+                    "clinic_name": "ClinicHub Medical Center",
+                    "clinic_phone": "555-123-4567",
+                    "provider_name": "Dr. Admin"
+                }
+            }
+            
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            result = response.json()
+            
+            message_id = result["id"]
+            print_test_result("Send Message to Patient", True, result)
+        except Exception as e:
+            print(f"Error sending message to patient: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Send Message to Patient", False)
+    
+    # Test 5: Get All Messages
+    try:
+        url = f"{API_URL}/communications/messages"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get All Messages", True, result)
+    except Exception as e:
+        print(f"Error getting all messages: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Get All Messages", False)
+    
+    # Test 6: Get Patient Messages
+    if patient_id:
+        try:
+            url = f"{API_URL}/communications/messages/patient/{patient_id}"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Get Patient Messages", True, result)
+        except Exception as e:
+            print(f"Error getting patient messages: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Get Patient Messages", False)
+    
+    # Test 7: Update Message Status
+    if message_id:
+        try:
+            url = f"{API_URL}/communications/messages/{message_id}/status"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            params = {"status": "delivered"}
+            
+            response = requests.put(url, headers=headers, params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Update Message Status (Delivered)", True, result)
+            
+            # Update to read
+            params = {"status": "read"}
+            response = requests.put(url, headers=headers, params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Update Message Status (Read)", True, result)
+        except Exception as e:
+            print(f"Error updating message status: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Update Message Status", False)
+    
+    # Test 8: Send Direct Message (without template)
+    try:
+        url = f"{API_URL}/communications/send-direct"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        data = {
+            "patient_id": patient_id,
+            "subject": "Important Information About Your Next Visit",
+            "content": "Please remember to bring your insurance card and a list of current medications to your next appointment.",
+            "message_type": "general",
+            "sender_id": "admin",
+            "sender_name": "Dr. Admin"
+        }
+        
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Send Direct Message", True, result)
+    except Exception as e:
+        print(f"Error sending direct message: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Send Direct Message", False)
+    
+    return template_id, message_id
+
 def run_all_tests():
     print("\n" + "=" * 80)
     print("TESTING CLINICHUB BACKEND API")
@@ -1299,6 +1729,11 @@ def run_all_tests():
     # Test eRx system
     if admin_token and patient_id:
         test_erx_system(patient_id, admin_token)
+    
+    # Test new Scheduling and Communications systems
+    if admin_token and patient_id:
+        test_scheduling_system(patient_id, admin_token)
+        test_patient_communications(patient_id, admin_token)
     
     test_dashboard_analytics()
     
