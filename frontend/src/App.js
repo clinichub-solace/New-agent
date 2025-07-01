@@ -5539,6 +5539,867 @@ const EmployeeModule = ({ setActiveModule }) => {
   );
 };
 
+// Scheduling Module
+const SchedulingModule = ({ setActiveModule }) => {
+  const [appointments, setAppointments] = useState([]);
+  const [providers, setProviders] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [calendarView, setCalendarView] = useState('week');
+  const [showAppointmentForm, setShowAppointmentForm] = useState(false);
+  const [showProviderForm, setShowProviderForm] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState(null);
+  const [calendarData, setCalendarData] = useState({});
+  const [activeTab, setActiveTab] = useState('calendar');
+
+  useEffect(() => {
+    fetchProviders();
+    fetchPatients();
+    fetchCalendarData();
+  }, [selectedDate, calendarView]);
+
+  const fetchProviders = async () => {
+    try {
+      const response = await axios.get(`${API}/providers`);
+      setProviders(response.data);
+    } catch (error) {
+      console.error("Error fetching providers:", error);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/patients`);
+      setPatients(response.data);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+    }
+  };
+
+  const fetchCalendarData = async () => {
+    try {
+      const response = await axios.get(`${API}/appointments/calendar`, {
+        params: {
+          date: selectedDate,
+          view: calendarView
+        }
+      });
+      setCalendarData(response.data);
+    } catch (error) {
+      console.error("Error fetching calendar:", error);
+    }
+  };
+
+  const createAppointment = async (appointmentData) => {
+    try {
+      await axios.post(`${API}/appointments`, appointmentData);
+      setShowAppointmentForm(false);
+      fetchCalendarData();
+    } catch (error) {
+      console.error("Error creating appointment:", error);
+      alert('Error creating appointment: ' + (error.response?.data?.detail || 'Unknown error'));
+    }
+  };
+
+  const updateAppointmentStatus = async (appointmentId, status) => {
+    try {
+      await axios.put(`${API}/appointments/${appointmentId}/status`, null, {
+        params: { status }
+      });
+      fetchCalendarData();
+    } catch (error) {
+      console.error("Error updating appointment:", error);
+    }
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      scheduled: 'bg-blue-500',
+      confirmed: 'bg-green-500',
+      arrived: 'bg-yellow-500',
+      in_progress: 'bg-purple-500',
+      completed: 'bg-gray-500',
+      cancelled: 'bg-red-500',
+      no_show: 'bg-red-700'
+    };
+    return colors[status] || 'bg-gray-400';
+  };
+
+  const AppointmentForm = () => {
+    const [formData, setFormData] = useState({
+      patient_id: '',
+      provider_id: '',
+      appointment_date: selectedDate,
+      start_time: '09:00',
+      end_time: '09:30',
+      appointment_type: 'consultation',
+      reason: '',
+      notes: '',
+      location: 'Main Office',
+      room: ''
+    });
+
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      createAppointment(formData);
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <h2 className="text-xl font-bold mb-4">Schedule New Appointment</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Patient *</label>
+                  <select
+                    value={formData.patient_id}
+                    onChange={(e) => setFormData({...formData, patient_id: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  >
+                    <option value="">Select Patient</option>
+                    {patients.map((patient) => (
+                      <option key={patient.id} value={patient.id}>
+                        {patient.name?.[0]?.given?.[0]} {patient.name?.[0]?.family}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Provider *</label>
+                  <select
+                    value={formData.provider_id}
+                    onChange={(e) => setFormData({...formData, provider_id: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  >
+                    <option value="">Select Provider</option>
+                    {providers.map((provider) => (
+                      <option key={provider.id} value={provider.id}>
+                        {provider.title} {provider.first_name} {provider.last_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Date *</label>
+                  <input
+                    type="date"
+                    value={formData.appointment_date}
+                    onChange={(e) => setFormData({...formData, appointment_date: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Start Time *</label>
+                  <input
+                    type="time"
+                    value={formData.start_time}
+                    onChange={(e) => setFormData({...formData, start_time: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">End Time *</label>
+                  <input
+                    type="time"
+                    value={formData.end_time}
+                    onChange={(e) => setFormData({...formData, end_time: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Appointment Type</label>
+                  <select
+                    value={formData.appointment_type}
+                    onChange={(e) => setFormData({...formData, appointment_type: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                  >
+                    <option value="consultation">Consultation</option>
+                    <option value="follow_up">Follow Up</option>
+                    <option value="procedure">Procedure</option>
+                    <option value="urgent">Urgent</option>
+                    <option value="physical_exam">Physical Exam</option>
+                    <option value="vaccination">Vaccination</option>
+                    <option value="lab_work">Lab Work</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Location</label>
+                  <input
+                    type="text"
+                    value={formData.location}
+                    onChange={(e) => setFormData({...formData, location: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    placeholder="Main Office"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Reason for Visit *</label>
+                <input
+                  type="text"
+                  value={formData.reason}
+                  onChange={(e) => setFormData({...formData, reason: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  placeholder="Brief description of visit reason"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Notes</label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({...formData, notes: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  rows="3"
+                  placeholder="Additional notes or instructions"
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowAppointmentForm(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                >
+                  Schedule Appointment
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-200 hover:text-white"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-white">Scheduling</h1>
+          </div>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowProviderForm(true)}
+              className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg"
+            >
+              + Add Provider
+            </button>
+            <button
+              onClick={() => setShowAppointmentForm(true)}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg"
+            >
+              + Schedule Appointment
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex space-x-6 mb-8">
+          {['calendar', 'appointments', 'providers'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 rounded-lg font-medium ${
+                activeTab === tab
+                  ? 'bg-white/20 text-white'
+                  : 'text-blue-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* Calendar Tab */}
+        {activeTab === 'calendar' && (
+          <div className="space-y-6">
+            {/* Calendar Controls */}
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
+              <div className="flex justify-between items-center">
+                <div className="flex space-x-4">
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="p-2 rounded-lg border border-gray-300"
+                  />
+                  <select
+                    value={calendarView}
+                    onChange={(e) => setCalendarView(e.target.value)}
+                    className="p-2 rounded-lg border border-gray-300"
+                  >
+                    <option value="day">Day View</option>
+                    <option value="week">Week View</option>
+                    <option value="month">Month View</option>
+                  </select>
+                </div>
+                <div className="text-white">
+                  {calendarData.date_range?.from} to {calendarData.date_range?.to}
+                </div>
+              </div>
+            </div>
+
+            {/* Calendar Grid */}
+            <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
+              <div className="p-6">
+                <h2 className="text-xl font-bold text-white mb-4">
+                  {calendarView.charAt(0).toUpperCase() + calendarView.slice(1)} View
+                </h2>
+                {Object.keys(calendarData.calendar_data || {}).length > 0 ? (
+                  <div className="space-y-6">
+                    {Object.entries(calendarData.calendar_data).map(([date, providers]) => (
+                      <div key={date} className="border-b border-white/10 pb-4 last:border-b-0">
+                        <h3 className="text-lg font-semibold text-white mb-3">
+                          {new Date(date).toLocaleDateString('en-US', { 
+                            weekday: 'long', 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          })}
+                        </h3>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {Object.entries(providers).map(([providerId, providerData]) => (
+                            <div key={providerId} className="bg-white/5 rounded-lg p-4">
+                              <h4 className="font-medium text-blue-200 mb-3">
+                                {providerData.provider_name}
+                              </h4>
+                              <div className="space-y-2">
+                                {providerData.appointments.length > 0 ? (
+                                  providerData.appointments.map((appointment) => (
+                                    <div
+                                      key={appointment.id}
+                                      className={`p-3 rounded-lg text-white text-sm ${getStatusColor(appointment.status)}`}
+                                      onClick={() => setSelectedAppointment(appointment)}
+                                    >
+                                      <div className="font-medium">
+                                        {appointment.start_time} - {appointment.patient_name}
+                                      </div>
+                                      <div className="text-xs opacity-80">
+                                        {appointment.reason}
+                                      </div>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="text-blue-300 text-sm">No appointments</div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="w-16 h-16 bg-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                      <span className="text-blue-300 text-2xl">📅</span>
+                    </div>
+                    <p className="text-blue-200">No appointments scheduled</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Appointments Tab */}
+        {activeTab === 'appointments' && (
+          <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
+            <div className="p-6 border-b border-white/20">
+              <h2 className="text-xl font-bold text-white">All Appointments</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="text-left p-4 text-white">Date & Time</th>
+                    <th className="text-left p-4 text-white">Patient</th>
+                    <th className="text-left p-4 text-white">Provider</th>
+                    <th className="text-left p-4 text-white">Type</th>
+                    <th className="text-left p-4 text-white">Status</th>
+                    <th className="text-left p-4 text-white">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b border-white/10">
+                    <td colSpan="6" className="p-8 text-center text-blue-200">
+                      Loading appointments...
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Providers Tab */}
+        {activeTab === 'providers' && (
+          <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
+            <div className="p-6 border-b border-white/20">
+              <h2 className="text-xl font-bold text-white">Healthcare Providers</h2>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="text-left p-4 text-white">Name</th>
+                    <th className="text-left p-4 text-white">Title</th>
+                    <th className="text-left p-4 text-white">Specialties</th>
+                    <th className="text-left p-4 text-white">Schedule</th>
+                    <th className="text-left p-4 text-white">Status</th>
+                    <th className="text-left p-4 text-white">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {providers.map((provider) => (
+                    <tr key={provider.id} className="border-b border-white/10 hover:bg-white/5">
+                      <td className="p-4 text-white font-medium">
+                        {provider.title} {provider.first_name} {provider.last_name}
+                      </td>
+                      <td className="p-4 text-blue-200">{provider.title}</td>
+                      <td className="p-4 text-blue-200">
+                        {provider.specialties?.join(', ') || 'General Practice'}
+                      </td>
+                      <td className="p-4 text-blue-200">
+                        {provider.schedule_start_time} - {provider.schedule_end_time}
+                      </td>
+                      <td className="p-4">
+                        <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                          provider.is_active ? 'bg-green-500' : 'bg-red-500'
+                        }`}>
+                          {provider.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <button className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm">
+                          View Schedule
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Forms */}
+        {showAppointmentForm && <AppointmentForm />}
+      </div>
+    </div>
+  );
+};
+
+// Patient Communications Module
+const CommunicationsModule = ({ setActiveModule }) => {
+  const [messages, setMessages] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [showComposeForm, setShowComposeForm] = useState(false);
+  const [selectedMessage, setSelectedMessage] = useState(null);
+  const [showMessageViewer, setShowMessageViewer] = useState(false);
+  const [activeTab, setActiveTab] = useState('inbox');
+
+  useEffect(() => {
+    fetchMessages();
+    fetchPatients();
+    fetchTemplates();
+  }, []);
+
+  const fetchMessages = async () => {
+    try {
+      const response = await axios.get(`${API}/communications/messages`);
+      setMessages(response.data);
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/patients`);
+      setPatients(response.data);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+    }
+  };
+
+  const fetchTemplates = async () => {
+    try {
+      const response = await axios.get(`${API}/communications/templates`);
+      setTemplates(response.data);
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+    }
+  };
+
+  const initializeTemplates = async () => {
+    try {
+      await axios.post(`${API}/communications/init-templates`);
+      fetchTemplates();
+      alert('Communication templates initialized successfully!');
+    } catch (error) {
+      console.error("Error initializing templates:", error);
+      alert('Error initializing templates. They may already exist.');
+    }
+  };
+
+  const sendMessage = async (messageData) => {
+    try {
+      await axios.post(`${API}/communications/send`, messageData);
+      setShowComposeForm(false);
+      fetchMessages();
+    } catch (error) {
+      console.error("Error sending message:", error);
+      alert('Error sending message. Please try again.');
+    }
+  };
+
+  const markAsRead = async (messageId) => {
+    try {
+      await axios.put(`${API}/communications/messages/${messageId}/read`);
+      fetchMessages();
+    } catch (error) {
+      console.error("Error marking message as read:", error);
+    }
+  };
+
+  const ComposeMessageForm = () => {
+    const [formData, setFormData] = useState({
+      patient_id: '',
+      message_type: 'general',
+      subject: '',
+      content: '',
+      template_id: ''
+    });
+
+    const handleTemplateSelect = (template) => {
+      setFormData({
+        ...formData,
+        message_type: template.message_type,
+        subject: template.subject_template,
+        content: template.content_template,
+        template_id: template.id
+      });
+    };
+
+    const handleSubmit = (e) => {
+      e.preventDefault();
+      sendMessage(formData);
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <h2 className="text-xl font-bold mb-4">Compose Message</h2>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Patient *</label>
+                <select
+                  value={formData.patient_id}
+                  onChange={(e) => setFormData({...formData, patient_id: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  required
+                >
+                  <option value="">Select Patient</option>
+                  {patients.map((patient) => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.name?.[0]?.given?.[0]} {patient.name?.[0]?.family}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Use Template (Optional)</label>
+                <select
+                  value={formData.template_id}
+                  onChange={(e) => {
+                    const template = templates.find(t => t.id === e.target.value);
+                    if (template) handleTemplateSelect(template);
+                  }}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                >
+                  <option value="">Select Template</option>
+                  {templates.map((template) => (
+                    <option key={template.id} value={template.id}>
+                      {template.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Message Type</label>
+                <select
+                  value={formData.message_type}
+                  onChange={(e) => setFormData({...formData, message_type: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                >
+                  <option value="general">General</option>
+                  <option value="appointment_reminder">Appointment Reminder</option>
+                  <option value="follow_up">Follow Up</option>
+                  <option value="test_results">Test Results</option>
+                  <option value="billing">Billing</option>
+                  <option value="prescription">Prescription</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Subject *</label>
+                <input
+                  type="text"
+                  value={formData.subject}
+                  onChange={(e) => setFormData({...formData, subject: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  placeholder="Message subject"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-1">Message *</label>
+                <textarea
+                  value={formData.content}
+                  onChange={(e) => setFormData({...formData, content: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  rows="6"
+                  placeholder="Type your message here..."
+                  required
+                />
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowComposeForm(false)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+                >
+                  Send Message
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-8">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-200 hover:text-white"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-white">Patient Communications</h1>
+          </div>
+          <div className="flex space-x-3">
+            <button
+              onClick={initializeTemplates}
+              className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg"
+            >
+              📨 Init Templates
+            </button>
+            <button
+              onClick={() => setShowComposeForm(true)}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg"
+            >
+              ✉️ Compose Message
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="flex space-x-6 mb-8">
+          {['inbox', 'sent', 'templates'].map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`px-4 py-2 rounded-lg font-medium ${
+                activeTab === tab
+                  ? 'bg-white/20 text-white'
+                  : 'text-blue-200 hover:text-white hover:bg-white/10'
+              }`}
+            >
+              {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            </button>
+          ))}
+        </div>
+
+        {/* Messages */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
+          <div className="p-6 border-b border-white/20">
+            <h2 className="text-xl font-bold text-white">
+              {activeTab === 'inbox' && 'Inbox'}
+              {activeTab === 'sent' && 'Sent Messages'}
+              {activeTab === 'templates' && 'Message Templates'}
+            </h2>
+          </div>
+
+          {activeTab === 'inbox' && (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="text-left p-4 text-white">Patient</th>
+                    <th className="text-left p-4 text-white">Subject</th>
+                    <th className="text-left p-4 text-white">Type</th>
+                    <th className="text-left p-4 text-white">Date</th>
+                    <th className="text-left p-4 text-white">Status</th>
+                    <th className="text-left p-4 text-white">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {messages.length > 0 ? (
+                    messages.map((message) => (
+                      <tr key={message.id} className="border-b border-white/10 hover:bg-white/5">
+                        <td className="p-4 text-white font-medium">{message.patient_name}</td>
+                        <td className="p-4 text-blue-200">{message.subject}</td>
+                        <td className="p-4 text-blue-200 capitalize">
+                          {message.message_type?.replace('_', ' ')}
+                        </td>
+                        <td className="p-4 text-blue-200">
+                          {formatDate(message.sent_at)}
+                        </td>
+                        <td className="p-4">
+                          <span className={`px-2 py-1 text-white text-xs rounded-full ${
+                            message.status === 'read' ? 'bg-green-500' : 
+                            message.status === 'delivered' ? 'bg-blue-500' : 'bg-yellow-500'
+                          }`}>
+                            {message.status}
+                          </span>
+                        </td>
+                        <td className="p-4">
+                          <button 
+                            onClick={() => {
+                              setSelectedMessage(message);
+                              setShowMessageViewer(true);
+                              if (message.status !== 'read') {
+                                markAsRead(message.id);
+                              }
+                            }}
+                            className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm"
+                          >
+                            View
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan="6" className="p-8 text-center text-blue-200">
+                        No messages found
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {activeTab === 'templates' && (
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {templates.map((template) => (
+                  <div key={template.id} className="bg-white/5 rounded-lg p-4">
+                    <h3 className="text-white font-semibold mb-2">{template.name}</h3>
+                    <p className="text-blue-200 text-sm mb-3 capitalize">
+                      Type: {template.message_type?.replace('_', ' ')}
+                    </p>
+                    <div className="bg-white/5 rounded p-3">
+                      <p className="text-blue-200 text-sm">
+                        <strong>Subject:</strong> {template.subject_template}
+                      </p>
+                      <p className="text-blue-200 text-sm mt-2">
+                        <strong>Content:</strong> {template.content_template?.substring(0, 100)}...
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Forms */}
+        {showComposeForm && <ComposeMessageForm />}
+        
+        {/* Message Viewer Modal */}
+        {showMessageViewer && selectedMessage && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <h2 className="text-xl font-bold">{selectedMessage.subject}</h2>
+                    <p className="text-gray-600">
+                      From: {selectedMessage.sender_name} | To: {selectedMessage.patient_name}
+                    </p>
+                    <p className="text-gray-500 text-sm">
+                      {formatDate(selectedMessage.sent_at)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowMessageViewer(false)}
+                    className="text-gray-500 hover:text-gray-700"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <pre className="whitespace-pre-wrap font-sans text-gray-800">
+                    {selectedMessage.content}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 // New Dashboard Views Components
 const ERxPatientsView = ({ setActiveModule }) => {
   const [erxData, setErxData] = useState({ patients: [], total_scheduled: 0 });
