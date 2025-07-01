@@ -105,6 +105,21 @@
 user_problem_statement: "Build ClinicHub - AI-Powered Medical Practice Management System with core modules: SmartForm, EHR, Receipts/Invoice, Inventory, Employee Management, Check Printing, Finances. FHIR standard compliance required."
 
 backend:
+  - task: "Dashboard Views for Clinic Operations"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented 4 new dashboard API endpoints that replace the traditional dashboard cards with practical clinic operation views: 1) /api/dashboard/erx-patients - Patients scheduled for today (for eRx management), 2) /api/dashboard/daily-log - Patients seen today with visit types and payment info, 3) /api/dashboard/patient-queue - Current patient locations in clinic, 4) /api/dashboard/pending-payments - Patients with unpaid invoices."
+      - working: true
+        agent: "testing"
+        comment: "All four new dashboard API endpoints are working correctly. Successfully tested: 1) eRx Patients Dashboard - Returns patients scheduled for today with prescription counts and allergy information, 2) Daily Log Dashboard - Returns completed encounters for today with payment status and revenue totals, 3) Patient Queue Dashboard - Returns active encounters with clinic locations and wait times, 4) Pending Payments Dashboard - Returns unpaid/partial invoices with overdue amounts and days. All endpoints return properly structured data with correct calculations."
+
   - task: "FHIR-Compliant Patient Management System"
     implemented: true
     working: true
