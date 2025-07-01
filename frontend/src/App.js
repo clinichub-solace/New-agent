@@ -976,8 +976,52 @@ const Dashboard = ({ setActiveModule, user, onLogout }) => {
     }
   };
 
-  const handleCardClick = (cardType) => {
-    setActiveModule(cardType);
+  // eRx prescription management functions
+  const activatePrescription = async (prescriptionId) => {
+    try {
+      await axios.put(`${API}/prescriptions/${prescriptionId}/status`, null, {
+        params: { status: 'active' }
+      });
+      fetchPatientSummary(selectedPatient.id);
+    } catch (error) {
+      console.error("Error activating prescription:", error);
+      alert('Error activating prescription. Please try again.');
+    }
+  };
+
+  const updatePrescriptionStatus = async (prescriptionId, status) => {
+    try {
+      await axios.put(`${API}/prescriptions/${prescriptionId}/status`, null, {
+        params: { status }
+      });
+      fetchPatientSummary(selectedPatient.id);
+    } catch (error) {
+      console.error("Error updating prescription status:", error);
+      alert('Error updating prescription status. Please try again.');
+    }
+  };
+
+  const checkPrescriptionInteractions = async (prescriptionId) => {
+    try {
+      const response = await axios.get(`${API}/prescriptions/${prescriptionId}/interactions`);
+      const interactions = response.data.interactions;
+      
+      if (interactions.length > 0) {
+        let alertMessage = "Drug Interactions Found:\n\n";
+        interactions.forEach(interaction => {
+          alertMessage += `• ${interaction.message}\n`;
+          if (interaction.management) {
+            alertMessage += `  Management: ${interaction.management}\n`;
+          }
+        });
+        alert(alertMessage);
+      } else {
+        alert("No drug interactions found for this prescription.");
+      }
+    } catch (error) {
+      console.error("Error checking interactions:", error);
+      alert('Error checking drug interactions. Please try again.');
+    }
   };
 
   const modules = [
