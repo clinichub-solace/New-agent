@@ -1595,6 +1595,380 @@ const PatientsModule = ({ setActiveModule }) => {
     );
   };
 
+  // eRx Prescription Form Component
+  const PrescriptionForm = () => {
+    const [prescriptionData, setPrescriptionData] = useState({
+      medication_id: '',
+      prescriber_name: 'Dr. Sarah Chen',
+      dosage_text: '',
+      dose_quantity: '',
+      dose_unit: 'mg',
+      frequency: 'BID',
+      route: 'oral',
+      quantity: '',
+      days_supply: 30,
+      refills: 0,
+      indication: '',
+      special_instructions: '',
+      generic_substitution_allowed: true
+    });
+
+    const [drugSearchResults, setDrugSearchResults] = useState([]);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [safetyAlerts, setSafetyAlerts] = useState([]);
+    const [showAlerts, setShowAlerts] = useState(false);
+
+    const searchMedications = async (query) => {
+      if (query.length < 2) {
+        setDrugSearchResults([]);
+        return;
+      }
+      
+      try {
+        const response = await axios.get(`${API}/medications`, {
+          params: { search: query, limit: 10 }
+        });
+        setDrugSearchResults(response.data);
+      } catch (error) {
+        console.error("Error searching medications:", error);
+      }
+    };
+
+    const selectMedication = async (medication) => {
+      setSelectedMedication(medication);
+      setPrescriptionData({
+        ...prescriptionData,
+        medication_id: medication.id
+      });
+      setSearchQuery(medication.generic_name);
+      setDrugSearchResults([]);
+      
+      // Check for allergies and interactions
+      await checkSafetyAlerts(medication.id);
+    };
+
+    const checkSafetyAlerts = async (medicationId) => {
+      try {
+        // This would call an endpoint that checks allergies and interactions
+        // For now, we'll simulate it
+        const alerts = [];
+        
+        // Check allergies
+        if (patientSummary.allergies?.some(allergy => 
+          allergy.allergen.toLowerCase().includes(selectedMedication?.generic_name.toLowerCase())
+        )) {
+          alerts.push({
+            type: 'allergy',
+            severity: 'major',
+            message: 'Patient has documented allergy to this medication'
+          });
+        }
+        
+        setSafetyAlerts(alerts);
+        setShowAlerts(alerts.length > 0);
+      } catch (error) {
+        console.error("Error checking safety alerts:", error);
+      }
+    };
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      
+      if (!selectedMedication) {
+        alert('Please select a medication');
+        return;
+      }
+
+      try {
+        const submitData = {
+          ...prescriptionData,
+          patient_id: selectedPatient.id,
+          prescriber_id: 'user123', // This should come from current user
+          dose_quantity: parseFloat(prescriptionData.dose_quantity),
+          quantity: parseFloat(prescriptionData.quantity),
+          days_supply: parseInt(prescriptionData.days_supply),
+          refills: parseInt(prescriptionData.refills),
+          created_by: 'Dr. Sarah Chen'
+        };
+
+        await axios.post(`${API}/prescriptions`, submitData);
+        setShowPrescriptionForm(false);
+        fetchPatientSummary(selectedPatient.id);
+        
+        // Reset form
+        setPrescriptionData({
+          medication_id: '',
+          prescriber_name: 'Dr. Sarah Chen',
+          dosage_text: '',
+          dose_quantity: '',
+          dose_unit: 'mg',
+          frequency: 'BID',
+          route: 'oral',
+          quantity: '',
+          days_supply: 30,
+          refills: 0,
+          indication: '',
+          special_instructions: '',
+          generic_substitution_allowed: true
+        });
+        setSelectedMedication(null);
+        setSearchQuery('');
+        setSafetyAlerts([]);
+        
+      } catch (error) {
+        console.error("Error creating prescription:", error);
+        alert('Error creating prescription. Please try again.');
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-8">
+            <h3 className="text-2xl font-bold mb-6">New Electronic Prescription</h3>
+            
+            {/* Safety Alerts */}
+            {showAlerts && safetyAlerts.length > 0 && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <h4 className="font-semibold text-red-800 mb-2">⚠️ Safety Alerts</h4>
+                {safetyAlerts.map((alert, index) => (
+                  <div key={index} className="text-red-700 text-sm mb-1">
+                    <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                      alert.severity === 'major' ? 'bg-red-500' : 
+                      alert.severity === 'moderate' ? 'bg-orange-500' : 'bg-yellow-500'
+                    }`}></span>
+                    {alert.message}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Medication Search */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Search Medication *</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      searchMedications(e.target.value);
+                    }}
+                    placeholder="Type medication name..."
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  />
+                  
+                  {drugSearchResults.length > 0 && (
+                    <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {drugSearchResults.map((med) => (
+                        <div
+                          key={med.id}
+                          onClick={() => selectMedication(med)}
+                          className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+                        >
+                          <div className="font-medium">{med.generic_name}</div>
+                          <div className="text-sm text-gray-600">
+                            {med.brand_names?.join(', ')} | {med.strength} | {med.dosage_forms?.join(', ')}
+                          </div>
+                          <div className="text-xs text-gray-500 capitalize">
+                            {med.drug_class?.replace('_', ' ')}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                {selectedMedication && (
+                  <div className="mt-2 p-3 bg-blue-50 rounded-lg">
+                    <div className="font-medium text-blue-900">{selectedMedication.generic_name}</div>
+                    <div className="text-sm text-blue-700">
+                      Strength: {selectedMedication.strength} | Forms: {selectedMedication.dosage_forms?.join(', ')}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Dosage Information */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Dose Quantity *</label>
+                  <input
+                    type="number"
+                    step="0.1"
+                    value={prescriptionData.dose_quantity}
+                    onChange={(e) => setPrescriptionData({...prescriptionData, dose_quantity: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Unit</label>
+                  <select
+                    value={prescriptionData.dose_unit}
+                    onChange={(e) => setPrescriptionData({...prescriptionData, dose_unit: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                  >
+                    <option value="mg">mg</option>
+                    <option value="g">g</option>
+                    <option value="mcg">mcg</option>
+                    <option value="ml">ml</option>
+                    <option value="units">units</option>
+                    <option value="tablets">tablets</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Frequency *</label>
+                  <select
+                    value={prescriptionData.frequency}
+                    onChange={(e) => setPrescriptionData({...prescriptionData, frequency: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  >
+                    <option value="QD">Once Daily (QD)</option>
+                    <option value="BID">Twice Daily (BID)</option>
+                    <option value="TID">Three Times Daily (TID)</option>
+                    <option value="QID">Four Times Daily (QID)</option>
+                    <option value="Q6H">Every 6 Hours</option>
+                    <option value="Q8H">Every 8 Hours</option>
+                    <option value="Q12H">Every 12 Hours</option>
+                    <option value="PRN">As Needed (PRN)</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Route and Instructions */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Route</label>
+                  <select
+                    value={prescriptionData.route}
+                    onChange={(e) => setPrescriptionData({...prescriptionData, route: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                  >
+                    <option value="oral">Oral</option>
+                    <option value="IV">Intravenous (IV)</option>
+                    <option value="IM">Intramuscular (IM)</option>
+                    <option value="topical">Topical</option>
+                    <option value="sublingual">Sublingual</option>
+                    <option value="rectal">Rectal</option>
+                    <option value="nasal">Nasal</option>
+                    <option value="ophthalmic">Ophthalmic</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Dosage Instructions *</label>
+                  <input
+                    type="text"
+                    value={prescriptionData.dosage_text}
+                    onChange={(e) => setPrescriptionData({...prescriptionData, dosage_text: e.target.value})}
+                    placeholder="e.g., Take 1 tablet by mouth twice daily"
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Prescription Details */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Quantity *</label>
+                  <input
+                    type="number"
+                    value={prescriptionData.quantity}
+                    onChange={(e) => setPrescriptionData({...prescriptionData, quantity: e.target.value})}
+                    placeholder="e.g., 30"
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Days Supply *</label>
+                  <input
+                    type="number"
+                    value={prescriptionData.days_supply}
+                    onChange={(e) => setPrescriptionData({...prescriptionData, days_supply: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Refills</label>
+                  <select
+                    value={prescriptionData.refills}
+                    onChange={(e) => setPrescriptionData({...prescriptionData, refills: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                  >
+                    {[0,1,2,3,4,5].map(num => (
+                      <option key={num} value={num}>{num}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Clinical Information */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Indication/Reason for Prescription *</label>
+                <input
+                  type="text"
+                  value={prescriptionData.indication}
+                  onChange={(e) => setPrescriptionData({...prescriptionData, indication: e.target.value})}
+                  placeholder="e.g., Hypertension, Diabetes, Infection"
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Special Instructions</label>
+                <textarea
+                  value={prescriptionData.special_instructions}
+                  onChange={(e) => setPrescriptionData({...prescriptionData, special_instructions: e.target.value})}
+                  placeholder="Additional instructions for patient or pharmacist..."
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  rows="3"
+                />
+              </div>
+
+              {/* Generic Substitution */}
+              <div className="flex items-center">
+                <input
+                  type="checkbox"
+                  id="generic_substitution"
+                  checked={prescriptionData.generic_substitution_allowed}
+                  onChange={(e) => setPrescriptionData({...prescriptionData, generic_substitution_allowed: e.target.checked})}
+                  className="w-4 h-4 text-purple-600 border-gray-300 rounded focus:ring-purple-500"
+                />
+                <label htmlFor="generic_substitution" className="ml-2 text-sm font-medium">
+                  Allow generic substitution
+                </label>
+              </div>
+
+              {/* Form Actions */}
+              <div className="flex justify-end space-x-4 pt-6 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowPrescriptionForm(false)}
+                  className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-purple-500 text-white rounded-lg hover:bg-purple-600"
+                >
+                  Create Prescription
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   if (selectedPatient) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
