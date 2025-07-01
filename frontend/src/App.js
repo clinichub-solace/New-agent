@@ -1152,6 +1152,35 @@ const PatientsModule = ({ setActiveModule }) => {
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
 
+  // Prescription Management Functions
+  const activatePrescription = async (prescriptionId) => {
+    try {
+      await axios.put(`${API}/prescriptions/${prescriptionId}/status`, { status: 'active' });
+      fetchPatientSummary(selectedPatient.id);
+    } catch (error) {
+      console.error("Error activating prescription:", error);
+    }
+  };
+
+  const updatePrescriptionStatus = async (prescriptionId, status) => {
+    try {
+      await axios.put(`${API}/prescriptions/${prescriptionId}/status`, { status });
+      fetchPatientSummary(selectedPatient.id);
+    } catch (error) {
+      console.error("Error updating prescription status:", error);
+    }
+  };
+
+  const checkPrescriptionInteractions = async (prescriptionId) => {
+    try {
+      const response = await axios.get(`${API}/prescriptions/${prescriptionId}/interactions`);
+      // You might want to show these interactions in a modal or alert
+      console.log("Interactions:", response.data);
+    } catch (error) {
+      console.error("Error checking prescription interactions:", error);
+    }
+  };
+
   useEffect(() => {
     fetchPatients();
   }, []);
