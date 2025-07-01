@@ -3296,6 +3296,213 @@ def get_frequency_period(frequency: str) -> int:
     }
     return frequency_map.get(frequency.upper(), 1)
 
+@api_router.post("/init-erx-data")
+async def initialize_erx_data(current_user: User = Depends(get_current_active_user)):
+    """Initialize sample medication database and drug interactions"""
+    try:
+        # Check if medications already exist
+        existing_meds = await db.medications.count_documents({})
+        if existing_meds > 0:
+            return {"message": "eRx data already initialized", "medications_count": existing_meds}
+        
+        # Sample medications with FHIR compliance
+        medications = [
+            {
+                "id": str(uuid.uuid4()),
+                "resource_type": "Medication",
+                "code": {
+                    "coding": [{
+                        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+                        "code": "617993",
+                        "display": "Lisinopril 10 MG Oral Tablet"
+                    }]
+                },
+                "generic_name": "Lisinopril",
+                "brand_names": ["Prinivil", "Zestril"],
+                "strength": "10mg",
+                "dosage_forms": ["tablet"],
+                "route_of_administration": ["oral"],
+                "drug_class": "antihypertensive",
+                "contraindications": ["pregnancy", "angioedema", "bilateral renal artery stenosis"],
+                "warnings": ["hyperkalemia", "renal impairment", "hypotension"],
+                "pregnancy_category": "D",
+                "standard_dosing": {
+                    "adult": "Initial: 10mg once daily, Maintenance: 20-40mg once daily",
+                    "elderly": "Initial: 2.5-5mg once daily"
+                },
+                "max_daily_dose": "80mg",
+                "rxnorm_code": "617993",
+                "ndc_codes": ["0378-1010-01", "0378-1015-01"]
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "resource_type": "Medication",
+                "code": {
+                    "coding": [{
+                        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+                        "code": "860975",
+                        "display": "Metformin 500 MG Oral Tablet"
+                    }]
+                },
+                "generic_name": "Metformin",
+                "brand_names": ["Glucophage", "Fortamet"],
+                "strength": "500mg",
+                "dosage_forms": ["tablet", "extended-release tablet"],
+                "route_of_administration": ["oral"],
+                "drug_class": "antidiabetic",
+                "contraindications": ["severe renal impairment", "acute metabolic acidosis"],
+                "warnings": ["lactic acidosis", "renal impairment", "contrast dye procedures"],
+                "pregnancy_category": "B",
+                "standard_dosing": {
+                    "adult": "Initial: 500mg twice daily, Maintenance: 500-1000mg twice daily",
+                    "max": "2550mg daily"
+                },
+                "max_daily_dose": "2550mg",
+                "rxnorm_code": "860975"
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "resource_type": "Medication",
+                "code": {
+                    "coding": [{
+                        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+                        "code": "308136",
+                        "display": "Warfarin 5 MG Oral Tablet"
+                    }]
+                },
+                "generic_name": "Warfarin",
+                "brand_names": ["Coumadin", "Jantoven"],
+                "strength": "5mg",
+                "dosage_forms": ["tablet"],
+                "route_of_administration": ["oral"],
+                "drug_class": "anticoagulant",
+                "contraindications": ["active bleeding", "pregnancy", "severe liver disease"],
+                "warnings": ["bleeding risk", "INR monitoring required", "multiple drug interactions"],
+                "pregnancy_category": "X",
+                "standard_dosing": {
+                    "adult": "Initial: 2-5mg daily, adjusted based on INR",
+                    "elderly": "Initial: 1-2mg daily"
+                },
+                "max_daily_dose": "10mg typically",
+                "rxnorm_code": "308136"
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "resource_type": "Medication",
+                "code": {
+                    "coding": [{
+                        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+                        "code": "197696",
+                        "display": "Amoxicillin 500 MG Oral Capsule"
+                    }]
+                },
+                "generic_name": "Amoxicillin",
+                "brand_names": ["Amoxil", "Moxatag"],
+                "strength": "500mg",
+                "dosage_forms": ["capsule", "tablet", "suspension"],
+                "route_of_administration": ["oral"],
+                "drug_class": "antibiotic",
+                "contraindications": ["penicillin allergy"],
+                "warnings": ["allergic reactions", "C. diff colitis", "renal dosing adjustment"],
+                "pregnancy_category": "B",
+                "standard_dosing": {
+                    "adult": "250-500mg every 8 hours or 500-875mg every 12 hours",
+                    "pediatric": "20-40mg/kg/day divided every 8 hours"
+                },
+                "max_daily_dose": "3000mg",
+                "rxnorm_code": "197696"
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "resource_type": "Medication",
+                "code": {
+                    "coding": [{
+                        "system": "http://www.nlm.nih.gov/research/umls/rxnorm",
+                        "code": "152923",
+                        "display": "Ibuprofen 600 MG Oral Tablet"
+                    }]
+                },
+                "generic_name": "Ibuprofen",
+                "brand_names": ["Advil", "Motrin"],
+                "strength": "600mg",
+                "dosage_forms": ["tablet", "capsule", "suspension"],
+                "route_of_administration": ["oral"],
+                "drug_class": "analgesic",
+                "contraindications": ["aspirin allergy", "severe heart failure", "active GI bleeding"],
+                "warnings": ["GI bleeding", "cardiovascular risk", "renal impairment"],
+                "pregnancy_category": "C",
+                "standard_dosing": {
+                    "adult": "400-800mg every 6-8 hours",
+                    "max_daily": "3200mg"
+                },
+                "max_daily_dose": "3200mg",
+                "rxnorm_code": "152923"
+            }
+        ]
+        
+        # Insert medications
+        await db.medications.insert_many(medications)
+        
+        # Create drug interactions
+        med_lookup = {med["generic_name"]: med["id"] for med in medications}
+        
+        interactions = [
+            {
+                "id": str(uuid.uuid4()),
+                "drug1_id": med_lookup["Warfarin"],
+                "drug1_name": "Warfarin",
+                "drug2_id": med_lookup["Ibuprofen"],
+                "drug2_name": "Ibuprofen",
+                "severity": "major",
+                "description": "NSAIDs may increase the risk of bleeding when used with warfarin",
+                "clinical_consequence": "Increased risk of serious bleeding, including GI bleeding",
+                "management_recommendation": "Monitor INR closely. Consider alternative analgesic. If NSAID necessary, use lowest effective dose for shortest duration.",
+                "evidence_level": "established",
+                "onset": "delayed",
+                "documentation": "excellent"
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "drug1_id": med_lookup["Lisinopril"],
+                "drug1_name": "Lisinopril",
+                "drug2_id": med_lookup["Ibuprofen"],
+                "drug2_name": "Ibuprofen",
+                "severity": "moderate",
+                "description": "NSAIDs may reduce the antihypertensive effect of ACE inhibitors",
+                "clinical_consequence": "Reduced blood pressure control, potential renal function impairment",
+                "management_recommendation": "Monitor blood pressure and renal function. Consider alternative analgesic.",
+                "evidence_level": "established",
+                "onset": "delayed",
+                "documentation": "good"
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "drug1_id": med_lookup["Metformin"],
+                "drug1_name": "Metformin",
+                "drug2_id": med_lookup["Warfarin"],
+                "drug2_name": "Warfarin",
+                "severity": "minor",
+                "description": "Metformin may potentiate the anticoagulant effect of warfarin",
+                "clinical_consequence": "Slight increase in anticoagulant effect",
+                "management_recommendation": "Monitor INR when starting or stopping metformin",
+                "evidence_level": "probable",
+                "onset": "delayed",
+                "documentation": "fair"
+            }
+        ]
+        
+        # Insert interactions
+        await db.drug_interactions.insert_many(interactions)
+        
+        return {
+            "message": "eRx data initialized successfully",
+            "medications_added": len(medications),
+            "interactions_added": len(interactions)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error initializing eRx data: {str(e)}")
+
 # Include the router in the main app
 app.include_router(api_router)
 
