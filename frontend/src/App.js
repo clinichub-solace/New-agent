@@ -1151,6 +1151,12 @@ const PatientsModule = ({ setActiveModule }) => {
   const [showSOAPForm, setShowSOAPForm] = useState(false);
   const [showDocumentUpload, setShowDocumentUpload] = useState(false);
   const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
+  
+  // eRx States
+  const [medications, setMedications] = useState([]);
+  const [medicationSearch, setMedicationSearch] = useState('');
+  const [selectedMedication, setSelectedMedication] = useState(null);
+  const [prescriptions, setPrescriptions] = useState([]);
 
   // Prescription Management Functions
   const activatePrescription = async (prescriptionId) => {
