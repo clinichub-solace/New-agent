@@ -6795,7 +6795,9 @@ function App() {
       case 'erx-patients':
         return (
           <ProtectedRoute>
-            <ERxPatientsView setActiveModule={setActiveModule} />
+            <AppHeader>
+              <CommunicationsModule setActiveModule={setActiveModule} />
+            </AppHeader>
           </ProtectedRoute>
         );
       case 'daily-log':
