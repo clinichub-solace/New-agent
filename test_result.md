@@ -405,7 +405,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Dashboard Views for Clinic Operations"
+    - "Enhanced Smart Forms Module"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
