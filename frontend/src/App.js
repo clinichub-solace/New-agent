@@ -1208,6 +1208,20 @@ const PatientsModule = ({ setActiveModule }) => {
   // Smart Forms States
   const [availableForms, setAvailableForms] = useState([]);
   const [selectedForm, setSelectedForm] = useState(null);
+  
+  // Patient Form Data
+  const [formData, setFormData] = useState({
+    first_name: '', 
+    last_name: '', 
+    email: '', 
+    phone: '', 
+    date_of_birth: '', 
+    gender: '', 
+    address_line1: '', 
+    city: '', 
+    state: '', 
+    zip_code: ''
+  });
   const [formSubmissions, setFormSubmissions] = useState([]);
 
   // Prescription Management Functions
