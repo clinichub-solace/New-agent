@@ -922,6 +922,159 @@ class DrugAllergy(BaseModel):
     
     created_at: datetime = Field(default_factory=datetime.utcnow)
 
+# Scheduling System Models
+
+class AppointmentType(str, Enum):
+    CONSULTATION = "consultation"
+    FOLLOW_UP = "follow_up"
+    PROCEDURE = "procedure"
+    URGENT = "urgent"
+    PHYSICAL_EXAM = "physical_exam"
+    VACCINATION = "vaccination"
+    LAB_WORK = "lab_work"
+
+class AppointmentStatus(str, Enum):
+    SCHEDULED = "scheduled"
+    CONFIRMED = "confirmed"
+    ARRIVED = "arrived"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    NO_SHOW = "no_show"
+    RESCHEDULED = "rescheduled"
+
+class Provider(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    employee_id: Optional[str] = None  # Link to employee record
+    first_name: str
+    last_name: str
+    title: str  # Dr., PA, NP, etc.
+    specialties: List[str] = []
+    license_number: Optional[str] = None
+    npi_number: Optional[str] = None
+    email: str
+    phone: str
+    is_active: bool = True
+    
+    # Schedule Settings
+    default_appointment_duration: int = 30  # minutes
+    schedule_start_time: str = "08:00"  # 24h format
+    schedule_end_time: str = "17:00"
+    working_days: List[str] = ["monday", "tuesday", "wednesday", "thursday", "friday"]
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class TimeSlot(BaseModel):
+    start_time: str  # HH:MM format
+    end_time: str
+    is_available: bool = True
+    appointment_id: Optional[str] = None
+
+class ProviderSchedule(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    provider_id: str
+    date: date
+    time_slots: List[TimeSlot] = []
+    is_available: bool = True  # Provider working this day
+    notes: Optional[str] = None
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class Appointment(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    appointment_number: str = Field(default_factory=lambda: f"APT{datetime.now().strftime('%Y%m%d')}{str(uuid.uuid4())[:6].upper()}")
+    
+    # Core Information
+    patient_id: str
+    patient_name: str
+    provider_id: str
+    provider_name: str
+    
+    # Scheduling Details
+    appointment_date: date
+    start_time: str  # HH:MM
+    end_time: str
+    duration_minutes: int = 30
+    
+    # Appointment Details
+    appointment_type: AppointmentType
+    status: AppointmentStatus = AppointmentStatus.SCHEDULED
+    reason: str
+    notes: Optional[str] = None
+    
+    # Location
+    location: str = "Main Office"
+    room: Optional[str] = None
+    
+    # Tracking
+    scheduled_by: str  # User who created the appointment
+    confirmed_at: Optional[datetime] = None
+    checked_in_at: Optional[datetime] = None
+    completed_at: Optional[datetime] = None
+    
+    # Related Records
+    encounter_id: Optional[str] = None  # Link to encounter when appointment becomes visit
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+# Patient Communications Models
+
+class MessageType(str, Enum):
+    APPOINTMENT_REMINDER = "appointment_reminder"
+    APPOINTMENT_CONFIRMATION = "appointment_confirmation"
+    GENERAL = "general"
+    FOLLOW_UP = "follow_up"
+    TEST_RESULTS = "test_results"
+    BILLING = "billing"
+    PRESCRIPTION = "prescription"
+
+class MessageStatus(str, Enum):
+    SENT = "sent"
+    DELIVERED = "delivered"
+    READ = "read"
+    FAILED = "failed"
+
+class PatientMessage(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    
+    # Message Details
+    message_type: MessageType
+    subject: str
+    content: str
+    
+    # Participants
+    patient_id: str
+    patient_name: str
+    sender_id: str  # User/Provider ID
+    sender_name: str
+    sender_type: str = "clinic"  # clinic, patient
+    
+    # Delivery
+    status: MessageStatus = MessageStatus.SENT
+    sent_at: datetime = Field(default_factory=datetime.utcnow)
+    read_at: Optional[datetime] = None
+    
+    # Context
+    appointment_id: Optional[str] = None
+    encounter_id: Optional[str] = None
+    
+    # Threading
+    reply_to: Optional[str] = None  # Parent message ID for replies
+    thread_id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+
+class CommunicationTemplate(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    message_type: MessageType
+    subject_template: str
+    content_template: str
+    is_active: bool = True
+    
+    # Template variables: {patient_name}, {appointment_date}, {provider_name}, etc.
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
 # User and Authentication Models
 class User(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
