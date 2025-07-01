@@ -1669,6 +1669,35 @@ async def authenticate_user(username: str, password: str):
     
     return user_obj
 
+# Patient Authentication Functions
+async def get_current_patient(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate patient credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        patient_user_id: str = payload.get("sub")
+        token_type: str = payload.get("type")
+        
+        if patient_user_id is None or token_type != "patient":
+            raise credentials_exception
+            
+    except jwt.PyJWTError:
+        raise credentials_exception
+    
+    patient_user = await db.patient_users.find_one({"id": patient_user_id})
+    if patient_user is None:
+        raise credentials_exception
+    
+    return {
+        "id": patient_user["id"],
+        "patient_id": patient_user["patient_id"],
+        "email": patient_user["email"]
+    }
+
 # Authentication Routes
 @api_router.post("/auth/login", response_model=Token)
 async def login(user_credentials: UserLogin):
