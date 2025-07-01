@@ -429,11 +429,11 @@ frontend:
 
   - task: "eRx Electronic Prescribing System (FHIR Compliant)"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py"
-    stuck_count: 1
+    stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
@@ -441,6 +441,9 @@ frontend:
       - working: false
         agent: "testing"
         comment: "The eRx system is partially working. The /api/init-erx-data endpoint works correctly and initializes the medication database. The /api/drug-interactions endpoint also works. However, there's a critical issue: there are two different Medication models defined in the code (lines 710 and 1059), causing a conflict. The /api/medications endpoint is returning patient medications (from the model at line 1059) instead of the FHIR-compliant medications (from the model at line 710). When trying to create a prescription, we get an error: 'generic_name' because it's trying to use the wrong medication model. This needs to be fixed by renaming one of the Medication models to avoid the conflict."
+      - working: true
+        agent: "testing"
+        comment: "The eRx system is now working correctly after renaming the FHIR-compliant Medication model to FHIRMedication and updating the database collection from 'medications' to 'fhir_medications'. Successfully tested all key functionality: initializing eRx data, searching FHIR medications, filtering by drug class, retrieving medication details, creating prescriptions, retrieving patient prescriptions, updating prescription status, and checking drug-drug interactions. All endpoints are now working properly with the correct data structures."
 
 agent_communication:
   - agent: "main"
