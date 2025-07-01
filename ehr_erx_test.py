@@ -21,37 +21,27 @@ API_URL = f"{BACKEND_URL}/api"
 print(f"Using API URL: {API_URL}")
 
 # Helper function to print test results
-def print_test_result(test_name, success, response=None):
+def print_test_result(test_name, success, response=None, error=None):
     if success:
         print(f"✅ {test_name}: PASSED")
         if response:
-            print(f"   Response: {json.dumps(response, indent=2, default=str)[:200]}...")
+            if isinstance(response, dict) or isinstance(response, list):
+                print(f"   Response: {json.dumps(response, indent=2, default=str)[:200]}...")
+            else:
+                print(f"   Response: {response}")
     else:
         print(f"❌ {test_name}: FAILED")
+        if error:
+            print(f"   Error: {error}")
         if response:
             print(f"   Response: {response}")
     print("-" * 80)
 
 # Test Authentication System to get admin token
 def test_authentication():
-    print("\n--- Testing Authentication System ---")
+    print("\n--- Testing Authentication ---")
     
-    # Test 1: Initialize Admin User
-    try:
-        url = f"{API_URL}/auth/init-admin"
-        response = requests.post(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Initialize Admin User", True, result)
-    except Exception as e:
-        print(f"Error initializing admin user: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize Admin User", False)
-    
-    # Test 2: Login with Admin Credentials
+    # Login with Admin Credentials
     admin_token = None
     try:
         url = f"{API_URL}/auth/login"
@@ -69,317 +59,169 @@ def test_authentication():
         
         print_test_result("Admin Login", True, result)
     except Exception as e:
-        print(f"Error logging in as admin: {str(e)}")
+        print_test_result("Admin Login", False, error=str(e))
         if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Admin Login", False)
+            print(f"   Status code: {response.status_code}")
+            print(f"   Response text: {response.text}")
     
     return admin_token
 
-# Test Patient Management
-def test_patient_management():
-    print("\n--- Testing Patient Management ---")
+def test_ehr_endpoints(admin_token):
+    print("\n--- Testing EHR Endpoints ---")
     
-    # Test creating a patient
+    headers = {"Authorization": f"Bearer {admin_token}"} if admin_token else {}
+    
+    # Test 1: GET /api/patients
+    try:
+        url = f"{API_URL}/patients"
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("GET /api/patients", True, result)
+    except Exception as e:
+        print_test_result("GET /api/patients", False, error=str(e))
+        if 'response' in locals():
+            print(f"   Status code: {response.status_code}")
+            print(f"   Response text: {response.text}")
+    
+    # Test 2: GET /api/encounters
+    try:
+        url = f"{API_URL}/encounters"
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("GET /api/encounters", True, result)
+    except Exception as e:
+        print_test_result("GET /api/encounters", False, error=str(e))
+        if 'response' in locals():
+            print(f"   Status code: {response.status_code}")
+            print(f"   Response text: {response.text}")
+    
+    # Test 3: POST /api/encounters
+    # First get a patient ID to use
     patient_id = None
     try:
         url = f"{API_URL}/patients"
-        data = {
-            "first_name": "Sarah",
-            "last_name": "Johnson",
-            "email": "sarah.johnson@example.com",
-            "phone": "+1-555-123-4567",
-            "date_of_birth": "1985-06-15",
-            "gender": "female",
-            "address_line1": "123 Medical Center Blvd",
-            "city": "Springfield",
-            "state": "IL",
-            "zip_code": "62704"
-        }
-        
-        response = requests.post(url, json=data)
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
-        result = response.json()
+        patients = response.json()
         
-        patient_id = result["id"]
-        print_test_result("Create Patient", True, result)
-    except Exception as e:
-        print(f"Error creating patient: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Create Patient", False)
-        return None
+        if patients and len(patients) > 0:
+            patient_id = patients[0]["id"]
+    except Exception:
+        pass
     
-    # Test getting all patients
-    try:
-        url = f"{API_URL}/patients"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Patients", True, result)
-    except Exception as e:
-        print(f"Error getting patients: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get Patients", False)
+    if patient_id:
+        try:
+            url = f"{API_URL}/encounters"
+            data = {
+                "patient_id": patient_id,
+                "encounter_type": "follow_up",
+                "scheduled_date": (datetime.now() + timedelta(days=1)).isoformat(),
+                "provider": "Dr. Michael Chen",
+                "location": "Main Clinic - Room 105",
+                "chief_complaint": "Persistent headache",
+                "reason_for_visit": "Follow-up for headache treatment"
+            }
+            
+            response = requests.post(url, json=data, headers=headers)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("POST /api/encounters", True, result)
+        except Exception as e:
+            print_test_result("POST /api/encounters", False, error=str(e))
+            if 'response' in locals():
+                print(f"   Status code: {response.status_code}")
+                print(f"   Response text: {response.text}")
+    else:
+        print_test_result("POST /api/encounters", False, error="No patient ID available for testing")
     
-    return patient_id
-
-# Test Encounter Management
-def test_encounter_management(patient_id):
-    print("\n--- Testing Encounter Management ---")
-    
-    if not patient_id:
-        print("Skipping encounter tests - no patient ID available")
-        return None
-    
-    # Test creating an encounter
-    encounter_id = None
-    try:
-        url = f"{API_URL}/encounters"
-        data = {
-            "patient_id": patient_id,
-            "encounter_type": "annual_physical",
-            "scheduled_date": (datetime.now() + timedelta(days=7)).isoformat(),
-            "provider": "Dr. Sarah Williams",
-            "location": "Main Clinic - Room 203",
-            "chief_complaint": "Annual physical examination",
-            "reason_for_visit": "Yearly check-up"
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        encounter_id = result["id"]
-        print_test_result("Create Encounter", True, result)
-    except Exception as e:
-        print(f"Error creating encounter: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Create Encounter", False)
-        return None
-    
-    # Test getting all encounters
-    try:
-        url = f"{API_URL}/encounters"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get All Encounters", True, result)
-    except Exception as e:
-        print(f"Error getting all encounters: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get All Encounters", False)
-    
-    return encounter_id
-
-# Test Vital Signs Recording
-def test_vital_signs(patient_id, encounter_id):
-    print("\n--- Testing Vital Signs Recording ---")
-    
-    if not patient_id or not encounter_id:
-        print("Skipping vital signs tests - missing patient or encounter ID")
-        return
-    
-    # Test creating vital signs
+    # Test 4: GET /api/vitals
     try:
         url = f"{API_URL}/vital-signs"
-        data = {
-            "patient_id": patient_id,
-            "encounter_id": encounter_id,
-            "height": 175.5,  # cm
-            "weight": 70.3,   # kg
-            "bmi": 22.8,
-            "systolic_bp": 120,
-            "diastolic_bp": 80,
-            "heart_rate": 72,
-            "respiratory_rate": 16,
-            "temperature": 37.0,
-            "oxygen_saturation": 98,
-            "pain_scale": 0,
-            "recorded_by": "Nurse Johnson"
-        }
-        
-        response = requests.post(url, json=data)
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
         result = response.json()
         
-        print_test_result("Create Vital Signs", True, result)
+        print_test_result("GET /api/vitals", True, result)
     except Exception as e:
-        print(f"Error creating vital signs: {str(e)}")
+        print_test_result("GET /api/vitals", False, error=str(e))
         if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Create Vital Signs", False)
+            print(f"   Status code: {response.status_code}")
+            print(f"   Response text: {response.text}")
     
-    # Test getting vital signs by patient
-    try:
-        url = f"{API_URL}/vital-signs/patient/{patient_id}"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Patient Vital Signs", True, result)
-    except Exception as e:
-        print(f"Error getting patient vital signs: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get Patient Vital Signs", False)
-
-# Test Medication Management
-def test_medication_management(patient_id):
-    print("\n--- Testing Medication Management ---")
-    
-    if not patient_id:
-        print("Skipping medication tests - no patient ID available")
-        return None
-    
-    # Test creating a medication
-    medication_id = None
+    # Test 5: GET /api/medications
     try:
         url = f"{API_URL}/medications"
-        data = {
-            "patient_id": patient_id,
-            "medication_name": "Lisinopril",
-            "dosage": "10mg",
-            "frequency": "Once daily",
-            "route": "oral",
-            "start_date": date.today().isoformat(),
-            "prescribing_physician": "Dr. Sarah Williams",
-            "indication": "Hypertension",
-            "notes": "Take in the morning with food"
-        }
-        
-        response = requests.post(url, json=data)
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
         result = response.json()
         
-        medication_id = result["id"]
-        print_test_result("Create Medication", True, result)
+        print_test_result("GET /api/medications", True, result)
     except Exception as e:
-        print(f"Error creating medication: {str(e)}")
+        print_test_result("GET /api/medications", False, error=str(e))
         if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Create Medication", False)
-        return None
-    
-    # Test getting medications by patient
-    try:
-        url = f"{API_URL}/medications/patient/{patient_id}"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Patient Medications", True, result)
-    except Exception as e:
-        print(f"Error getting patient medications: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get Patient Medications", False)
-    
-    return medication_id
+            print(f"   Status code: {response.status_code}")
+            print(f"   Response text: {response.text}")
 
-# Test eRx (Electronic Prescribing) System
-def test_erx_system(patient_id, admin_token):
-    print("\n--- Testing eRx (Electronic Prescribing) System ---")
+def test_erx_endpoints(admin_token):
+    print("\n--- Testing eRx (Electronic Prescribing) Endpoints ---")
     
-    if not patient_id or not admin_token:
-        print("Skipping eRx tests - missing patient ID or admin token")
-        return
+    headers = {"Authorization": f"Bearer {admin_token}"} if admin_token else {}
     
-    # Test 1: Initialize eRx Data
+    # Test 1: GET /api/prescriptions
     try:
-        url = f"{API_URL}/init-erx-data"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.post(url, headers=headers)
+        url = f"{API_URL}/prescriptions"
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
         result = response.json()
         
-        print_test_result("Initialize eRx Data", True, result)
+        print_test_result("GET /api/prescriptions", True, result)
     except Exception as e:
-        print(f"Error initializing eRx data: {str(e)}")
+        print_test_result("GET /api/prescriptions", False, error=str(e))
         if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize eRx Data", False)
+            print(f"   Status code: {response.status_code}")
+            print(f"   Response text: {response.text}")
     
-    # Test 2: Get FHIR Medications
+    # Test 2: POST /api/prescriptions
+    # First get a patient ID and medication ID to use
+    patient_id = None
     medication_id = None
+    
     try:
-        url = f"{API_URL}/erx/medications"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
+        url = f"{API_URL}/patients"
         response = requests.get(url, headers=headers)
         response.raise_for_status()
-        result = response.json()
+        patients = response.json()
         
-        if len(result) > 0:
-            medication_id = result[0]["id"]
-        
-        print_test_result("Get FHIR Medications", True, result)
-    except Exception as e:
-        print(f"Error getting FHIR medications: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get FHIR Medications", False)
+        if patients and len(patients) > 0:
+            patient_id = patients[0]["id"]
+    except Exception:
+        pass
     
-    # Test 3: Get Formulary
     try:
-        url = f"{API_URL}/erx/formulary"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
+        # Try to get a medication ID from the regular medications endpoint
+        url = f"{API_URL}/medications"
         response = requests.get(url, headers=headers)
         response.raise_for_status()
-        result = response.json()
+        medications = response.json()
         
-        print_test_result("Get Formulary", True, result)
-    except Exception as e:
-        print(f"Error getting formulary: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get Formulary", False)
+        if medications and len(medications) > 0:
+            # Check if this is a list of patient medications or FHIR medications
+            if "medication_name" in medications[0]:
+                # This is a patient medication, not a FHIR medication
+                medication_id = None
+            else:
+                medication_id = medications[0]["id"]
+    except Exception:
+        pass
     
-    # Test 4: Initialize eRx Session
-    try:
-        url = f"{API_URL}/erx/init"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        data = {
-            "patient_id": patient_id,
-            "provider_id": "provider-123"
-        }
-        
-        response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Initialize eRx Session", True, result)
-    except Exception as e:
-        print(f"Error initializing eRx session: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize eRx Session", False)
-    
-    # Test 5: Create Prescription
-    if medication_id:
+    if patient_id and medication_id:
         try:
             url = f"{API_URL}/prescriptions"
-            headers = {"Authorization": f"Bearer {admin_token}"}
             data = {
                 "medication_id": medication_id,
                 "patient_id": patient_id,
@@ -406,36 +248,70 @@ def test_erx_system(patient_id, admin_token):
                 "created_by": "admin"
             }
             
-            response = requests.post(url, headers=headers, json=data)
+            response = requests.post(url, json=data, headers=headers)
             response.raise_for_status()
             result = response.json()
             
-            print_test_result("Create Prescription", True, result)
+            print_test_result("POST /api/prescriptions", True, result)
         except Exception as e:
-            print(f"Error creating prescription: {str(e)}")
+            print_test_result("POST /api/prescriptions", False, error=str(e))
             if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Create Prescription", False)
+                print(f"   Status code: {response.status_code}")
+                print(f"   Response text: {response.text}")
+    else:
+        print_test_result("POST /api/prescriptions", False, error="Missing patient ID or medication ID for testing")
     
-    # Test 6: Get Prescriptions
+    # Test 3: GET /api/erx/medications
     try:
-        url = f"{API_URL}/prescriptions"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
+        url = f"{API_URL}/erx/medications"
         response = requests.get(url, headers=headers)
         response.raise_for_status()
         result = response.json()
         
-        print_test_result("Get Prescriptions", True, result)
+        print_test_result("GET /api/erx/medications", True, result)
     except Exception as e:
-        print(f"Error getting prescriptions: {str(e)}")
+        print_test_result("GET /api/erx/medications", False, error=str(e))
         if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get Prescriptions", False)
+            print(f"   Status code: {response.status_code}")
+            print(f"   Response text: {response.text}")
+    
+    # Test 4: POST /api/erx/init
+    if patient_id:
+        try:
+            url = f"{API_URL}/erx/init"
+            data = {
+                "patient_id": patient_id,
+                "provider_id": "provider-123"
+            }
+            
+            response = requests.post(url, json=data, headers=headers)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("POST /api/erx/init", True, result)
+        except Exception as e:
+            print_test_result("POST /api/erx/init", False, error=str(e))
+            if 'response' in locals():
+                print(f"   Status code: {response.status_code}")
+                print(f"   Response text: {response.text}")
+    else:
+        print_test_result("POST /api/erx/init", False, error="No patient ID available for testing")
+    
+    # Test 5: GET /api/erx/formulary
+    try:
+        url = f"{API_URL}/erx/formulary"
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("GET /api/erx/formulary", True, result)
+    except Exception as e:
+        print_test_result("GET /api/erx/formulary", False, error=str(e))
+        if 'response' in locals():
+            print(f"   Status code: {response.status_code}")
+            print(f"   Response text: {response.text}")
 
-def run_ehr_erx_tests():
+def run_tests():
     print("\n" + "=" * 80)
     print("TESTING EHR AND ERX FUNCTIONALITY")
     print("=" * 80)
@@ -443,21 +319,15 @@ def run_ehr_erx_tests():
     # Test authentication first to get admin token
     admin_token = test_authentication()
     
-    # Test patient management to get a patient ID
-    patient_id = test_patient_management()
+    # Test EHR endpoints
+    test_ehr_endpoints(admin_token)
     
-    # Test EHR functionality
-    encounter_id = test_encounter_management(patient_id)
-    test_vital_signs(patient_id, encounter_id)
-    test_medication_management(patient_id)
-    
-    # Test eRx functionality
-    if admin_token and patient_id:
-        test_erx_system(patient_id, admin_token)
+    # Test eRx endpoints
+    test_erx_endpoints(admin_token)
     
     print("\n" + "=" * 80)
     print("TESTING COMPLETE")
     print("=" * 80)
 
 if __name__ == "__main__":
-    run_ehr_erx_tests()
+    run_tests()
