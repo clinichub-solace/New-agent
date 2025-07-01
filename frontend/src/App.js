@@ -4183,6 +4183,7 @@ const SmartFormsModule = ({ setActiveModule }) => {
           </div>
         )}
 
+        {/* Enhanced Form Builder Modal */}
         {showFormBuilder && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
@@ -4205,6 +4206,15 @@ const SmartFormsModule = ({ setActiveModule }) => {
                     className="w-full p-3 border border-gray-300 rounded-lg"
                     rows="3"
                   />
+                  <select
+                    value={formCategory}
+                    onChange={(e) => setFormCategory(e.target.value)}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                  >
+                    {categories.map((cat) => (
+                      <option key={cat.value} value={cat.value}>{cat.label}</option>
+                    ))}
+                  </select>
                 </div>
 
                 <div className="grid grid-cols-3 gap-6">
@@ -4226,9 +4236,14 @@ const SmartFormsModule = ({ setActiveModule }) => {
 
                     <div className="mt-6">
                       <h4 className="font-semibold mb-2">Smart Tags</h4>
-                      <div className="space-y-1">
+                      <div className="space-y-1 max-h-48 overflow-y-auto">
                         {smartTags.map((tag) => (
-                          <div key={tag} className="text-sm text-blue-600 font-mono">
+                          <div 
+                            key={tag} 
+                            className="text-sm text-blue-600 font-mono cursor-pointer hover:bg-blue-50 p-1 rounded"
+                            onClick={() => navigator.clipboard.writeText(tag)}
+                            title="Click to copy"
+                          >
                             {tag}
                           </div>
                         ))}
@@ -4236,13 +4251,13 @@ const SmartFormsModule = ({ setActiveModule }) => {
                     </div>
                   </div>
 
-                  {/* Form Builder */}
+                  {/* Enhanced Form Builder */}
                   <div className="col-span-2">
                     <h3 className="text-lg font-semibold mb-4">Form Preview</h3>
                     <div className="border border-gray-300 rounded-lg p-6 min-h-96 bg-gray-50">
                       {formFields.length === 0 ? (
                         <div className="text-center text-gray-500 py-12">
-                          <p>Drag field types from the left to build your form</p>
+                          <p>Add field types from the left to build your form</p>
                         </div>
                       ) : (
                         <div className="space-y-4">
@@ -4253,7 +4268,7 @@ const SmartFormsModule = ({ setActiveModule }) => {
                                   type="text"
                                   value={field.label}
                                   onChange={(e) => updateField(field.id, { label: e.target.value })}
-                                  className="font-semibold text-lg border-b border-gray-300 bg-transparent"
+                                  className="font-semibold text-lg border-b border-gray-300 bg-transparent flex-1 mr-4"
                                 />
                                 <button
                                   onClick={() => removeField(field.id)}
@@ -4273,14 +4288,14 @@ const SmartFormsModule = ({ setActiveModule }) => {
                                 />
                                 <input
                                   type="text"
-                                  placeholder="Smart tag (optional)"
+                                  placeholder="Smart tag (e.g., {patient_name})"
                                   value={field.smart_tag}
                                   onChange={(e) => updateField(field.id, { smart_tag: e.target.value })}
                                   className="p-2 border border-gray-300 rounded font-mono text-sm"
                                 />
                               </div>
 
-                              <div className="flex items-center space-x-4">
+                              <div className="flex items-center space-x-4 mb-3">
                                 <label className="flex items-center">
                                   <input
                                     type="checkbox"
@@ -4302,16 +4317,37 @@ const SmartFormsModule = ({ setActiveModule }) => {
                                     className="p-2 border border-gray-300 rounded flex-1"
                                   />
                                 )}
+                                
+                                {field.type === 'number' && (
+                                  <div className="flex space-x-2">
+                                    <input
+                                      type="number"
+                                      placeholder="Min"
+                                      onChange={(e) => updateField(field.id, { 
+                                        validation_rules: { ...field.validation_rules, min: e.target.value }
+                                      })}
+                                      className="p-2 border border-gray-300 rounded w-20"
+                                    />
+                                    <input
+                                      type="number"
+                                      placeholder="Max"
+                                      onChange={(e) => updateField(field.id, { 
+                                        validation_rules: { ...field.validation_rules, max: e.target.value }
+                                      })}
+                                      className="p-2 border border-gray-300 rounded w-20"
+                                    />
+                                  </div>
+                                )}
                               </div>
 
-                              {/* Field Preview */}
+                              {/* Enhanced Field Preview */}
                               <div className="mt-4 p-3 bg-gray-50 rounded">
                                 <label className="block text-sm font-medium mb-1">
                                   {field.label} {field.required && <span className="text-red-500">*</span>}
                                 </label>
                                 {field.type === 'textarea' ? (
                                   <textarea
-                                    placeholder={field.placeholder}
+                                    placeholder={field.placeholder || field.smart_tag}
                                     className="w-full p-2 border border-gray-300 rounded"
                                     rows="3"
                                     disabled
@@ -4323,11 +4359,26 @@ const SmartFormsModule = ({ setActiveModule }) => {
                                       <option key={idx} value={option}>{option}</option>
                                     ))}
                                   </select>
+                                ) : field.type === 'checkbox' ? (
+                                  <div className="flex items-center">
+                                    <input type="checkbox" disabled className="mr-2" />
+                                    <span>{field.placeholder || 'Checkbox option'}</span>
+                                  </div>
+                                ) : field.type === 'signature' ? (
+                                  <div className="w-full h-24 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-500">
+                                    Signature Area
+                                  </div>
+                                ) : field.type === 'file' ? (
+                                  <div className="w-full p-4 border-2 border-dashed border-gray-300 rounded flex items-center justify-center text-gray-500">
+                                    📎 File Upload Area
+                                  </div>
                                 ) : (
                                   <input
                                     type={field.type}
-                                    placeholder={field.placeholder}
+                                    placeholder={field.placeholder || field.smart_tag}
                                     className="w-full p-2 border border-gray-300 rounded"
+                                    min={field.validation_rules?.min}
+                                    max={field.validation_rules?.max}
                                     disabled
                                   />
                                 )}
@@ -4342,7 +4393,10 @@ const SmartFormsModule = ({ setActiveModule }) => {
 
                 <div className="flex justify-end space-x-4 mt-6 pt-6 border-t">
                   <button
-                    onClick={() => setShowFormBuilder(false)}
+                    onClick={() => {
+                      setShowFormBuilder(false);
+                      resetForm();
+                    }}
                     className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                   >
                     Cancel
@@ -4360,50 +4414,265 @@ const SmartFormsModule = ({ setActiveModule }) => {
           </div>
         )}
 
-        {/* Forms List */}
-        <div className="bg-white/10 backdrop-blur-md rounded-xl overflow-hidden border border-white/20">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-white/5 border-b border-white/20">
-                <tr>
-                  <th className="text-left p-4 text-white font-semibold">Form Title</th>
-                  <th className="text-left p-4 text-white font-semibold">Description</th>
-                  <th className="text-left p-4 text-white font-semibold">Fields</th>
-                  <th className="text-left p-4 text-white font-semibold">Status</th>
-                  <th className="text-left p-4 text-white font-semibold">Created</th>
-                  <th className="text-left p-4 text-white font-semibold">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {forms.map((form) => (
-                  <tr key={form.id} className="border-b border-white/10 hover:bg-white/5">
-                    <td className="p-4 text-white font-medium">{form.title}</td>
-                    <td className="p-4 text-blue-200">{form.description || 'No description'}</td>
-                    <td className="p-4 text-blue-200">{form.fields?.length || 0} fields</td>
-                    <td className="p-4">
-                      <span className={`px-2 py-1 text-white text-xs rounded-full ${
-                        form.status === 'active' ? 'bg-green-500' : 'bg-gray-500'
-                      }`}>
-                        {form.status}
-                      </span>
-                    </td>
-                    <td className="p-4 text-blue-200">
-                      {formatDate(form.created_at)}
-                    </td>
-                    <td className="p-4">
-                      <button className="bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded text-sm mr-2">
-                        Edit
-                      </button>
-                      <button className="bg-green-500 hover:bg-green-600 text-white px-3 py-1 rounded text-sm">
-                        Use
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* Form Submission Modal */}
+        {showFormSubmission && selectedForm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-8">
+                <h2 className="text-2xl font-bold mb-6">{selectedForm.title}</h2>
+                {selectedForm.description && (
+                  <p className="text-gray-600 mb-6">{selectedForm.description}</p>
+                )}
+
+                {/* Patient Selection */}
+                <div className="mb-6">
+                  <label className="block text-sm font-medium mb-2">Select Patient *</label>
+                  <select
+                    value={selectedPatient?.id || ''}
+                    onChange={(e) => {
+                      const patient = patients.find(p => p.id === e.target.value);
+                      setSelectedPatient(patient);
+                    }}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  >
+                    <option value="">Choose a patient...</option>
+                    {patients.map((patient) => (
+                      <option key={patient.id} value={patient.id}>
+                        {patient.name[0].given[0]} {patient.name[0].family} - {patient.birth_date}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Form Fields */}
+                <div className="space-y-6">
+                  {selectedForm.fields
+                    ?.sort((a, b) => (a.order || 0) - (b.order || 0))
+                    .map((field) => (
+                    <div key={field.id}>
+                      <label className="block text-sm font-medium mb-2">
+                        {field.label} {field.required && <span className="text-red-500">*</span>}
+                      </label>
+                      
+                      {field.type === 'textarea' ? (
+                        <textarea
+                          placeholder={field.placeholder || field.smart_tag}
+                          value={submissionData[field.id] || ''}
+                          onChange={(e) => handleSubmissionInputChange(field.id, e.target.value)}
+                          className="w-full p-3 border border-gray-300 rounded-lg"
+                          rows="4"
+                          required={field.required}
+                        />
+                      ) : field.type === 'select' ? (
+                        <select
+                          value={submissionData[field.id] || ''}
+                          onChange={(e) => handleSubmissionInputChange(field.id, e.target.value)}
+                          className="w-full p-3 border border-gray-300 rounded-lg"
+                          required={field.required}
+                        >
+                          <option value="">Select an option</option>
+                          {field.options?.map((option, idx) => (
+                            <option key={idx} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      ) : field.type === 'checkbox' ? (
+                        <div className="flex items-center">
+                          <input
+                            type="checkbox"
+                            checked={submissionData[field.id] || false}
+                            onChange={(e) => handleSubmissionInputChange(field.id, e.target.checked)}
+                            className="mr-3 w-4 h-4"
+                          />
+                          <span>{field.placeholder || 'Check if applicable'}</span>
+                        </div>
+                      ) : field.type === 'signature' ? (
+                        <div className="w-full h-32 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center text-gray-500">
+                          <span>✍️ Signature capture would be implemented here</span>
+                        </div>
+                      ) : field.type === 'file' ? (
+                        <input
+                          type="file"
+                          onChange={(e) => {
+                            // File handling would be implemented here
+                            console.log('File selected:', e.target.files[0]);
+                          }}
+                          className="w-full p-3 border border-gray-300 rounded-lg"
+                        />
+                      ) : (
+                        <input
+                          type={field.type}
+                          placeholder={field.placeholder || field.smart_tag}
+                          value={submissionData[field.id] || ''}
+                          onChange={(e) => handleSubmissionInputChange(field.id, e.target.value)}
+                          className="w-full p-3 border border-gray-300 rounded-lg"
+                          min={field.validation_rules?.min}
+                          max={field.validation_rules?.max}
+                          required={field.required}
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex justify-end space-x-4 mt-8 pt-6 border-t">
+                  <button
+                    onClick={() => {
+                      setShowFormSubmission(false);
+                      setSubmissionData({});
+                      setSelectedForm(null);
+                      setSelectedPatient(null);
+                    }}
+                    className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={submitForm}
+                    disabled={!selectedPatient}
+                    className="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50"
+                  >
+                    Submit Form
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Submission Viewer Modal */}
+        {showSubmissionViewer && selectedSubmission && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-8">
+                <div className="flex justify-between items-start mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold">{selectedSubmission.form_title}</h2>
+                    <p className="text-gray-600">
+                      Submitted by {selectedSubmission.submitted_by} on {formatDate(selectedSubmission.submitted_at)}
+                    </p>
+                    <p className="text-gray-600">
+                      Patient: {selectedSubmission.patient_name}
+                    </p>
+                  </div>
+                  <span className={`px-3 py-1 text-white text-sm rounded-full ${
+                    selectedSubmission.status === 'completed' ? 'bg-green-500' : 'bg-yellow-500'
+                  }`}>
+                    {selectedSubmission.status}
+                  </span>
+                </div>
+
+                {/* Submission Data */}
+                <div className="space-y-6">
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">Form Responses</h3>
+                    <div className="bg-gray-50 rounded-lg p-6">
+                      {Object.entries(selectedSubmission.data || {}).map(([key, value]) => (
+                        <div key={key} className="mb-4 last:mb-0">
+                          <label className="block text-sm font-medium text-gray-700 mb-1">
+                            {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </label>
+                          <div className="text-gray-900">
+                            {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Processed Data with Smart Tags */}
+                  {selectedSubmission.processed_data && Object.keys(selectedSubmission.processed_data).length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">Processed Data (Smart Tags Applied)</h3>
+                      <div className="bg-blue-50 rounded-lg p-6">
+                        {Object.entries(selectedSubmission.processed_data).map(([key, value]) => (
+                          <div key={key} className="mb-4 last:mb-0">
+                            <label className="block text-sm font-medium text-blue-700 mb-1">
+                              {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </label>
+                            <div className="text-blue-900">
+                              {typeof value === 'boolean' ? (value ? 'Yes' : 'No') : String(value)}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* FHIR Data */}
+                  {selectedSubmission.fhir_data && (
+                    <div>
+                      <h3 className="text-lg font-semibold mb-4">FHIR Data</h3>
+                      <div className="bg-green-50 rounded-lg p-6">
+                        <pre className="text-sm text-green-800 overflow-x-auto">
+                          {JSON.stringify(selectedSubmission.fhir_data, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex justify-end mt-8 pt-6 border-t">
+                  <button
+                    onClick={() => {
+                      setShowSubmissionViewer(false);
+                      setSelectedSubmission(null);
+                    }}
+                    className="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Template Selector Modal */}
+        {showTemplateSelector && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-8">
+                <h2 className="text-2xl font-bold mb-6">Choose a Medical Form Template</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {templates.map((template) => (
+                    <div key={template.id} className="border border-gray-300 rounded-lg p-6 hover:border-blue-500 transition-colors">
+                      <h3 className="text-lg font-semibold mb-2">{template.title}</h3>
+                      <p className="text-gray-600 mb-4">{template.description}</p>
+                      <div className="flex justify-between items-center">
+                        <span className="text-sm text-gray-500 capitalize">
+                          {template.category?.replace('_', ' ')} • {template.fields?.length || 0} fields
+                        </span>
+                        <button
+                          onClick={() => {
+                            const title = prompt('Enter form title:', template.title);
+                            const description = prompt('Enter description (optional):', template.description);
+                            if (title) {
+                              createFormFromTemplate(template.id, title, description);
+                            }
+                          }}
+                          className="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-lg"
+                        >
+                          Use Template
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex justify-end mt-8 pt-6 border-t">
+                  <button
+                    onClick={() => setShowTemplateSelector(false)}
+                    className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Forms List - Remove this section since it's now in the tabs */}
       </div>
     </div>
   );
