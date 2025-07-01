@@ -353,7 +353,7 @@ backend:
 
   - task: "eRx Electronic Prescribing System (FHIR Compliant)"
     implemented: true
-    working: true
+    working: false
     file: "/app/backend/server.py"
     stuck_count: 1
     priority: "high"
@@ -368,6 +368,9 @@ backend:
       - working: true
         agent: "testing"
         comment: "The eRx system is now working correctly after renaming the FHIR-compliant Medication model to FHIRMedication and updating the database collection from 'medications' to 'fhir_medications'. Successfully tested all key functionality: initializing eRx data, searching FHIR medications, filtering by drug class, retrieving medication details, creating prescriptions, retrieving patient prescriptions, updating prescription status, and checking drug-drug interactions. All endpoints are now working properly with the correct data structures."
+      - working: false
+        agent: "testing"
+        comment: "Tested the eRx functionality and found several issues: 1) Creating prescriptions works correctly, 2) However, retrieving prescriptions fails with Method Not Allowed (405) error, 3) Several eRx-specific endpoints are missing: /api/erx/medications, /api/erx/init, and /api/erx/formulary all return 404 Not Found. The system needs further development to fully support electronic prescribing workflows according to the requirements."
 
   - task: "Provider Management System"
     implemented: true
