@@ -6794,9 +6794,9 @@ function App() {
         );
       case 'erx-patients':
         return (
-          <ProtectedRoute>
+          <ProtectedRoute permission="patients:read">
             <AppHeader>
-              <CommunicationsModule setActiveModule={setActiveModule} />
+              <PatientsModule setActiveModule={setActiveModule} />
             </AppHeader>
           </ProtectedRoute>
         );
