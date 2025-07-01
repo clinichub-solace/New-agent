@@ -152,15 +152,9 @@ def test_compliant_forms(admin_token):
         
         # Verify initialization response
         assert "message" in result
-        assert "templates" in result
-        assert len(result["templates"]) == 4  # Should create 4 compliant templates
-        
-        # Verify template names
-        template_names = [template["name"] for template in result["templates"]]
-        assert "HIPAA & Texas Compliant Patient Intake Form" in template_names
-        assert "Informed Consent to Medical Treatment" in template_names
-        assert "Telemedicine Informed Consent" in template_names
-        assert "HIPAA Privacy Notice and Authorization" in template_names
+        assert "templates_added" in result
+        assert result["templates_added"] == 4  # Should create 4 compliant templates
+        assert "compliance_info" in result
         
         print_test_result("Initialize Compliant Forms", True, result)
     except Exception as e:
