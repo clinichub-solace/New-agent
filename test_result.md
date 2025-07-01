@@ -437,7 +437,7 @@ frontend:
         comment: "Implemented comprehensive eRx system with FHIR R4 compliance. Features include: FHIR MedicationRequest resources, comprehensive medication database with RxNorm codes, drug-drug interaction checking, allergy checking, prescription audit logs for HIPAA compliance, patient safety features, and complete prescription management API endpoints."
       - working: false
         agent: "testing"
-        comment: "The eRx system is partially working. The /api/init-erx-data endpoint works correctly and initializes the medication database. The /api/drug-interactions endpoint also works. However, there are issues with the /api/medications endpoint - searching and filtering medications returns empty results even though medications are initialized. This prevents creating prescriptions since we can't get medication IDs. The /api/patients/{patient_id}/prescriptions endpoint works but returns empty results since we can't create prescriptions."
+        comment: "The eRx system is partially working. The /api/init-erx-data endpoint works correctly and initializes the medication database. The /api/drug-interactions endpoint also works. However, there's a critical issue: there are two different Medication models defined in the code (lines 710 and 1059), causing a conflict. The /api/medications endpoint is returning patient medications (from the model at line 1059) instead of the FHIR-compliant medications (from the model at line 710). When trying to create a prescription, we get an error: 'generic_name' because it's trying to use the wrong medication model. This needs to be fixed by renaming one of the Medication models to avoid the conflict."
 
 agent_communication:
   - agent: "main"
