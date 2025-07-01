@@ -409,7 +409,7 @@ backend:
         comment: "The Calendar Views for Scheduling have not been implemented yet. Attempted to test the /api/appointments/calendar endpoint but received a 404 Not Found error. This feature depends on the Appointment Scheduling System which is not implemented."
 
   - task: "Patient Communications System"
-    implemented: false
+    implemented: true
     working: "NA"
     file: "/app/backend/server.py"
     stuck_count: 0
@@ -422,6 +422,9 @@ backend:
       - working: "NA"
         agent: "main"
         comment: "Found that communications models (PatientMessage, MessageTemplate, MessageType, MessageStatus) are defined but NO API endpoints are implemented. Need to implement messaging functionality, templates, and communication history."
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented complete Patient Communications API endpoints: POST /api/communications/init-templates, GET/POST /api/communications/templates, POST /api/communications/send, GET /api/communications/messages, GET /api/communications/messages/patient/{id}, PUT /api/communications/messages/{id}/status. Includes message templates, template variable processing, message management, and patient-specific communication history."
 
 frontend:
   - task: "Medical Dashboard with Practice Analytics"
