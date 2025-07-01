@@ -532,17 +532,7 @@ test_plan:
   test_all: false
   test_priority: "high_first"
 
-  - task: "Scheduling and Communications Module Components"
-    implemented: true
-    working: false
-    file: "/app/frontend/src/App.js"
-    stuck_count: 0
-    priority: "high"
-    needs_retesting: true
-    status_history:
-      - working: false
-        agent: "main"
-        comment: "Found duplicate component definitions for SchedulingModule and CommunicationsModule in App.js (lines 5543 and 6404). Components are defined but have duplicate definitions which could cause runtime errors. Frontend components are calling backend APIs but backend endpoints are not implemented (404 errors). Need to clean up duplicates and ensure proper frontend-backend integration."
+agent_communication:
   - agent: "testing"
     message: "Completed comprehensive testing of all EHR backend features. Most features are working correctly, including FHIR-compliant patient management, SOAP notes, encounter management, vital signs, allergies, medications, medical history, diagnosis/procedure coding, and patient summary. However, there are two issues that need to be fixed: 1) Invoice creation is failing with a 500 Internal Server Error without detailed error information, and 2) Inventory transaction endpoint is failing with a 422 Unprocessable Entity error because it expects 'item_id' in the request body but the API is designed to take it from the URL path parameter. These should be prioritized for fixing."
   - agent: "main"
