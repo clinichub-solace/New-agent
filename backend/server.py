@@ -3762,6 +3762,7 @@ async def get_pending_payments(current_user: User = Depends(get_current_active_u
         
         pending_payments = []
         total_outstanding = 0
+        today = datetime.now().date()
         
         # Process regular invoices
         for invoice in unpaid_invoices:
@@ -3775,6 +3776,19 @@ async def get_pending_payments(current_user: User = Depends(get_current_active_u
                 if "encounter_id" in invoice:
                     encounter = await db.encounters.find_one({"id": invoice["encounter_id"]})
                 
+                # Handle due date calculation safely
+                due_date = invoice.get("due_date")
+                days_overdue = 0
+                if due_date:
+                    if isinstance(due_date, str):
+                        try:
+                            due_date = datetime.fromisoformat(due_date.replace('Z', '+00:00')).date()
+                            days_overdue = (today - due_date).days
+                        except (ValueError, TypeError):
+                            days_overdue = 0
+                    elif isinstance(due_date, date):
+                        days_overdue = (today - due_date).days
+                
                 pending_payments.append({
                     "invoice_id": invoice["id"],
                     "invoice_number": invoice["invoice_number"],
@@ -3785,8 +3799,8 @@ async def get_pending_payments(current_user: User = Depends(get_current_active_u
                     "total_amount": invoice.get("total_amount", 0),
                     "outstanding_amount": outstanding_amount,
                     "invoice_date": invoice.get("issue_date"),
-                    "due_date": invoice.get("due_date"),
-                    "days_overdue": (datetime.now().date() - invoice.get("due_date", datetime.now().date())).days if invoice.get("due_date") else 0,
+                    "due_date": due_date,
+                    "days_overdue": max(0, days_overdue),
                     "encounter_type": encounter.get("encounter_type", "").replace("_", " ").title() if encounter else "N/A",
                     "status": invoice.get("status", "draft")
                 })
@@ -3803,6 +3817,19 @@ async def get_pending_payments(current_user: User = Depends(get_current_active_u
                 if "encounter_id" in invoice:
                     encounter = await db.encounters.find_one({"id": invoice["encounter_id"]})
                 
+                # Handle due date calculation safely
+                due_date = invoice.get("due_date")
+                days_overdue = 0
+                if due_date:
+                    if isinstance(due_date, str):
+                        try:
+                            due_date = datetime.fromisoformat(due_date.replace('Z', '+00:00')).date()
+                            days_overdue = (today - due_date).days
+                        except (ValueError, TypeError):
+                            days_overdue = 0
+                    elif isinstance(due_date, date):
+                        days_overdue = (today - due_date).days
+                
                 pending_payments.append({
                     "invoice_id": invoice["id"],
                     "invoice_number": invoice["invoice_number"],
@@ -3813,8 +3840,8 @@ async def get_pending_payments(current_user: User = Depends(get_current_active_u
                     "total_amount": invoice.get("total_amount", 0),
                     "outstanding_amount": outstanding_amount,
                     "invoice_date": invoice.get("issue_date"),
-                    "due_date": invoice.get("due_date"),
-                    "days_overdue": (datetime.now().date() - invoice.get("due_date", datetime.now().date())).days if invoice.get("due_date") else 0,
+                    "due_date": due_date,
+                    "days_overdue": max(0, days_overdue),
                     "encounter_type": encounter.get("encounter_type", "").replace("_", " ").title() if encounter else "N/A",
                     "status": invoice.get("payment_status", "unpaid"),
                     "amount_paid": invoice.get("amount_paid", 0)
