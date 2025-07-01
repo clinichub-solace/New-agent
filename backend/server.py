@@ -2207,14 +2207,14 @@ async def link_form_to_encounter(encounter_id: str, submission_id: str):
     )
 
 async def create_medical_form_templates():
-    """Create pre-built medical form templates"""
+    """Create HIPAA and Texas compliant medical form templates"""
     templates = []
     
-    # Patient Intake Form
+    # 1. HIPAA and Texas Compliant Patient Intake Form
     intake_fields = [
         FormField(
             type="text",
-            label="Patient Name",
+            label="Patient Legal Name (First, Middle, Last)",
             smart_tag="{patient_name}",
             required=True,
             order=1
@@ -2228,84 +2228,173 @@ async def create_medical_form_templates():
         ),
         FormField(
             type="select",
-            label="Gender",
-            options=["Male", "Female", "Other", "Prefer not to say"],
-            smart_tag="{patient_gender}",
+            label="Biological Sex Assigned at Birth",
+            options=["Male", "Female", "Intersex"],
             required=True,
             order=3
         ),
         FormField(
-            type="text",
-            label="Phone Number",
-            smart_tag="{patient_phone}",
-            required=True,
+            type="select",
+            label="Gender Identity",
+            options=["Male", "Female", "Non-binary", "Transgender Male", "Transgender Female", "Other", "Prefer not to answer"],
             order=4
         ),
         FormField(
-            type="textarea",
-            label="Address",
-            smart_tag="{patient_address}",
+            type="text",
+            label="Social Security Number",
+            placeholder="XXX-XX-XXXX",
+            validation_rules={"pattern": "^\\d{3}-\\d{2}-\\d{4}$"},
             required=True,
             order=5
         ),
         FormField(
-            type="textarea",
-            label="Chief Complaint",
-            placeholder="Describe your primary concern or reason for visit",
+            type="text",
+            label="Primary Phone Number",
+            smart_tag="{patient_phone}",
             required=True,
             order=6
         ),
         FormField(
-            type="textarea",
-            label="Current Medications",
-            placeholder="List all current medications, supplements, and dosages",
+            type="text",
+            label="Emergency Contact Name",
+            required=True,
             order=7
         ),
         FormField(
-            type="textarea",
-            label="Allergies",
-            placeholder="List any known allergies to medications, foods, or environmental factors",
+            type="text",
+            label="Emergency Contact Phone",
+            required=True,
             order=8
         ),
         FormField(
-            type="textarea",
-            label="Medical History",
-            placeholder="Previous surgeries, chronic conditions, family history",
+            type="text",
+            label="Emergency Contact Relationship",
+            required=True,
             order=9
         ),
         FormField(
-            type="checkbox",
-            label="Insurance Information Verified",
+            type="textarea",
+            label="Home Address",
+            smart_tag="{patient_address}",
+            placeholder="Street Address, City, State, ZIP Code",
+            required=True,
             order=10
+        ),
+        FormField(
+            type="text",
+            label="Email Address",
+            validation_rules={"pattern": "^[\\w\\.-]+@[\\w\\.-]+\\.[a-zA-Z]{2,}$"},
+            order=11
+        ),
+        FormField(
+            type="select",
+            label="Preferred Language",
+            options=["English", "Spanish", "Other"],
+            required=True,
+            order=12
+        ),
+        FormField(
+            type="select",
+            label="Race/Ethnicity (Optional - for statistical purposes only)",
+            options=["White", "Black or African American", "Hispanic or Latino", "Asian", "Native American", "Pacific Islander", "Other", "Prefer not to answer"],
+            order=13
+        ),
+        FormField(
+            type="text",
+            label="Primary Insurance Provider",
+            order=14
+        ),
+        FormField(
+            type="text",
+            label="Insurance Policy Number",
+            order=15
+        ),
+        FormField(
+            type="text",
+            label="Insurance Group Number",
+            order=16
+        ),
+        FormField(
+            type="text",
+            label="Secondary Insurance (if applicable)",
+            order=17
+        ),
+        FormField(
+            type="textarea",
+            label="Chief Complaint/Reason for Visit",
+            placeholder="Describe your primary concern or reason for today's visit",
+            required=True,
+            order=18
+        ),
+        FormField(
+            type="textarea",
+            label="Current Medications (include dosage and frequency)",
+            placeholder="List all prescription medications, over-the-counter drugs, vitamins, and supplements",
+            order=19
+        ),
+        FormField(
+            type="textarea",
+            label="Known Allergies",
+            placeholder="Include medications, foods, environmental factors, and reactions",
+            order=20
+        ),
+        FormField(
+            type="textarea",
+            label="Past Medical History",
+            placeholder="Previous surgeries, hospitalizations, chronic conditions, mental health history",
+            order=21
+        ),
+        FormField(
+            type="textarea",
+            label="Family Medical History",
+            placeholder="Significant family medical conditions (cancer, heart disease, diabetes, etc.)",
+            order=22
+        ),
+        FormField(
+            type="textarea",
+            label="Social History",
+            placeholder="Tobacco, alcohol, recreational drug use; occupation; living situation",
+            order=23
+        ),
+        FormField(
+            type="select",
+            label="Have you been a victim of abuse or domestic violence?",
+            options=["No", "Yes", "Prefer not to answer"],
+            order=24
+        ),
+        FormField(
+            type="checkbox",
+            label="I acknowledge that the information I have provided is complete and accurate to the best of my knowledge",
+            required=True,
+            order=25
         )
     ]
     
     templates.append({
         "id": str(uuid.uuid4()),
-        "title": "Patient Intake Form",
-        "description": "Comprehensive patient intake and registration form",
+        "title": "HIPAA & Texas Compliant Patient Intake Form",
+        "description": "Comprehensive patient intake form compliant with HIPAA privacy rules and Texas medical practice requirements",
         "fields": [jsonable_encoder(field) for field in intake_fields],
         "category": "intake",
         "is_template": True,
-        "template_name": "patient_intake",
+        "template_name": "patient_intake_compliant",
         "status": "active",
+        "compliance_notes": "HIPAA compliant, Texas Medical Practice Act compliant, includes required demographic data collection",
         "fhir_mapping": {
             "patient_name": "Patient.name",
             "dob": "Patient.birthDate",
             "gender": "Patient.gender",
             "phone": "Patient.telecom",
             "address": "Patient.address",
-            "chief_complaint": "Encounter.reasonCode",
-            "medications": "MedicationStatement.medicationCodeableConcept",
-            "allergies": "AllergyIntolerance.code",
-            "medical_history": "Condition.code"
+            "emergency_contact": "Patient.contact",
+            "insurance": "Coverage.identifier"
         },
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
     })
-    
-    # Vital Signs Form
-    vitals_fields = [
+
+    # 2. Consent to Treat Form (Texas Compliant)
+    consent_fields = [
         FormField(
             type="text",
             label="Patient Name",
@@ -2321,90 +2410,84 @@ async def create_medical_form_templates():
             order=2
         ),
         FormField(
-            type="number",
-            label="Height (inches)",
-            placeholder="Height in inches",
-            validation_rules={"min": 12, "max": 96},
+            type="textarea",
+            label="Consent to Treatment Statement",
+            placeholder="I understand and consent to the following treatment...",
+            value="I voluntarily consent to medical treatment by the healthcare providers at this facility. I understand that:\n\n1. No guarantee has been made regarding the outcome of treatment or procedures.\n2. Medical practice is not an exact science, and results cannot be guaranteed.\n3. I have been informed of the risks, benefits, and alternatives to the proposed treatment.\n4. I have had the opportunity to ask questions, and all questions have been answered to my satisfaction.\n5. I understand that if I am a female patient, I should inform my healthcare provider if I am or might be pregnant.\n6. I consent to photography or video recording for medical documentation purposes only.\n7. I understand that medical students, residents, or other healthcare professionals may be involved in my care for educational purposes.\n8. I authorize the release of my medical information to insurance companies and other entities as necessary for treatment, payment, and healthcare operations.\n\nI have read and understand this consent form. I voluntarily give my consent to treatment.",
             required=True,
             order=3
         ),
         FormField(
-            type="number",
-            label="Weight (lbs)",
-            placeholder="Weight in pounds",
-            validation_rules={"min": 1, "max": 1000},
-            required=True,
+            type="text",
+            label="Specific Treatment or Procedure (if applicable)",
+            placeholder="Enter specific treatment being consented to",
             order=4
         ),
         FormField(
-            type="text",
-            label="Blood Pressure",
-            placeholder="120/80",
-            required=True,
+            type="textarea",
+            label="Risks Explained",
+            placeholder="Specific risks discussed with patient",
             order=5
         ),
         FormField(
-            type="number",
-            label="Heart Rate (BPM)",
-            placeholder="Beats per minute",
-            validation_rules={"min": 30, "max": 200},
-            required=True,
+            type="textarea",
+            label="Alternatives Discussed",
+            placeholder="Alternative treatments discussed",
             order=6
         ),
         FormField(
-            type="number",
-            label="Temperature (°F)",
-            placeholder="98.6",
-            validation_rules={"min": 90, "max": 110},
+            type="checkbox",
+            label="I acknowledge that I have read and understand this consent form",
             required=True,
             order=7
         ),
         FormField(
-            type="number",
-            label="Oxygen Saturation (%)",
-            placeholder="98",
-            validation_rules={"min": 70, "max": 100},
+            type="checkbox",
+            label="I voluntarily consent to the proposed treatment",
+            required=True,
             order=8
         ),
         FormField(
-            type="number",
-            label="Respiratory Rate",
-            placeholder="Breaths per minute",
-            validation_rules={"min": 8, "max": 40},
+            type="signature",
+            label="Patient Signature",
+            required=True,
             order=9
         ),
         FormField(
-            type="textarea",
-            label="Notes",
-            placeholder="Additional vital signs notes",
+            type="text",
+            label="Witness Name (if required)",
             order=10
+        ),
+        FormField(
+            type="signature",
+            label="Witness Signature (if required)",
+            order=11
+        ),
+        FormField(
+            type="signature",
+            label="Healthcare Provider Signature",
+            required=True,
+            order=12
         )
     ]
     
     templates.append({
         "id": str(uuid.uuid4()),
-        "title": "Vital Signs Assessment",
-        "description": "Standard vital signs measurement form",
-        "fields": [jsonable_encoder(field) for field in vitals_fields],
-        "category": "vitals",
+        "title": "Informed Consent to Medical Treatment",
+        "description": "Texas Medical Practice Act compliant informed consent form for medical treatment",
+        "fields": [jsonable_encoder(field) for field in consent_fields],
+        "category": "consent",
         "is_template": True,
-        "template_name": "vital_signs",
+        "template_name": "consent_to_treat",
         "status": "active",
-        "fhir_mapping": {
-            "height": "Observation.valueQuantity (height)",
-            "weight": "Observation.valueQuantity (weight)",
-            "blood_pressure": "Observation.component (systolic/diastolic)",
-            "heart_rate": "Observation.valueQuantity (heart rate)",
-            "temperature": "Observation.valueQuantity (body temperature)",
-            "oxygen_saturation": "Observation.valueQuantity (oxygen saturation)",
-            "respiratory_rate": "Observation.valueQuantity (respiratory rate)"
-        },
+        "compliance_notes": "Compliant with Texas Medical Practice Act, Texas Health and Safety Code Chapter 313, includes informed consent requirements",
+        "legal_requirements": "Texas Medical Practice Act Section 164.012, Texas Health and Safety Code Chapter 313",
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
     })
-    
-    # Pain Assessment Form
-    pain_fields = [
+
+    # 3. Telemedicine Consent Form (Texas Compliant)
+    telemedicine_fields = [
         FormField(
             type="text",
             label="Patient Name",
@@ -2414,151 +2497,64 @@ async def create_medical_form_templates():
         ),
         FormField(
             type="date",
-            label="Assessment Date",
-            smart_tag="{current_date}",
-            required=True,
-            order=2
-        ),
-        FormField(
-            type="select",
-            label="Pain Scale (0-10)",
-            options=["0 - No Pain", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10 - Worst Pain"],
-            required=True,
-            order=3
-        ),
-        FormField(
-            type="textarea",
-            label="Pain Location",
-            placeholder="Describe where you feel pain",
-            required=True,
-            order=4
-        ),
-        FormField(
-            type="select",
-            label="Pain Character",
-            options=["Sharp", "Dull", "Burning", "Stabbing", "Throbbing", "Cramping", "Aching"],
-            order=5
-        ),
-        FormField(
-            type="select",
-            label="Pain Duration",
-            options=["Constant", "Intermittent", "Only with movement", "Only at rest"],
-            order=6
-        ),
-        FormField(
-            type="textarea",
-            label="What makes it better?",
-            placeholder="Activities, medications, positions that help",
-            order=7
-        ),
-        FormField(
-            type="textarea",
-            label="What makes it worse?",
-            placeholder="Activities, positions, times that worsen pain",
-            order=8
-        ),
-        FormField(
-            type="checkbox",
-            label="Pain interferes with sleep",
-            order=9
-        ),
-        FormField(
-            type="checkbox",
-            label="Pain interferes with daily activities",
-            order=10
-        )
-    ]
-    
-    templates.append({
-        "id": str(uuid.uuid4()),
-        "title": "Pain Assessment",
-        "description": "Comprehensive pain evaluation form",
-        "fields": [jsonable_encoder(field) for field in pain_fields],
-        "category": "assessment",
-        "is_template": True,
-        "template_name": "pain_assessment",
-        "status": "active",
-        "fhir_mapping": {
-            "pain_scale": "Observation.valueInteger (pain intensity)",
-            "pain_location": "Observation.bodySite",
-            "pain_character": "Observation.component (pain character)",
-            "pain_duration": "Observation.component (pain duration)"
-        },
-        "created_at": datetime.utcnow(),
-        "updated_at": datetime.utcnow()
-    })
-    
-    # Discharge Instructions Form
-    discharge_fields = [
-        FormField(
-            type="text",
-            label="Patient Name",
-            smart_tag="{patient_name}",
-            required=True,
-            order=1
-        ),
-        FormField(
-            type="date",
-            label="Discharge Date",
+            label="Date",
             smart_tag="{current_date}",
             required=True,
             order=2
         ),
         FormField(
             type="text",
-            label="Attending Physician",
+            label="Healthcare Provider Name",
             smart_tag="{provider_name}",
             required=True,
             order=3
         ),
         FormField(
             type="textarea",
-            label="Diagnosis",
-            placeholder="Primary diagnosis and any secondary conditions",
+            label="Telemedicine Consent Statement",
+            value="TELEMEDICINE INFORMED CONSENT\n\nI understand that telemedicine involves the use of electronic communications to enable healthcare providers at different locations to share individual patient medical information for the purpose of improving patient care. The information may be used for diagnosis, therapy, follow-up and/or education.\n\nI understand that telemedicine may involve electronic communication of my personal medical information to other medical practitioners who may be located in other areas, including out of state.\n\nI understand that I have the following rights with respect to telemedicine:\n\n1. I have the right to withhold or withdraw my consent to the use of telemedicine in the course of my care at any time, without affecting my right to future care or treatment.\n\n2. The laws that protect the privacy and the confidentiality of medical information also apply to telemedicine, and information disclosed by me during the course of my telemedicine consultation will be kept confidential.\n\n3. I understand that there are risks and consequences from telemedicine, including, but not limited to, the possibility that:\n   a. Information transmitted may not be sufficient (e.g., poor resolution of images) to allow for appropriate medical decision making by the healthcare provider;\n   b. Delays in medical evaluation and treatment could occur due to deficiencies or failures of the equipment;\n   c. In rare instances, security protocols could fail, causing a breach of privacy of personal medical information;\n   d. In rare instances, a lack of access to complete medical records may result in adverse drug interactions or allergic reactions or other judgment errors;\n\n4. I understand that telemedicine may involve electronic communication of my personal medical information to other medical practitioners who may be located in other areas, including out of state.\n\n5. I understand that I may expect the anticipated benefits from the use of telemedicine in my care, but that no results can be guaranteed or assured.\n\n6. I understand that my healthcare information may be shared with other individuals for scheduling and billing purposes. Others may also be present during the telemedicine consultation other than my healthcare provider in order to operate the video equipment. The above-mentioned people will all maintain confidentiality of the information obtained. I further understand that I will be informed of their presence in the consultation and thus will have the right to request the following: (1) omit specific details of my medical history/examination that are personally sensitive to me; (2) ask non-medical personnel to leave the telemedicine examination room: and/or (3) terminate the consultation at any time.\n\n7. I understand that I have the right to access my medical information and copies of medical records in accordance with Texas law.\n\n8. I understand that if I am experiencing a medical emergency, I should call 911 immediately and that the providers cannot directly intervene in the case of a medical emergency that may occur during a telemedicine consultation.\n\nPATIENT CONSENT TO THE USE OF TELEMEDICINE\n\nI have read and understand the information provided above regarding telemedicine, have discussed it with my physician or such assistants as may be designated, and all of my questions have been answered to my satisfaction. I hereby give my informed consent for the use of telemedicine in my medical care.",
             required=True,
             order=4
         ),
         FormField(
-            type="textarea",
-            label="Treatment Provided",
-            placeholder="Summary of treatment received",
+            type="checkbox",
+            label="I understand the risks and benefits of telemedicine as described above",
             required=True,
             order=5
         ),
         FormField(
-            type="textarea",
-            label="Medications Prescribed",
-            placeholder="List medications, dosages, and instructions",
+            type="checkbox",
+            label="I understand that I can withdraw consent for telemedicine at any time",
+            required=True,
             order=6
         ),
         FormField(
-            type="textarea",
-            label="Activity Restrictions",
-            placeholder="Physical limitations, work restrictions, etc.",
+            type="checkbox",
+            label="I understand that no results can be guaranteed from telemedicine consultations",
+            required=True,
             order=7
         ),
         FormField(
-            type="textarea",
-            label="Follow-up Instructions",
-            placeholder="When to return, who to see, warning signs",
+            type="checkbox",
+            label="I understand the limitations of telemedicine technology",
             required=True,
             order=8
         ),
         FormField(
-            type="date",
-            label="Follow-up Appointment Date",
+            type="checkbox",
+            label="I consent to the use of telemedicine for my healthcare",
+            required=True,
             order=9
         ),
         FormField(
-            type="textarea",
-            label="Warning Signs",
-            placeholder="When to seek immediate medical attention",
+            type="signature",
+            label="Patient Signature",
             required=True,
             order=10
         ),
         FormField(
-            type="checkbox",
-            label="Patient understands discharge instructions",
+            type="signature",
+            label="Healthcare Provider Signature",
             required=True,
             order=11
         )
@@ -2566,25 +2562,127 @@ async def create_medical_form_templates():
     
     templates.append({
         "id": str(uuid.uuid4()),
-        "title": "Discharge Instructions",
-        "description": "Patient discharge planning and instructions form",
-        "fields": [jsonable_encoder(field) for field in discharge_fields],
-        "category": "discharge",
+        "title": "Telemedicine Informed Consent",
+        "description": "Texas compliant telemedicine consent form per Texas Medical Board requirements",
+        "fields": [jsonable_encoder(field) for field in telemedicine_fields],
+        "category": "telemedicine",
         "is_template": True,
-        "template_name": "discharge_instructions",
+        "template_name": "telemedicine_consent",
         "status": "active",
-        "fhir_mapping": {
-            "diagnosis": "Condition.code",
-            "treatment": "Procedure.code",
-            "medications": "MedicationRequest.medicationCodeableConcept",
-            "follow_up": "Appointment.description"
-        },
+        "compliance_notes": "Compliant with Texas Medical Board Rule 174.6 - Telemedicine Medical Services",
+        "legal_requirements": "Texas Medical Board Rule 174.6, Texas Occupations Code Chapter 111",
+        "created_at": datetime.utcnow(),
+        "updated_at": datetime.utcnow()
+    })
+
+    # 4. HIPAA Privacy Notice and Disclosure Agreement
+    hipaa_fields = [
+        FormField(
+            type="text",
+            label="Patient Name",
+            smart_tag="{patient_name}",
+            required=True,
+            order=1
+        ),
+        FormField(
+            type="date",
+            label="Date",
+            smart_tag="{current_date}",
+            required=True,
+            order=2
+        ),
+        FormField(
+            type="textarea",
+            label="HIPAA Privacy Notice",
+            value="NOTICE OF PRIVACY PRACTICES\n\nThis notice describes how medical information about you may be used and disclosed and how you can get access to this information. Please review it carefully.\n\nOUR COMMITMENT TO YOUR PRIVACY\n\nOur practice is dedicated to maintaining the privacy of your protected health information (PHI). We are required by law to maintain the confidentiality of PHI and to provide you with notice of our legal duties and privacy practices with respect to PHI.\n\nHOW WE MAY USE AND DISCLOSE YOUR HEALTH INFORMATION\n\nFor Treatment: We may use and disclose your PHI to provide, coordinate, or manage your health care and related services. This may include communicating with other health care providers regarding your treatment and coordinating and managing your health care with others.\n\nFor Payment: We may use and disclose your PHI to obtain payment for the health care services provided to you and to determine your eligibility or coverage for insurance or other payment purposes.\n\nFor Health Care Operations: We may use and disclose your PHI to operate our practice. These uses and disclosures are necessary to make sure that all of our patients receive quality care and for certain administrative and business functions.\n\nOther Uses and Disclosures:\n- Public Health Activities\n- Health Oversight Activities  \n- Judicial and Administrative Proceedings\n- Law Enforcement Purposes\n- Coroners, Funeral Directors, Organ Donation\n- Research\n- Serious Threats to Health or Safety\n- Military and National Security\n- Workers' Compensation\n\nYOUR RIGHTS REGARDING YOUR PHI\n\nYou have the right to:\n1. Request restrictions on uses and disclosures of your PHI\n2. Request confidential communications\n3. Inspect and copy your PHI\n4. Amend your PHI\n5. Receive an accounting of disclosures\n6. Obtain a paper copy of this notice\n7. File a complaint\n\nCOMPLAINTS\n\nIf you believe your privacy rights have been violated, you may file a complaint with our Privacy Officer or with the Secretary of Health and Human Services. You will not be retaliated against for filing a complaint.\n\nCONTACT INFORMATION\n\nFor more information about our privacy practices or to file a complaint, contact our Privacy Officer at [Phone Number].\n\nEFFECTIVE DATE\n\nThis notice is effective as of [Date] and will remain in effect until replaced or amended.",
+            required=True,
+            order=3
+        ),
+        FormField(
+            type="checkbox",
+            label="I acknowledge that I have received a copy of the Notice of Privacy Practices",
+            required=True,
+            order=4
+        ),
+        FormField(
+            type="checkbox",
+            label="I understand my rights under HIPAA regarding my protected health information",
+            required=True,
+            order=5
+        ),
+        FormField(
+            type="checkbox",
+            label="I understand how my health information may be used and disclosed",
+            required=True,
+            order=6
+        ),
+        FormField(
+            type="select",
+            label="May we leave detailed messages on your voicemail?",
+            options=["Yes", "No"],
+            required=True,
+            order=7
+        ),
+        FormField(
+            type="select",
+            label="May we send you appointment reminders via text message?",
+            options=["Yes", "No"],
+            required=True,
+            order=8
+        ),
+        FormField(
+            type="select",
+            label="May we send you appointment reminders via email?",
+            options=["Yes", "No"],
+            required=True,
+            order=9
+        ),
+        FormField(
+            type="text",
+            label="Authorized persons who may receive your health information (family members, etc.)",
+            placeholder="Name and relationship",
+            order=10
+        ),
+        FormField(
+            type="checkbox",
+            label="I authorize the disclosure of my health information as described above",
+            required=True,
+            order=11
+        ),
+        FormField(
+            type="signature",
+            label="Patient Signature",
+            required=True,
+            order=12
+        ),
+        FormField(
+            type="text",
+            label="Legal Guardian/Representative Name (if applicable)",
+            order=13
+        ),
+        FormField(
+            type="signature",
+            label="Legal Guardian/Representative Signature (if applicable)",
+            order=14
+        )
+    ]
+    
+    templates.append({
+        "id": str(uuid.uuid4()),
+        "title": "HIPAA Privacy Notice and Authorization",
+        "description": "HIPAA compliant privacy notice and authorization for use and disclosure of protected health information",
+        "fields": [jsonable_encoder(field) for field in hipaa_fields],
+        "category": "privacy",
+        "is_template": True,
+        "template_name": "hipaa_disclosure",
+        "status": "active",
+        "compliance_notes": "Fully compliant with HIPAA Privacy Rule 45 CFR Part 164, includes all required elements",
+        "legal_requirements": "HIPAA Privacy Rule 45 CFR §164.520, 45 CFR §164.508",
         "created_at": datetime.utcnow(),
         "updated_at": datetime.utcnow()
     })
     
     return templates
-
 # Invoice Routes
 @api_router.post("/invoices", response_model=Invoice)
 async def create_invoice(invoice_data: InvoiceCreate):
