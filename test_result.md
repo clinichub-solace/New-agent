@@ -149,6 +149,9 @@ backend:
       - working: true
         agent: "testing"
         comment: "SmartForm API endpoints are working correctly. Successfully created a form with fields and FHIR mapping, retrieved all forms, and submitted a form with patient data."
+      - working: true
+        agent: "testing"
+        comment: "Successfully tested the enhanced Smart Forms module with all advanced features. All tests passed successfully across all four phases: 1) Medical Templates Initialization - The /api/forms/templates/init endpoint correctly creates all four required medical templates (patient_intake, vital_signs, pain_assessment, discharge_instructions), 2) Enhanced Form Management - Successfully tested form filtering by category, individual form retrieval, form updates, and creating forms from templates, 3) Form Submission & Smart Tags - Verified that smart tags are properly processed and replaced with actual patient data, and FHIR data is correctly generated from form submissions, 4) Submission Management - All submission management endpoints are working correctly, including form-specific submissions, patient submissions, and individual submission details."
 
   - task: "Invoice/Receipt Management System"
     implemented: true
