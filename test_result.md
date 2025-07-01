@@ -366,11 +366,14 @@ backend:
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
       - working: "NA"
         agent: "testing"
         comment: "The Provider Management System has not been implemented yet. Attempted to test the /api/providers endpoint but received a 404 Not Found error. This system is required for the Scheduling System to work properly."
+      - working: "NA"
+        agent: "main"
+        comment: "Found that Provider model is defined but NO API endpoints are implemented. Need to implement full CRUD operations for provider management."
 
   - task: "Appointment Scheduling System"
     implemented: false
