@@ -408,11 +408,14 @@ backend:
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
       - working: "NA"
         agent: "testing"
         comment: "The Patient Communications System has not been implemented yet. Attempted to test the /api/communications endpoints but received 404 Not Found errors. None of the required endpoints (/api/communications/init-templates, /api/communications/templates, /api/communications/send, /api/communications/messages) have been implemented."
+      - working: "NA"
+        agent: "main"
+        comment: "Found that communications models (PatientMessage, MessageTemplate, MessageType, MessageStatus) are defined but NO API endpoints are implemented. Need to implement messaging functionality, templates, and communication history."
 
 frontend:
   - task: "Medical Dashboard with Practice Analytics"
