@@ -381,7 +381,6 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Authentication System (Login/Role-based Access)"
     - "Invoice/Receipt Management System"
     - "Inventory Management System"
   stuck_tasks:
