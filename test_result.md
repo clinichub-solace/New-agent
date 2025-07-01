@@ -498,6 +498,22 @@ backend:
     priority: "high"
     needs_retesting: false
     status_history:
+
+metadata:
+  created_by: "main_agent"
+  version: "1.0"
+  test_sequence: 1
+
+test_plan:
+  current_focus:
+    - "Patient Portal Access"
+    - "Add Patient Functionality in EHR"
+    - "eRx Functionality"
+    - "General System Health Check"
+  stuck_tasks:
+    - "Add Patient Functionality in EHR"
+  test_all: false
+  test_priority: "high_first"
       - working: false
         agent: "testing"
         comment: "The Patient Communications System has not been implemented yet. Attempted to test the /api/communications endpoints but received 404 Not Found errors. None of the required endpoints (/api/communications/init-templates, /api/communications/templates, /api/communications/send, /api/communications/messages) have been implemented."
