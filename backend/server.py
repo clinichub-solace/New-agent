@@ -5138,6 +5138,158 @@ async def update_message_status(message_id: str, status_data: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating message status: {str(e)}")
 
+# System Initialization Endpoints
+@api_router.post("/system/init-appointment-types")
+async def init_appointment_types():
+    """Initialize default appointment types with business rules"""
+    try:
+        # Check if types already exist
+        existing = await db.appointment_types.count_documents({})
+        if existing > 0:
+            return {"message": "Appointment types already initialized", "count": existing}
+        
+        default_types = [
+            {
+                "name": "General Consultation",
+                "appointment_type": "consultation",
+                "duration_minutes": 30,
+                "buffer_before_minutes": 5,
+                "buffer_after_minutes": 5,
+                "max_advance_booking_days": 90,
+                "min_advance_booking_hours": 2,
+                "requires_referral": False,
+                "provider_specialties_required": [],
+                "is_active": True
+            },
+            {
+                "name": "Annual Physical Exam",
+                "appointment_type": "physical_exam",
+                "duration_minutes": 60,
+                "buffer_before_minutes": 10,
+                "buffer_after_minutes": 10,
+                "max_advance_booking_days": 180,
+                "min_advance_booking_hours": 24,
+                "requires_referral": False,
+                "allowed_patient_ages": {"min": 18},
+                "provider_specialties_required": ["Family Medicine", "Internal Medicine"],
+                "is_active": True
+            },
+            {
+                "name": "Follow-up Visit",
+                "appointment_type": "follow_up",
+                "duration_minutes": 20,
+                "buffer_before_minutes": 0,
+                "buffer_after_minutes": 5,
+                "max_advance_booking_days": 60,
+                "min_advance_booking_hours": 1,
+                "requires_referral": False,
+                "provider_specialties_required": [],
+                "is_active": True
+            },
+            {
+                "name": "Urgent Care",
+                "appointment_type": "urgent",
+                "duration_minutes": 45,
+                "buffer_before_minutes": 0,
+                "buffer_after_minutes": 15,
+                "max_advance_booking_days": 7,
+                "min_advance_booking_hours": 0,
+                "requires_referral": False,
+                "provider_specialties_required": [],
+                "is_active": True
+            },
+            {
+                "name": "Vaccination",
+                "appointment_type": "vaccination",
+                "duration_minutes": 15,
+                "buffer_before_minutes": 0,
+                "buffer_after_minutes": 5,
+                "max_advance_booking_days": 30,
+                "min_advance_booking_hours": 2,
+                "requires_referral": False,
+                "provider_specialties_required": [],
+                "is_active": True
+            }
+        ]
+        
+        # Add IDs and timestamps
+        for apt_type in default_types:
+            apt_type["id"] = str(uuid.uuid4())
+            apt_type["created_at"] = datetime.utcnow()
+        
+        await db.appointment_types.insert_many(default_types)
+        
+        return {
+            "message": "Appointment types initialized successfully",
+            "types_added": len(default_types)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error initializing appointment types: {str(e)}")
+
+@api_router.post("/system/init-automated-notifications")
+async def init_automated_notifications():
+    """Initialize default automated notification triggers"""
+    try:
+        # Check if notifications already exist
+        existing = await db.automated_notifications.count_documents({})
+        if existing > 0:
+            return {"message": "Automated notifications already initialized", "count": existing}
+        
+        # First ensure we have templates
+        templates = await db.communication_templates.find({"is_active": True}).to_list(10)
+        if not templates:
+            # Initialize templates first
+            await init_message_templates()
+            templates = await db.communication_templates.find({"is_active": True}).to_list(10)
+        
+        # Get template IDs
+        template_map = {template["message_type"]: template["id"] for template in templates}
+        
+        default_notifications = [
+            {
+                "trigger": "appointment_scheduled",
+                "service": "email",
+                "template_id": template_map.get("appointment_reminder", templates[0]["id"]),
+                "delay_minutes": 0,  # Immediate
+                "is_active": True
+            },
+            {
+                "trigger": "appointment_reminder_24h",
+                "service": "sms",
+                "template_id": template_map.get("appointment_reminder", templates[0]["id"]),
+                "delay_minutes": -1440,  # 24 hours before (negative)
+                "is_active": True
+            },
+            {
+                "trigger": "appointment_reminder_2h",
+                "service": "sms",
+                "template_id": template_map.get("appointment_reminder", templates[0]["id"]),
+                "delay_minutes": -120,  # 2 hours before
+                "is_active": True
+            },
+            {
+                "trigger": "appointment_confirmed",
+                "service": "email",
+                "template_id": template_map.get("appointment_reminder", templates[0]["id"]),
+                "delay_minutes": 0,
+                "is_active": True
+            }
+        ]
+        
+        # Add IDs and timestamps
+        for notification in default_notifications:
+            notification["id"] = str(uuid.uuid4())
+            notification["created_at"] = datetime.utcnow()
+        
+        await db.automated_notifications.insert_many(default_notifications)
+        
+        return {
+            "message": "Automated notifications initialized successfully",
+            "notifications_added": len(default_notifications)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error initializing automated notifications: {str(e)}")
+
 # Include the router in the main app
 app.include_router(api_router)
 
