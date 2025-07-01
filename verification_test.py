@@ -113,7 +113,12 @@ def test_pending_payments(admin_token):
         result = response.json()
         
         # Verify pending payments structure
+        assert "summary" in result
         assert "pending_payments" in result
+        
+        # Verify summary structure
+        assert "total_outstanding_amount" in result["summary"]
+        assert "total_pending_invoices" in result["summary"]
         
         # If there are pending payments, verify their structure
         if len(result["pending_payments"]) > 0:
@@ -121,7 +126,7 @@ def test_pending_payments(admin_token):
             assert "invoice_id" in payment
             assert "patient_id" in payment
             assert "patient_name" in payment
-            assert "amount_due" in payment
+            assert "outstanding_amount" in payment
             assert "days_overdue" in payment
         
         print_test_result("Pending Payments", True, result)
