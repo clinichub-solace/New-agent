@@ -5422,6 +5422,85 @@ async def init_automated_notifications():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error initializing automated notifications: {str(e)}")
 
+# eRx (Electronic Prescribing) API Endpoints
+
+# Initialize sample FHIR medications
+async def initialize_fhir_medications():
+    """Initialize sample FHIR medications for electronic prescribing"""
+    default_medications = [
+        {
+            "resource_type": "Medication",
+            "code": {"coding": [{"system": "RxNorm", "code": "314076"}]},
+            "status": "active",
+            "generic_name": "Lisinopril",
+            "brand_names": ["Prinivil", "Zestril"],
+            "strength": "10mg",
+            "dosage_forms": ["tablet"],
+            "route_of_administration": ["oral"],
+            "drug_class": "antihypertensive",
+            "standard_dosing": {"adult": "10-40mg once daily"}
+        },
+        {
+            "resource_type": "Medication",
+            "code": {"coding": [{"system": "RxNorm", "code": "860981"}]},
+            "status": "active",
+            "generic_name": "Metformin",
+            "brand_names": ["Glucophage"],
+            "strength": "500mg",
+            "dosage_forms": ["tablet"],
+            "route_of_administration": ["oral"],
+            "drug_class": "antidiabetic",
+            "standard_dosing": {"adult": "500-2000mg daily in divided doses"}
+        }
+    ]
+    await db.fhir_medications.insert_many(default_medications)
+    return len(default_medications)
+
+@api_router.get("/erx/medications")
+async def get_erx_medications(current_user: User = Depends(get_current_active_user)):
+    """Get FHIR medications for electronic prescribing"""
+    try:
+        medications = await db.fhir_medications.find().sort("generic_name", 1).to_list(1000)
+        return medications
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving eRx medications: {str(e)}")
+
+@api_router.post("/erx/init")
+async def initialize_erx_system(current_user: User = Depends(get_current_active_user)):
+    """Initialize electronic prescribing system with sample medications"""
+    try:
+        # Check if eRx medications already exist
+        existing = await db.fhir_medications.count_documents({})
+        if existing > 0:
+            return {"message": "eRx system already initialized", "medications_count": existing}
+        
+        # Initialize with sample FHIR medications
+        await initialize_fhir_medications()
+        
+        return {"message": "eRx system initialized successfully", "status": "ready"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error initializing eRx system: {str(e)}")
+
+@api_router.get("/erx/formulary")
+async def get_formulary(current_user: User = Depends(get_current_active_user)):
+    """Get formulary medications (preferred drug list)"""
+    try:
+        # Get commonly prescribed medications from the FHIR medications list
+        formulary = await db.fhir_medications.find({
+            "generic_name": {"$in": [
+                "Lisinopril", "Metformin", "Atorvastatin", "Amlodipine", "Metoprolol",
+                "Omeprazole", "Albuterol", "Hydrochlorothiazide", "Losartan", "Simvastatin"
+            ]}
+        }).sort("generic_name", 1).to_list(100)
+        
+        return {
+            "formulary_medications": formulary,
+            "total_count": len(formulary),
+            "description": "Preferred drug list for electronic prescribing"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving formulary: {str(e)}")
+
 # Include the router in the main app
 app.include_router(api_router)
 
