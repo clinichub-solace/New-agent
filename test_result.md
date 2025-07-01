@@ -491,6 +491,9 @@ backend:
 ##     -message: "Communication message between agents"      - working: false
         agent: "testing"
         comment: "Partially working. Successfully tested template initialization and creation. The POST /api/communications/init-templates endpoint works correctly and initializes message templates. However, there are issues with: 1) GET /api/communications/templates - Returns 500 Internal Server Error, 2) POST /api/communications/send - Has issues with template variable processing. The message sending functionality works when using a manually created template, but the template variable processing needs to be fixed."
+      - working: false
+        agent: "testing"
+        comment: "Confirmed previous findings. The initialization endpoint /api/communications/init-templates works correctly, but the templates endpoint /api/communications/templates still returns a 500 Internal Server Error. This confirms that the templates endpoint has an implementation issue that needs to be fixed."
 
 
 # Protocol Guidelines for Main agent
@@ -874,6 +877,9 @@ backend:
       - working: false
         agent: "testing"
         comment: "Partially working. Successfully tested template initialization and creation. The POST /api/communications/init-templates endpoint works correctly and initializes message templates. However, there are issues with: 1) GET /api/communications/templates - Returns 500 Internal Server Error, 2) POST /api/communications/send - Has issues with template variable processing. The message sending functionality works when using a manually created template, but the template variable processing needs to be fixed."
+      - working: false
+        agent: "testing"
+        comment: "Confirmed previous findings. The initialization endpoint /api/communications/init-templates works correctly, but the templates endpoint /api/communications/templates still returns a 500 Internal Server Error. This confirms that the templates endpoint has an implementation issue that needs to be fixed."
 frontend:
   - task: "Medical Dashboard with Practice Analytics"
     implemented: true
