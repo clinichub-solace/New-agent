@@ -4592,6 +4592,389 @@ async def initialize_erx_data(current_user: User = Depends(get_current_active_us
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error initializing eRx data: {str(e)}")
 
+# Scheduling System API Endpoints
+
+# Provider Management
+@api_router.post("/providers", response_model=Provider)
+async def create_provider(provider_data: dict):
+    try:
+        provider = Provider(
+            id=str(uuid.uuid4()),
+            **provider_data
+        )
+        
+        provider_dict = jsonable_encoder(provider)
+        await db.providers.insert_one(provider_dict)
+        return provider
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating provider: {str(e)}")
+
+@api_router.get("/providers", response_model=List[Provider])
+async def get_providers():
+    providers = await db.providers.find({"status": {"$ne": "inactive"}}).sort("name", 1).to_list(1000)
+    return [Provider(**provider) for provider in providers]
+
+@api_router.get("/providers/{provider_id}", response_model=Provider)
+async def get_provider(provider_id: str):
+    provider = await db.providers.find_one({"id": provider_id})
+    if not provider:
+        raise HTTPException(status_code=404, detail="Provider not found")
+    return Provider(**provider)
+
+@api_router.put("/providers/{provider_id}")
+async def update_provider(provider_id: str, provider_data: dict):
+    try:
+        provider_data["updated_at"] = datetime.utcnow()
+        result = await db.providers.update_one(
+            {"id": provider_id},
+            {"$set": jsonable_encoder(provider_data)}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Provider not found")
+        return {"message": "Provider updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating provider: {str(e)}")
+
+# Provider Schedule Management
+@api_router.post("/providers/{provider_id}/schedule")
+async def create_provider_schedule(provider_id: str, schedule_data: dict):
+    try:
+        # Verify provider exists
+        provider = await db.providers.find_one({"id": provider_id})
+        if not provider:
+            raise HTTPException(status_code=404, detail="Provider not found")
+        
+        schedule = ProviderSchedule(
+            id=str(uuid.uuid4()),
+            provider_id=provider_id,
+            **schedule_data
+        )
+        
+        schedule_dict = jsonable_encoder(schedule)
+        await db.provider_schedules.insert_one(schedule_dict)
+        return schedule
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating schedule: {str(e)}")
+
+@api_router.get("/providers/{provider_id}/schedule")
+async def get_provider_schedule(provider_id: str, date: str = None):
+    try:
+        query = {"provider_id": provider_id}
+        if date:
+            query["date"] = date
+        
+        schedules = await db.provider_schedules.find(query).sort("date", 1).to_list(1000)
+        return [ProviderSchedule(**schedule) for schedule in schedules]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching schedule: {str(e)}")
+
+# Appointment Management
+@api_router.post("/appointments", response_model=Appointment)
+async def create_appointment(appointment_data: dict):
+    try:
+        # Verify patient exists
+        patient = await db.patients.find_one({"id": appointment_data["patient_id"]})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Verify provider exists
+        provider = await db.providers.find_one({"id": appointment_data["provider_id"]})
+        if not provider:
+            raise HTTPException(status_code=404, detail="Provider not found")
+        
+        appointment = Appointment(
+            id=str(uuid.uuid4()),
+            **appointment_data
+        )
+        
+        appointment_dict = jsonable_encoder(appointment)
+        await db.appointments.insert_one(appointment_dict)
+        return appointment
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating appointment: {str(e)}")
+
+@api_router.get("/appointments", response_model=List[Appointment])
+async def get_appointments(
+    patient_id: str = None,
+    provider_id: str = None,
+    date: str = None,
+    status: str = None
+):
+    try:
+        query = {}
+        if patient_id:
+            query["patient_id"] = patient_id
+        if provider_id:
+            query["provider_id"] = provider_id
+        if date:
+            query["appointment_date"] = date
+        if status:
+            query["status"] = status
+        
+        appointments = await db.appointments.find(query).sort("appointment_date", 1).to_list(1000)
+        return [Appointment(**appointment) for appointment in appointments]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching appointments: {str(e)}")
+
+@api_router.get("/appointments/{appointment_id}", response_model=Appointment)
+async def get_appointment(appointment_id: str):
+    appointment = await db.appointments.find_one({"id": appointment_id})
+    if not appointment:
+        raise HTTPException(status_code=404, detail="Appointment not found")
+    return Appointment(**appointment)
+
+@api_router.put("/appointments/{appointment_id}/status")
+async def update_appointment_status(appointment_id: str, status_data: dict):
+    try:
+        status_data["updated_at"] = datetime.utcnow()
+        result = await db.appointments.update_one(
+            {"id": appointment_id},
+            {"$set": jsonable_encoder(status_data)}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        return {"message": "Appointment status updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating appointment: {str(e)}")
+
+@api_router.delete("/appointments/{appointment_id}")
+async def cancel_appointment(appointment_id: str):
+    try:
+        result = await db.appointments.update_one(
+            {"id": appointment_id},
+            {"$set": {"status": "cancelled", "updated_at": datetime.utcnow()}}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        return {"message": "Appointment cancelled successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error cancelling appointment: {str(e)}")
+
+# Calendar View
+@api_router.get("/appointments/calendar")
+async def get_calendar_view(date: str, view: str = "week"):
+    try:
+        from datetime import datetime, timedelta
+        
+        # Parse date
+        base_date = datetime.fromisoformat(date)
+        
+        if view == "day":
+            start_date = base_date.date()
+            end_date = start_date
+        elif view == "week":
+            # Get start of week (Monday)
+            start_date = (base_date - timedelta(days=base_date.weekday())).date()
+            end_date = start_date + timedelta(days=6)
+        elif view == "month":
+            start_date = base_date.replace(day=1).date()
+            # Get last day of month
+            if base_date.month == 12:
+                next_month = base_date.replace(year=base_date.year + 1, month=1, day=1)
+            else:
+                next_month = base_date.replace(month=base_date.month + 1, day=1)
+            end_date = (next_month - timedelta(days=1)).date()
+        else:
+            raise HTTPException(status_code=400, detail="Invalid view type. Use 'day', 'week', or 'month'")
+        
+        # Get appointments in date range
+        appointments = await db.appointments.find({
+            "appointment_date": {
+                "$gte": start_date.isoformat(),
+                "$lte": end_date.isoformat()
+            }
+        }).sort("appointment_date", 1).to_list(1000)
+        
+        return {
+            "view": view,
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "appointments": [Appointment(**apt) for apt in appointments]
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching calendar: {str(e)}")
+
+# Patient Communications System API Endpoints
+
+# Message Templates
+@api_router.post("/communications/init-templates")
+async def init_message_templates():
+    try:
+        # Check if templates already exist
+        existing = await db.message_templates.count_documents({})
+        if existing > 0:
+            return {"message": "Templates already initialized", "count": existing}
+        
+        templates = [
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Appointment Reminder",
+                "type": "appointment_reminder",
+                "subject": "Appointment Reminder - {{CLINIC_NAME}}",
+                "content": "Dear {{PATIENT_NAME}},\n\nThis is a reminder of your upcoming appointment:\n\nDate: {{APPOINTMENT_DATE}}\nTime: {{APPOINTMENT_TIME}}\nProvider: {{PROVIDER_NAME}}\nLocation: {{CLINIC_ADDRESS}}\n\nPlease arrive 15 minutes early for check-in.\n\nIf you need to reschedule, please call us at {{CLINIC_PHONE}}.\n\nThank you,\n{{CLINIC_NAME}}",
+                "variables": ["PATIENT_NAME", "APPOINTMENT_DATE", "APPOINTMENT_TIME", "PROVIDER_NAME", "CLINIC_NAME", "CLINIC_ADDRESS", "CLINIC_PHONE"],
+                "active": True
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Lab Results Available",
+                "type": "lab_results",
+                "subject": "Lab Results Available - {{CLINIC_NAME}}",
+                "content": "Dear {{PATIENT_NAME}},\n\nYour lab results from {{TEST_DATE}} are now available.\n\nPlease log into your patient portal or call our office at {{CLINIC_PHONE}} to discuss your results with your provider.\n\nProvider: {{PROVIDER_NAME}}\n\nThank you,\n{{CLINIC_NAME}}",
+                "variables": ["PATIENT_NAME", "TEST_DATE", "PROVIDER_NAME", "CLINIC_NAME", "CLINIC_PHONE"],
+                "active": True
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Prescription Ready",
+                "type": "prescription",
+                "subject": "Prescription Ready for Pickup - {{PHARMACY_NAME}}",
+                "content": "Dear {{PATIENT_NAME}},\n\nYour prescription for {{MEDICATION_NAME}} is ready for pickup at:\n\n{{PHARMACY_NAME}}\n{{PHARMACY_ADDRESS}}\n{{PHARMACY_PHONE}}\n\nPrescribed by: {{PROVIDER_NAME}}\nPrescription #: {{PRESCRIPTION_NUMBER}}\n\nThank you,\n{{CLINIC_NAME}}",
+                "variables": ["PATIENT_NAME", "MEDICATION_NAME", "PHARMACY_NAME", "PHARMACY_ADDRESS", "PHARMACY_PHONE", "PROVIDER_NAME", "PRESCRIPTION_NUMBER", "CLINIC_NAME"],
+                "active": True
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Payment Reminder",
+                "type": "billing",
+                "subject": "Payment Reminder - {{CLINIC_NAME}}",
+                "content": "Dear {{PATIENT_NAME}},\n\nThis is a friendly reminder that you have an outstanding balance:\n\nInvoice #: {{INVOICE_NUMBER}}\nService Date: {{SERVICE_DATE}}\nAmount Due: ${{AMOUNT_DUE}}\n\nYou can pay online through our patient portal or call us at {{CLINIC_PHONE}}.\n\nThank you for your prompt attention to this matter.\n\n{{CLINIC_NAME}}",
+                "variables": ["PATIENT_NAME", "INVOICE_NUMBER", "SERVICE_DATE", "AMOUNT_DUE", "CLINIC_NAME", "CLINIC_PHONE"],
+                "active": True
+            }
+        ]
+        
+        await db.message_templates.insert_many(templates)
+        
+        return {
+            "message": "Message templates initialized successfully",
+            "templates_added": len(templates)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error initializing templates: {str(e)}")
+
+@api_router.get("/communications/templates")
+async def get_message_templates(type: str = None):
+    try:
+        query = {"active": True}
+        if type:
+            query["type"] = type
+        
+        templates = await db.message_templates.find(query).sort("name", 1).to_list(1000)
+        return templates
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching templates: {str(e)}")
+
+@api_router.post("/communications/templates")
+async def create_message_template(template_data: dict):
+    try:
+        template_data["id"] = str(uuid.uuid4())
+        template_data["created_at"] = datetime.utcnow()
+        
+        await db.message_templates.insert_one(jsonable_encoder(template_data))
+        return {"message": "Template created successfully", "id": template_data["id"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating template: {str(e)}")
+
+# Message Management
+@api_router.post("/communications/send")
+async def send_message(message_data: dict):
+    try:
+        # Verify patient exists
+        patient = await db.patients.find_one({"id": message_data["patient_id"]})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Process template variables if template_id provided
+        if "template_id" in message_data:
+            template = await db.message_templates.find_one({"id": message_data["template_id"]})
+            if template:
+                content = template["content"]
+                subject = template.get("subject", "")
+                
+                # Replace variables with actual values
+                variables = message_data.get("variables", {})
+                for var, value in variables.items():
+                    content = content.replace(f"{{{{{var}}}}}", str(value))
+                    subject = subject.replace(f"{{{{{var}}}}}", str(value))
+                
+                message_data["content"] = content
+                message_data["subject"] = subject
+                message_data["message_type"] = template["type"]
+        
+        message = PatientMessage(
+            id=str(uuid.uuid4()),
+            patient_name=patient["name"]["given"][0] + " " + patient["name"]["family"],
+            **message_data
+        )
+        
+        message_dict = jsonable_encoder(message)
+        await db.patient_messages.insert_one(message_dict)
+        
+        return {"message": "Message sent successfully", "id": message.id}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error sending message: {str(e)}")
+
+@api_router.get("/communications/messages")
+async def get_messages(
+    patient_id: str = None,
+    type: str = None,
+    status: str = None,
+    limit: int = 100
+):
+    try:
+        query = {}
+        if patient_id:
+            query["patient_id"] = patient_id
+        if type:
+            query["message_type"] = type
+        if status:
+            query["status"] = status
+        
+        messages = await db.patient_messages.find(query).sort("sent_at", -1).limit(limit).to_list(limit)
+        return [PatientMessage(**msg) for msg in messages]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching messages: {str(e)}")
+
+@api_router.get("/communications/messages/patient/{patient_id}")
+async def get_patient_messages(patient_id: str):
+    try:
+        # Verify patient exists
+        patient = await db.patients.find_one({"id": patient_id})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        messages = await db.patient_messages.find({"patient_id": patient_id}).sort("sent_at", -1).to_list(1000)
+        return [PatientMessage(**msg) for msg in messages]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching patient messages: {str(e)}")
+
+@api_router.put("/communications/messages/{message_id}/status")
+async def update_message_status(message_id: str, status_data: dict):
+    try:
+        update_data = {"status": status_data["status"]}
+        if status_data["status"] == "read":
+            update_data["read_at"] = datetime.utcnow()
+        
+        result = await db.patient_messages.update_one(
+            {"id": message_id},
+            {"$set": jsonable_encoder(update_data)}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Message not found")
+        
+        return {"message": "Message status updated successfully"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating message status: {str(e)}")
+
 # Include the router in the main app
 app.include_router(api_router)
 
