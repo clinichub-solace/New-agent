@@ -4815,42 +4815,42 @@ async def init_message_templates():
             {
                 "id": str(uuid.uuid4()),
                 "name": "Appointment Reminder",
-                "type": "appointment_reminder",
-                "subject": "Appointment Reminder - {{CLINIC_NAME}}",
-                "content": "Dear {{PATIENT_NAME}},\n\nThis is a reminder of your upcoming appointment:\n\nDate: {{APPOINTMENT_DATE}}\nTime: {{APPOINTMENT_TIME}}\nProvider: {{PROVIDER_NAME}}\nLocation: {{CLINIC_ADDRESS}}\n\nPlease arrive 15 minutes early for check-in.\n\nIf you need to reschedule, please call us at {{CLINIC_PHONE}}.\n\nThank you,\n{{CLINIC_NAME}}",
-                "variables": ["PATIENT_NAME", "APPOINTMENT_DATE", "APPOINTMENT_TIME", "PROVIDER_NAME", "CLINIC_NAME", "CLINIC_ADDRESS", "CLINIC_PHONE"],
-                "active": True
+                "message_type": "appointment_reminder",
+                "subject_template": "Appointment Reminder - {{CLINIC_NAME}}",
+                "content_template": "Dear {{PATIENT_NAME}},\n\nThis is a reminder of your upcoming appointment:\n\nDate: {{APPOINTMENT_DATE}}\nTime: {{APPOINTMENT_TIME}}\nProvider: {{PROVIDER_NAME}}\nLocation: {{CLINIC_ADDRESS}}\n\nPlease arrive 15 minutes early for check-in.\n\nIf you need to reschedule, please call us at {{CLINIC_PHONE}}.\n\nThank you,\n{{CLINIC_NAME}}",
+                "is_active": True,
+                "created_at": datetime.utcnow()
             },
             {
                 "id": str(uuid.uuid4()),
                 "name": "Lab Results Available",
-                "type": "lab_results",
-                "subject": "Lab Results Available - {{CLINIC_NAME}}",
-                "content": "Dear {{PATIENT_NAME}},\n\nYour lab results from {{TEST_DATE}} are now available.\n\nPlease log into your patient portal or call our office at {{CLINIC_PHONE}} to discuss your results with your provider.\n\nProvider: {{PROVIDER_NAME}}\n\nThank you,\n{{CLINIC_NAME}}",
-                "variables": ["PATIENT_NAME", "TEST_DATE", "PROVIDER_NAME", "CLINIC_NAME", "CLINIC_PHONE"],
-                "active": True
+                "message_type": "lab_results",
+                "subject_template": "Lab Results Available - {{CLINIC_NAME}}",
+                "content_template": "Dear {{PATIENT_NAME}},\n\nYour lab results from {{TEST_DATE}} are now available.\n\nPlease log into your patient portal or call our office at {{CLINIC_PHONE}} to discuss your results with your provider.\n\nProvider: {{PROVIDER_NAME}}\n\nThank you,\n{{CLINIC_NAME}}",
+                "is_active": True,
+                "created_at": datetime.utcnow()
             },
             {
                 "id": str(uuid.uuid4()),
                 "name": "Prescription Ready",
-                "type": "prescription",
-                "subject": "Prescription Ready for Pickup - {{PHARMACY_NAME}}",
-                "content": "Dear {{PATIENT_NAME}},\n\nYour prescription for {{MEDICATION_NAME}} is ready for pickup at:\n\n{{PHARMACY_NAME}}\n{{PHARMACY_ADDRESS}}\n{{PHARMACY_PHONE}}\n\nPrescribed by: {{PROVIDER_NAME}}\nPrescription #: {{PRESCRIPTION_NUMBER}}\n\nThank you,\n{{CLINIC_NAME}}",
-                "variables": ["PATIENT_NAME", "MEDICATION_NAME", "PHARMACY_NAME", "PHARMACY_ADDRESS", "PHARMACY_PHONE", "PROVIDER_NAME", "PRESCRIPTION_NUMBER", "CLINIC_NAME"],
-                "active": True
+                "message_type": "prescription",
+                "subject_template": "Prescription Ready for Pickup - {{PHARMACY_NAME}}",
+                "content_template": "Dear {{PATIENT_NAME}},\n\nYour prescription for {{MEDICATION_NAME}} is ready for pickup at:\n\n{{PHARMACY_NAME}}\n{{PHARMACY_ADDRESS}}\n{{PHARMACY_PHONE}}\n\nPrescribed by: {{PROVIDER_NAME}}\nPrescription #: {{PRESCRIPTION_NUMBER}}\n\nThank you,\n{{CLINIC_NAME}}",
+                "is_active": True,
+                "created_at": datetime.utcnow()
             },
             {
                 "id": str(uuid.uuid4()),
                 "name": "Payment Reminder",
-                "type": "billing",
-                "subject": "Payment Reminder - {{CLINIC_NAME}}",
-                "content": "Dear {{PATIENT_NAME}},\n\nThis is a friendly reminder that you have an outstanding balance:\n\nInvoice #: {{INVOICE_NUMBER}}\nService Date: {{SERVICE_DATE}}\nAmount Due: ${{AMOUNT_DUE}}\n\nYou can pay online through our patient portal or call us at {{CLINIC_PHONE}}.\n\nThank you for your prompt attention to this matter.\n\n{{CLINIC_NAME}}",
-                "variables": ["PATIENT_NAME", "INVOICE_NUMBER", "SERVICE_DATE", "AMOUNT_DUE", "CLINIC_NAME", "CLINIC_PHONE"],
-                "active": True
+                "message_type": "billing",
+                "subject_template": "Payment Reminder - {{CLINIC_NAME}}",
+                "content_template": "Dear {{PATIENT_NAME}},\n\nThis is a friendly reminder that you have an outstanding balance:\n\nInvoice #: {{INVOICE_NUMBER}}\nService Date: {{SERVICE_DATE}}\nAmount Due: ${{AMOUNT_DUE}}\n\nYou can pay online through our patient portal or call us at {{CLINIC_PHONE}}.\n\nThank you for your prompt attention to this matter.\n\n{{CLINIC_NAME}}",
+                "is_active": True,
+                "created_at": datetime.utcnow()
             }
         ]
         
-        await db.message_templates.insert_many(templates)
+        await db.communication_templates.insert_many(templates)
         
         return {
             "message": "Message templates initialized successfully",
