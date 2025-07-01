@@ -133,7 +133,10 @@ def test_patient_queue(admin_token):
         result = response.json()
         
         # Verify patient queue structure
-        assert "active_encounters" in result
+        assert "timestamp" in result
+        assert "summary" in result
+        assert "locations" in result
+        assert "all_patients" in result
         
         print_test_result("Patient Queue Dashboard", True, result)
     except Exception as e:
