@@ -307,13 +307,17 @@ def test_message_sending(admin_token, patient_id, template_id):
     print("\n--- Testing Message Sending ---")
     try:
         url = f"{API_URL}/communications/send"
-        headers = {"Authorization": f"Bearer {admin_token}"}
+        headers = {
+            "Authorization": f"Bearer {admin_token}",
+            "Content-Type": "application/json"
+        }
         data = {
             "patient_id": patient_id,
             "template_id": template_id,
             "sender_id": "admin",
             "sender_name": "Dr. Admin",
             "template_variables": {
+                "patient_name": "John Doe",
                 "clinic_name": "ClinicHub Medical Center",
                 "clinic_phone": "555-123-4567",
                 "provider_name": "Dr. Admin",
