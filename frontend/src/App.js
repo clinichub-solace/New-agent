@@ -3750,21 +3750,94 @@ const InventoryModule = ({ setActiveModule }) => {
 };
 const SmartFormsModule = ({ setActiveModule }) => {
   const [forms, setForms] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [selectedForm, setSelectedForm] = useState(null);
+  const [selectedSubmission, setSelectedSubmission] = useState(null);
   const [showFormBuilder, setShowFormBuilder] = useState(false);
+  const [showFormSubmission, setShowFormSubmission] = useState(false);
+  const [showSubmissionViewer, setShowSubmissionViewer] = useState(false);
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [activeTab, setActiveTab] = useState('forms');
   const [formFields, setFormFields] = useState([]);
   const [formTitle, setFormTitle] = useState('');
   const [formDescription, setFormDescription] = useState('');
+  const [formCategory, setFormCategory] = useState('custom');
+  const [submissionData, setSubmissionData] = useState({});
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [patients, setPatients] = useState([]);
 
   useEffect(() => {
     fetchForms();
+    fetchTemplates();
+    fetchPatients();
   }, []);
 
   const fetchForms = async () => {
     try {
-      const response = await axios.get(`${API}/forms`);
+      const response = await axios.get(`${API}/forms`, {
+        params: { is_template: false }
+      });
       setForms(response.data);
     } catch (error) {
       console.error("Error fetching forms:", error);
+    }
+  };
+
+  const fetchTemplates = async () => {
+    try {
+      const response = await axios.get(`${API}/forms`, {
+        params: { is_template: true }
+      });
+      setTemplates(response.data);
+    } catch (error) {
+      console.error("Error fetching templates:", error);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/patients`);
+      setPatients(response.data);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+    }
+  };
+
+  const fetchSubmissions = async (formId = null) => {
+    try {
+      let url = `${API}/form-submissions`;
+      if (formId) {
+        url = `${API}/forms/${formId}/submissions`;
+      }
+      const response = await axios.get(url);
+      setSubmissions(response.data);
+    } catch (error) {
+      console.error("Error fetching submissions:", error);
+    }
+  };
+
+  const initializeTemplates = async () => {
+    try {
+      await axios.post(`${API}/forms/templates/init`);
+      fetchTemplates();
+      alert('Medical form templates initialized successfully!');
+    } catch (error) {
+      console.error("Error initializing templates:", error);
+      alert('Error initializing templates. They may already exist.');
+    }
+  };
+
+  const createFormFromTemplate = async (templateId, title, description) => {
+    try {
+      await axios.post(`${API}/forms/from-template/${templateId}`, {
+        title,
+        description
+      });
+      fetchForms();
+      setShowTemplateSelector(false);
+    } catch (error) {
+      console.error("Error creating form from template:", error);
     }
   };
 
@@ -3776,7 +3849,9 @@ const SmartFormsModule = ({ setActiveModule }) => {
       placeholder: '',
       required: false,
       options: type === 'select' ? ['Option 1', 'Option 2'] : [],
-      smart_tag: ''
+      smart_tag: '',
+      validation_rules: {},
+      order: formFields.length
     };
     setFormFields([...formFields, newField]);
   };
@@ -3796,23 +3871,73 @@ const SmartFormsModule = ({ setActiveModule }) => {
       const formData = {
         title: formTitle,
         description: formDescription,
-        fields: formFields,
-        status: 'active'
+        category: formCategory,
+        fields: formFields.map((field, index) => ({ ...field, order: index })),
+        status: 'active',
+        is_template: false
       };
       
       await axios.post(`${API}/forms`, formData);
       setShowFormBuilder(false);
-      setFormTitle('');
-      setFormDescription('');
-      setFormFields([]);
+      resetForm();
       fetchForms();
     } catch (error) {
       console.error("Error saving form:", error);
     }
   };
 
+  const resetForm = () => {
+    setFormTitle('');
+    setFormDescription('');
+    setFormCategory('custom');
+    setFormFields([]);
+  };
+
+  const submitForm = async () => {
+    if (!selectedPatient) {
+      alert('Please select a patient');
+      return;
+    }
+
+    try {
+      await axios.post(`${API}/forms/${selectedForm.id}/submit`, submissionData, {
+        params: {
+          patient_id: selectedPatient.id
+        }
+      });
+      
+      setShowFormSubmission(false);
+      setSubmissionData({});
+      setSelectedForm(null);
+      setSelectedPatient(null);
+      alert('Form submitted successfully!');
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      alert('Error submitting form. Please try again.');
+    }
+  };
+
+  const handleSubmissionInputChange = (fieldId, value) => {
+    setSubmissionData({
+      ...submissionData,
+      [fieldId]: value
+    });
+  };
+
+  const deleteForm = async (formId) => {
+    if (window.confirm('Are you sure you want to delete this form?')) {
+      try {
+        await axios.delete(`${API}/forms/${formId}`);
+        fetchForms();
+      } catch (error) {
+        console.error("Error deleting form:", error);
+      }
+    }
+  };
+
   const smartTags = [
-    '{patient_name}', '{patient_dob}', '{patient_gender}', '{current_date}',
+    '{patient_name}', '{patient_dob}', '{patient_gender}', '{patient_phone}',
+    '{patient_address}', '{current_date}', '{current_time}', '{current_datetime}',
     '{provider_name}', '{clinic_name}', '{encounter_date}', '{chief_complaint}'
   ];
 
@@ -3822,7 +3947,17 @@ const SmartFormsModule = ({ setActiveModule }) => {
     { type: 'number', label: 'Number', icon: '🔢' },
     { type: 'date', label: 'Date', icon: '📅' },
     { type: 'select', label: 'Dropdown', icon: '📋' },
-    { type: 'checkbox', label: 'Checkbox', icon: '☑️' }
+    { type: 'checkbox', label: 'Checkbox', icon: '☑️' },
+    { type: 'signature', label: 'Signature', icon: '✍️' },
+    { type: 'file', label: 'File Upload', icon: '📎' }
+  ];
+
+  const categories = [
+    { value: 'custom', label: 'Custom' },
+    { value: 'intake', label: 'Patient Intake' },
+    { value: 'vitals', label: 'Vital Signs' },
+    { value: 'assessment', label: 'Assessment' },
+    { value: 'discharge', label: 'Discharge' }
   ];
 
   return (
