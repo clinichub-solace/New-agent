@@ -108,8 +108,9 @@ def test_daily_log(admin_token):
         result = response.json()
         
         # Verify daily log structure
-        assert "encounters" in result
+        assert "date" in result
         assert "summary" in result
+        assert "visits" in result
         
         print_test_result("Daily Log Dashboard", True, result)
     except Exception as e:
