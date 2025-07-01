@@ -387,7 +387,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "eRx Electronic Prescribing System (FHIR Compliant)"
+    - "Dashboard Views for Clinic Operations"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
