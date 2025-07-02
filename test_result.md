@@ -719,7 +719,7 @@ test_plan:
 
   - task: "Patient Portal System"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
@@ -734,6 +734,9 @@ test_plan:
       - working: false
         agent: "testing"
         comment: "Retested with fixed validation parameters. POST /api/patient-portal endpoint now works correctly and successfully creates patient portal access. POST /api/patient-portal/{id}/schedule endpoint also works correctly and successfully schedules an appointment. However, GET /api/patient-portal, GET /api/patient-portal/patient/{patient_id}, and GET /api/patient-portal/{id}/records endpoints return 500 Internal Server Error. The system needs further development to fully support the required functionality."
+      - working: true
+        agent: "testing"
+        comment: "Comprehensive testing completed. All endpoints are now working correctly: POST /api/patient-portal successfully creates patient portal access, GET /api/patient-portal retrieves all portal accounts, GET /api/patient-portal/patient/{patient_id} retrieves portal access for a specific patient, POST /api/patient-portal/{id}/schedule successfully schedules appointments through the portal, and GET /api/patient-portal/{id}/records retrieves patient records through the portal. The MongoDB ObjectId serialization issues have been resolved."
 
   - task: "Document Management System"
     implemented: true
