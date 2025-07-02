@@ -671,15 +671,18 @@ test_plan:
 
   - task: "Clinical Templates & Protocols System"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Recently implemented ClinicalTemplate model and API endpoints for creating and managing disease-specific templates, clinical protocols, and care plans. Includes template CRUD operations: POST/GET /api/clinical-templates, GET/PUT /api/clinical-templates/{id}, POST /api/clinical-templates/init. Ready for backend testing."
+      - working: false
+        agent: "testing"
+        comment: "The Clinical Templates & Protocols System is partially implemented. The POST /api/clinical-templates endpoint works correctly and successfully creates a template. However, the GET /api/clinical-templates endpoint returns a 500 Internal Server Error, and the GET/PUT /api/clinical-templates/{id} endpoints return 404 Not Found. The POST /api/clinical-templates/init endpoint also returns 404 Not Found. The system needs further development to fully support the required functionality."
 
   - task: "Quality Measures & Reporting System"
     implemented: true
