@@ -432,7 +432,7 @@ def test_work_shifts(admin_token, employee_id):
     
     # Test getting shifts by date
     try:
-        url = f"{API_URL}/work-shifts/date/{today.isoformat()}"
+        url = f"{API_URL}/work-shifts/date/{today.strftime('%Y-%m-%d')}"
         headers = {"Authorization": f"Bearer {admin_token}"}
         
         response = requests.get(url, headers=headers)
