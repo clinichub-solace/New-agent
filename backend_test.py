@@ -2032,5 +2032,681 @@ def run_all_tests():
     print("TESTING COMPLETE")
     print("=" * 80)
 
+# Initialize all demo/test data and test complete workflows
+def init_demo_data():
+    print("\n" + "=" * 80)
+    print("INITIALIZING CLINICHUB DEMO DATA")
+    print("=" * 80)
+    
+    # PHASE 1: SYSTEM INITIALIZATION
+    print("\n" + "=" * 80)
+    print("PHASE 1: SYSTEM INITIALIZATION")
+    print("=" * 80)
+    
+    # Initialize admin account
+    admin_token = test_authentication()
+    if not admin_token:
+        print("Failed to authenticate as admin. Aborting initialization.")
+        return
+    
+    # Initialize lab tests with LOINC codes
+    try:
+        url = f"{API_URL}/lab-tests/init"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.post(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Initialize Lab Tests with LOINC codes", True, result)
+    except Exception as e:
+        print(f"Error initializing lab tests: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Initialize Lab Tests with LOINC codes", False)
+    
+    # Initialize ICD-10 diagnosis codes
+    try:
+        url = f"{API_URL}/icd10/init"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.post(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Initialize ICD-10 diagnosis codes", True, result)
+    except Exception as e:
+        print(f"Error initializing ICD-10 codes: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Initialize ICD-10 diagnosis codes", False)
+    
+    # Initialize eRx system data
+    try:
+        url = f"{API_URL}/erx/init"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.post(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Initialize eRx system data", True, result)
+    except Exception as e:
+        print(f"Error initializing eRx data: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Initialize eRx system data", False)
+    
+    # Initialize appointment types
+    try:
+        url = f"{API_URL}/system/init-appointment-types"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.post(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Initialize appointment types", True, result)
+    except Exception as e:
+        print(f"Error initializing appointment types: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Initialize appointment types", False)
+    
+    # Initialize communication templates
+    try:
+        url = f"{API_URL}/communications/init-templates"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.post(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Initialize communication templates", True, result)
+    except Exception as e:
+        print(f"Error initializing communication templates: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Initialize communication templates", False)
+    
+    # Initialize HIPAA compliant forms
+    try:
+        url = f"{API_URL}/forms/templates/init-compliant"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.post(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Initialize HIPAA compliant forms", True, result)
+    except Exception as e:
+        print(f"Error initializing HIPAA compliant forms: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Initialize HIPAA compliant forms", False)
+    
+    # PHASE 2: CREATE DEMO PATIENTS & PROVIDERS
+    print("\n" + "=" * 80)
+    print("PHASE 2: CREATE DEMO PATIENTS & PROVIDERS")
+    print("=" * 80)
+    
+    # Create demo patients with different profiles
+    patient_data = [
+        {
+            "first_name": "John",
+            "last_name": "Smith",
+            "email": "john.smith@example.com",
+            "phone": "+1-555-123-4567",
+            "date_of_birth": "1975-08-15",
+            "gender": "male",
+            "address_line1": "123 Main Street",
+            "city": "Springfield",
+            "state": "IL",
+            "zip_code": "62704"
+        },
+        {
+            "first_name": "Maria",
+            "last_name": "Garcia",
+            "email": "maria.garcia@example.com",
+            "phone": "+1-555-987-6543",
+            "date_of_birth": "1990-03-22",
+            "gender": "female",
+            "address_line1": "456 Oak Avenue",
+            "city": "Riverside",
+            "state": "CA",
+            "zip_code": "92501"
+        },
+        {
+            "first_name": "Robert",
+            "last_name": "Johnson",
+            "email": "robert.johnson@example.com",
+            "phone": "+1-555-456-7890",
+            "date_of_birth": "1958-11-30",
+            "gender": "male",
+            "address_line1": "789 Pine Drive",
+            "city": "Oakwood",
+            "state": "TX",
+            "zip_code": "75001"
+        },
+        {
+            "first_name": "Emily",
+            "last_name": "Chen",
+            "email": "emily.chen@example.com",
+            "phone": "+1-555-789-0123",
+            "date_of_birth": "1982-05-10",
+            "gender": "female",
+            "address_line1": "321 Cedar Lane",
+            "city": "Maplewood",
+            "state": "NY",
+            "zip_code": "10001"
+        },
+        {
+            "first_name": "Michael",
+            "last_name": "Williams",
+            "email": "michael.williams@example.com",
+            "phone": "+1-555-234-5678",
+            "date_of_birth": "1995-09-18",
+            "gender": "male",
+            "address_line1": "654 Birch Street",
+            "city": "Lakeside",
+            "state": "FL",
+            "zip_code": "33101"
+        },
+        {
+            "first_name": "Sarah",
+            "last_name": "Brown",
+            "email": "sarah.brown@example.com",
+            "phone": "+1-555-345-6789",
+            "date_of_birth": "1970-12-05",
+            "gender": "female",
+            "address_line1": "987 Maple Road",
+            "city": "Hillcrest",
+            "state": "WA",
+            "zip_code": "98001"
+        },
+        {
+            "first_name": "David",
+            "last_name": "Martinez",
+            "email": "david.martinez@example.com",
+            "phone": "+1-555-567-8901",
+            "date_of_birth": "1988-07-25",
+            "gender": "male",
+            "address_line1": "159 Elm Court",
+            "city": "Valleyview",
+            "state": "AZ",
+            "zip_code": "85001"
+        },
+        {
+            "first_name": "Jennifer",
+            "last_name": "Lee",
+            "email": "jennifer.lee@example.com",
+            "phone": "+1-555-678-9012",
+            "date_of_birth": "1965-02-14",
+            "gender": "female",
+            "address_line1": "753 Willow Way",
+            "city": "Mountainview",
+            "state": "CO",
+            "zip_code": "80001"
+        }
+    ]
+    
+    patient_ids = []
+    for data in patient_data:
+        patient_id = test_patient_management()
+        if patient_id:
+            patient_ids.append({"id": patient_id, "name": f"{data['first_name']} {data['last_name']}"})
+    
+    # Create demo providers
+    provider_data = [
+        {
+            "first_name": "Robert",
+            "last_name": "Wilson",
+            "title": "Dr.",
+            "specialties": ["Family Medicine", "Primary Care"],
+            "license_number": "MD12345",
+            "npi_number": "1234567890",
+            "email": "dr.wilson@clinichub.com",
+            "phone": "+1-555-789-0123"
+        },
+        {
+            "first_name": "Elizabeth",
+            "last_name": "Chen",
+            "title": "Dr.",
+            "specialties": ["Cardiology", "Internal Medicine"],
+            "license_number": "MD67890",
+            "npi_number": "0987654321",
+            "email": "dr.chen@clinichub.com",
+            "phone": "+1-555-456-7890"
+        },
+        {
+            "first_name": "James",
+            "last_name": "Rodriguez",
+            "title": "Dr.",
+            "specialties": ["Pediatrics"],
+            "license_number": "MD54321",
+            "npi_number": "5432167890",
+            "email": "dr.rodriguez@clinichub.com",
+            "phone": "+1-555-321-6547"
+        },
+        {
+            "first_name": "Sarah",
+            "last_name": "Johnson",
+            "title": "NP",
+            "specialties": ["Family Medicine", "Women's Health"],
+            "license_number": "NP98765",
+            "npi_number": "9876543210",
+            "email": "np.johnson@clinichub.com",
+            "phone": "+1-555-987-6543"
+        }
+    ]
+    
+    provider_ids = []
+    for data in provider_data:
+        try:
+            url = f"{API_URL}/providers"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            result = response.json()
+            
+            provider_id = result["id"]
+            provider_ids.append({"id": provider_id, "name": f"{data['title']} {data['first_name']} {data['last_name']}"})
+            print_test_result(f"Create Provider: {data['first_name']} {data['last_name']}", True, result)
+        except Exception as e:
+            print(f"Error creating provider: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result(f"Create Provider: {data['first_name']} {data['last_name']}", False)
+    
+    # PHASE 3: DEMO APPOINTMENTS & ENCOUNTERS
+    print("\n" + "=" * 80)
+    print("PHASE 3: DEMO APPOINTMENTS & ENCOUNTERS")
+    print("=" * 80)
+    
+    if patient_ids and provider_ids:
+        # Create sample appointments for today
+        for i in range(min(3, len(patient_ids))):
+            patient = patient_ids[i]
+            provider = provider_ids[i % len(provider_ids)]
+            
+            appointment_data = {
+                "patient_id": patient["id"],
+                "provider_id": provider["id"],
+                "appointment_date": date.today().isoformat(),
+                "start_time": f"{9 + i}:00",
+                "end_time": f"{9 + i}:30",
+                "appointment_type": "consultation",
+                "reason": "Regular check-up",
+                "location": "Main Clinic",
+                "scheduled_by": "admin"
+            }
+            
+            try:
+                url = f"{API_URL}/appointments"
+                headers = {"Authorization": f"Bearer {admin_token}"}
+                
+                response = requests.post(url, headers=headers, json=appointment_data)
+                response.raise_for_status()
+                result = response.json()
+                
+                print_test_result(f"Create Appointment for Patient {patient['id']}", True, result)
+            except Exception as e:
+                print(f"Error creating appointment: {str(e)}")
+                if 'response' in locals():
+                    print(f"Status code: {response.status_code}")
+                    print(f"Response text: {response.text}")
+                print_test_result(f"Create Appointment for Patient {patient['id']}", False)
+        
+        # Create completed encounters with SOAP notes
+        for i in range(min(3, len(patient_ids))):
+            patient = patient_ids[i + 3]  # Use different patients
+            provider = provider_ids[i % len(provider_ids)]
+            
+            # Create encounter
+            encounter_data = {
+                "patient_id": patient["id"],
+                "encounter_type": "follow_up",
+                "scheduled_date": (datetime.now() - timedelta(days=i+1)).isoformat(),
+                "provider": provider["name"],
+                "location": f"Main Clinic - Room {101 + i}",
+                "chief_complaint": "Persistent headache",
+                "reason_for_visit": "Follow-up for headache treatment"
+            }
+            
+            try:
+                url = f"{API_URL}/encounters"
+                headers = {"Authorization": f"Bearer {admin_token}"}
+                
+                response = requests.post(url, headers=headers, json=encounter_data)
+                response.raise_for_status()
+                encounter_result = response.json()
+                
+                encounter_id = encounter_result["id"]
+                print_test_result(f"Create Encounter for Patient {patient['id']}", True, encounter_result)
+                
+                # Update encounter status to completed
+                url = f"{API_URL}/encounters/{encounter_id}/status"
+                params = {"status": "completed"}
+                
+                response = requests.put(url, headers=headers, params=params)
+                response.raise_for_status()
+                
+                # Add SOAP note
+                soap_data = {
+                    "encounter_id": encounter_id,
+                    "patient_id": patient["id"],
+                    "subjective": "Patient reports persistent headache for 5 days, describes it as throbbing pain behind the eyes. Pain level 7/10. Reports light sensitivity and nausea. No fever.",
+                    "objective": "Vital signs stable. BP 120/80, HR 72, Temp 98.6°F. HEENT: Pupils equal and reactive. No sinus tenderness. Neurological exam normal.",
+                    "assessment": "Migraine headache, possibly triggered by recent stress and lack of sleep.",
+                    "plan": "1. Prescribed sumatriptan 50mg PRN for acute episodes. 2. Recommended stress reduction techniques. 3. Follow up in 2 weeks. 4. If symptoms worsen, return to clinic immediately.",
+                    "provider": provider["name"]
+                }
+                
+                url = f"{API_URL}/soap-notes"
+                response = requests.post(url, headers=headers, json=soap_data)
+                response.raise_for_status()
+                soap_result = response.json()
+                
+                print_test_result(f"Create SOAP Note for Encounter {encounter_id}", True, soap_result)
+                
+                # Add vital signs
+                vital_signs_data = {
+                    "patient_id": patient["id"],
+                    "encounter_id": encounter_id,
+                    "height": 175.5,  # cm
+                    "weight": 70.3,   # kg
+                    "bmi": 22.8,
+                    "systolic_bp": 120,
+                    "diastolic_bp": 80,
+                    "heart_rate": 72,
+                    "respiratory_rate": 16,
+                    "temperature": 37.0,
+                    "oxygen_saturation": 98,
+                    "pain_scale": 7,
+                    "recorded_by": "Nurse Johnson"
+                }
+                
+                url = f"{API_URL}/vital-signs"
+                response = requests.post(url, headers=headers, json=vital_signs_data)
+                response.raise_for_status()
+                vital_signs_result = response.json()
+                
+                print_test_result(f"Add Vital Signs for Encounter {encounter_id}", True, vital_signs_result)
+                
+                # Add diagnosis with ICD-10 code
+                diagnosis_data = {
+                    "encounter_id": encounter_id,
+                    "patient_id": patient["id"],
+                    "diagnosis_code": "G43.909",
+                    "diagnosis_description": "Migraine, unspecified, not intractable",
+                    "diagnosis_type": "primary",
+                    "status": "active",
+                    "onset_date": (date.today() - timedelta(days=5)).isoformat(),
+                    "provider": provider["name"]
+                }
+                
+                url = f"{API_URL}/diagnoses"
+                response = requests.post(url, headers=headers, json=diagnosis_data)
+                response.raise_for_status()
+                diagnosis_result = response.json()
+                
+                print_test_result(f"Add Diagnosis for Encounter {encounter_id}", True, diagnosis_result)
+                
+                # Prescribe medication
+                # First get a medication
+                url = f"{API_URL}/medications"
+                params = {"search": "sumatriptan"}
+                
+                response = requests.get(url, headers=headers, params=params)
+                response.raise_for_status()
+                medications = response.json()
+                
+                if medications:
+                    medication_id = medications[0]["id"]
+                    
+                    prescription_data = {
+                        "medication_id": medication_id,
+                        "patient_id": patient["id"],
+                        "prescriber_id": provider["id"],
+                        "prescriber_name": provider["name"],
+                        "encounter_id": encounter_id,
+                        
+                        # Dosage Information
+                        "dosage_text": "Take 1 tablet at onset of migraine, may repeat after 2 hours if needed",
+                        "dose_quantity": 1.0,
+                        "dose_unit": "tablet",
+                        "frequency": "PRN",
+                        "route": "oral",
+                        
+                        # Prescription Details
+                        "quantity": 9.0,
+                        "days_supply": 30,
+                        "refills": 2,
+                        
+                        # Clinical Context
+                        "indication": "Migraine headache",
+                        "diagnosis_codes": ["G43.909"],
+                        "special_instructions": "Do not take more than 9 tablets in a 30-day period",
+                        
+                        "created_by": "admin"
+                    }
+                    
+                    url = f"{API_URL}/prescriptions"
+                    response = requests.post(url, headers=headers, json=prescription_data)
+                    response.raise_for_status()
+                    prescription_result = response.json()
+                    
+                    print_test_result(f"Prescribe Medication for Patient {patient['id']}", True, prescription_result)
+            except Exception as e:
+                print(f"Error creating encounter with SOAP: {str(e)}")
+                if 'response' in locals():
+                    print(f"Status code: {response.status_code}")
+                    print(f"Response text: {response.text}")
+                print_test_result(f"Create Encounter with SOAP for Patient {patient['id']}", False)
+    
+    # PHASE 4: LAB & INSURANCE TESTING
+    print("\n" + "=" * 80)
+    print("PHASE 4: LAB & INSURANCE TESTING")
+    print("=" * 80)
+    
+    if patient_ids:
+        # Get lab tests
+        lab_test_ids = []
+        try:
+            url = f"{API_URL}/lab-tests"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            lab_tests = response.json()
+            
+            if lab_tests:
+                lab_test_ids = [test["id"] for test in lab_tests[:3]]  # Get first 3 tests
+        except Exception as e:
+            print(f"Error getting lab tests: {str(e)}")
+        
+        # Get ICD-10 codes
+        icd10_codes = []
+        try:
+            url = f"{API_URL}/icd10/search"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            params = {"query": "migraine"}
+            
+            response = requests.get(url, headers=headers, params=params)
+            response.raise_for_status()
+            icd10_results = response.json()
+            
+            if icd10_results:
+                icd10_codes = [code["code"] for code in icd10_results[:2]]  # Get first 2 codes
+        except Exception as e:
+            print(f"Error searching ICD-10 codes: {str(e)}")
+        
+        # Create lab orders for patients
+        if lab_test_ids and icd10_codes and provider_ids:
+            for i in range(min(3, len(patient_ids))):
+                patient = patient_ids[i]
+                provider = provider_ids[i % len(provider_ids)]
+                
+                lab_order_data = {
+                    "patient_id": patient["id"],
+                    "provider_id": provider["id"],
+                    "lab_tests": lab_test_ids,
+                    "icd10_codes": icd10_codes,
+                    "status": "ordered",
+                    "priority": "routine",
+                    "notes": "Patient fasting for 12 hours",
+                    "ordered_by": provider["name"]
+                }
+                
+                try:
+                    url = f"{API_URL}/lab-orders"
+                    headers = {"Authorization": f"Bearer {admin_token}"}
+                    
+                    response = requests.post(url, headers=headers, json=lab_order_data)
+                    response.raise_for_status()
+                    result = response.json()
+                    
+                    print_test_result(f"Create Lab Order for Patient {patient['id']}", True, result)
+                except Exception as e:
+                    print(f"Error creating lab order: {str(e)}")
+                    if 'response' in locals():
+                        print(f"Status code: {response.status_code}")
+                        print(f"Response text: {response.text}")
+                    print_test_result(f"Create Lab Order for Patient {patient['id']}", False)
+        
+        # Add insurance cards for patients
+        for i in range(min(5, len(patient_ids))):
+            patient = patient_ids[i]
+            
+            insurance_data = {
+                "patient_id": patient["id"],
+                "insurance_type": "commercial",
+                "payer_name": "Blue Cross Blue Shield",
+                "payer_id": "BCBS123",
+                "member_id": f"XYZ{i}987654321",
+                "group_number": "GRP12345",
+                "policy_number": f"POL{i}987654",
+                "subscriber_name": patient["name"],
+                "subscriber_dob": "1980-01-01",  # Simplified for demo
+                "relationship_to_subscriber": "self",
+                "effective_date": "2023-01-01",
+                "copay_primary": 25.00,
+                "copay_specialist": 40.00,
+                "deductible": 1500.00,
+                "deductible_met": 500.00,
+                "out_of_pocket_max": 5000.00,
+                "out_of_pocket_met": 1200.00,
+                "is_primary": True
+            }
+            
+            try:
+                url = f"{API_URL}/insurance/cards"
+                headers = {"Authorization": f"Bearer {admin_token}"}
+                
+                response = requests.post(url, headers=headers, json=insurance_data)
+                response.raise_for_status()
+                result = response.json()
+                
+                insurance_card_id = result["id"]
+                print_test_result(f"Add Insurance Card for Patient {patient['id']}", True, result)
+                
+                # Test eligibility verification
+                eligibility_data = {
+                    "insurance_card_id": insurance_card_id,
+                    "service_date": date.today().isoformat(),
+                    "service_type": "office_visit"
+                }
+                
+                url = f"{API_URL}/insurance/verify-eligibility"
+                response = requests.post(url, headers=headers, json=eligibility_data)
+                response.raise_for_status()
+                eligibility_result = response.json()
+                
+                print_test_result(f"Verify Eligibility for Insurance Card {insurance_card_id}", True, eligibility_result)
+            except Exception as e:
+                print(f"Error with insurance operations: {str(e)}")
+                if 'response' in locals():
+                    print(f"Status code: {response.status_code}")
+                    print(f"Response text: {response.text}")
+                print_test_result(f"Insurance Operations for Patient {patient['id']}", False)
+    
+    # PHASE 5: FINANCIAL TESTING
+    print("\n" + "=" * 80)
+    print("PHASE 5: FINANCIAL TESTING")
+    print("=" * 80)
+    
+    if patient_ids:
+        # Create invoices with different payment statuses
+        statuses = ["draft", "sent", "paid", "overdue"]
+        
+        for i in range(min(8, len(patient_ids))):
+            patient = patient_ids[i]
+            
+            invoice_data = {
+                "patient_id": patient["id"],
+                "items": [
+                    {
+                        "description": "Office Visit - Established Patient",
+                        "quantity": 1,
+                        "unit_price": 150.00,
+                        "total": 150.00
+                    },
+                    {
+                        "description": "Blood Test - Complete Blood Count",
+                        "quantity": 1,
+                        "unit_price": 75.00,
+                        "total": 75.00
+                    }
+                ],
+                "tax_rate": 0.0,  # Medical services often tax-exempt
+                "due_days": 30,
+                "notes": "Please pay within 30 days of receipt."
+            }
+            
+            try:
+                url = f"{API_URL}/invoices"
+                headers = {"Authorization": f"Bearer {admin_token}"}
+                
+                response = requests.post(url, headers=headers, json=invoice_data)
+                response.raise_for_status()
+                result = response.json()
+                
+                invoice_id = result["id"]
+                print_test_result(f"Create Invoice for Patient {patient['id']}", True, result)
+                
+                # Update status for first 4 invoices
+                if i < 4:
+                    url = f"{API_URL}/invoices/{invoice_id}/status"
+                    params = {"status": statuses[i]}
+                    
+                    response = requests.put(url, headers=headers, params=params)
+                    response.raise_for_status()
+                    status_result = response.json()
+                    
+                    print_test_result(f"Update Invoice Status to {statuses[i]}", True, status_result)
+            except Exception as e:
+                print(f"Error with invoice operations: {str(e)}")
+                if 'response' in locals():
+                    print(f"Status code: {response.status_code}")
+                    print(f"Response text: {response.text}")
+                print_test_result(f"Invoice Operations for Patient {patient['id']}", False)
+    
+    print("\n" + "=" * 80)
+    print("CLINICHUB DEMO DATA INITIALIZATION COMPLETE")
+    print("=" * 80)
+
 if __name__ == "__main__":
-    run_all_tests()
+    # Choose which test to run
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "init":
+        init_demo_data()
+    else:
+        run_all_tests()
