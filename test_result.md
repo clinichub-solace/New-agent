@@ -582,11 +582,11 @@ test_plan:
 
   - task: "Insurance Verification System"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: false
         agent: "main"
@@ -594,6 +594,9 @@ test_plan:
       - working: false
         agent: "testing"
         comment: "The Insurance Verification System is partially working. Most core endpoints are working correctly: 1) POST /api/insurance/cards - Successfully created an insurance card with patient and insurance details, 2) GET /api/insurance/patient/{patient_id} - Successfully retrieved insurance cards for a patient, 3) POST /api/insurance/prior-auth - Successfully created a prior authorization request, 4) GET /api/insurance/prior-auth/patient/{patient_id} - Successfully retrieved prior authorizations for a patient, 5) GET /api/insurance/eligibility/patient/{patient_id} - Successfully retrieved eligibility information for a patient. However, the POST /api/insurance/verify-eligibility endpoint has an issue with the 'valid_until' parameter being set twice - once in the mock_response as a string and then again in the EligibilityResponse constructor as a datetime. This causes a 'multiple values for keyword argument' error."
+      - working: true
+        agent: "testing"
+        comment: "The Insurance Verification System is now working correctly. Successfully tested all core endpoints: 1) POST /api/insurance/cards - Created an insurance card with patient and insurance details, 2) POST /api/insurance/verify-eligibility - Successfully verified eligibility with the insurance card, 3) GET /api/insurance/eligibility/patient/{patient_id} - Retrieved eligibility information for a patient. The issue with the 'valid_until' parameter being set twice has been fixed. The eligibility verification response now includes all expected fields: benefits summary, copay amounts, deductible information, coverage details, and prior authorization requirements."
 
 agent_communication:
   - agent: "testing"
