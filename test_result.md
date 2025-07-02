@@ -563,6 +563,36 @@ test_plan:
         agent: "testing"
         comment: "Successfully tested the HIPAA and Texas compliant form templates. The /api/forms/templates/init-compliant endpoint correctly creates all four required compliant templates: 1) HIPAA & Texas Compliant Patient Intake Form - Contains comprehensive patient information fields with proper demographic, emergency contact, and insurance sections, 2) Informed Consent to Medical Treatment - Includes proper consent language and required signature fields, 3) Telemedicine Informed Consent - Contains Texas-compliant telemedicine consent language and signature fields, 4) HIPAA Privacy Notice and Authorization - Includes complete HIPAA privacy notice and authorization options. All forms have the correct structure, fields, and signature requirements."
 
+  - task: "Lab Integration System"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Implemented Lab Integration System with LOINC codes for lab tests, ICD-10 codes for diagnoses, and comprehensive lab order management. Includes endpoints for initializing lab tests, searching and retrieving lab tests, creating and managing lab orders."
+      - working: true
+        agent: "testing"
+        comment: "Successfully tested the Lab Integration System. All core endpoints are working correctly: 1) POST /api/lab-tests/init - Successfully initialized lab tests with LOINC codes, 2) GET /api/lab-tests - Successfully retrieved all lab tests, 3) POST /api/lab-orders - Successfully created a lab order with patient, provider, lab tests, and ICD-10 codes, 4) GET /api/lab-orders - Successfully retrieved all lab orders, 5) GET /api/lab-orders/{id} - Successfully retrieved a specific lab order by ID, 6) POST /api/icd10/init - Successfully initialized ICD-10 codes, 7) GET /api/icd10/search - Successfully searched for ICD-10 codes by query term."
+
+  - task: "Insurance Verification System"
+    implemented: true
+    working: false
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Implemented Insurance Verification System with insurance card management, eligibility verification, and prior authorization functionality. Includes endpoints for creating and managing insurance cards, verifying eligibility, and handling prior authorizations."
+      - working: false
+        agent: "testing"
+        comment: "The Insurance Verification System is partially working. Most core endpoints are working correctly: 1) POST /api/insurance/cards - Successfully created an insurance card with patient and insurance details, 2) GET /api/insurance/patient/{patient_id} - Successfully retrieved insurance cards for a patient, 3) POST /api/insurance/prior-auth - Successfully created a prior authorization request, 4) GET /api/insurance/prior-auth/patient/{patient_id} - Successfully retrieved prior authorizations for a patient, 5) GET /api/insurance/eligibility/patient/{patient_id} - Successfully retrieved eligibility information for a patient. However, the POST /api/insurance/verify-eligibility endpoint has an issue with the 'valid_until' parameter being set twice - once in the mock_response as a string and then again in the EligibilityResponse constructor as a datetime. This causes a 'multiple values for keyword argument' error."
+
 agent_communication:
   - agent: "testing"
     message: "Tested the two problematic endpoints as requested: 1) Calendar View endpoint (/api/appointments/calendar) is implemented in the code but still returns a 404 error with the message 'Appointment not found'. Tested with parameters (date=2025-01-15&view=week) and without parameters, both return the same error. 2) Communications Templates endpoint - The initialization endpoint (/api/communications/init-templates) works correctly, but the templates endpoint (/api/communications/templates) still returns a 500 Internal Server Error. Both endpoints need implementation fixes."
