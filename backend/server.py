@@ -5657,6 +5657,506 @@ async def get_formulary(current_user: User = Depends(get_current_active_user)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving formulary: {str(e)}")
 
+# Lab Integration API Endpoints
+
+# Lab Tests Management
+@api_router.post("/lab-tests/init")
+async def initialize_lab_tests(current_user: User = Depends(get_current_active_user)):
+    """Initialize common lab tests with LOINC codes"""
+    try:
+        existing = await db.lab_tests.count_documents({})
+        if existing > 0:
+            return {"message": "Lab tests already initialized", "count": existing}
+        
+        common_lab_tests = [
+            {
+                "id": str(uuid.uuid4()),
+                "code": "718-7",
+                "name": "Hemoglobin",
+                "description": "Hemoglobin [Mass/volume] in Blood",
+                "specimen_type": "blood",
+                "reference_ranges": {
+                    "male": "13.8-17.2 g/dL",
+                    "female": "12.1-15.1 g/dL"
+                },
+                "critical_values": {"low": 7.0, "high": 20.0},
+                "turnaround_time_hours": 2,
+                "cost": 15.00,
+                "is_active": True
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "code": "33747-0", 
+                "name": "Glucose",
+                "description": "Glucose [Mass/volume] in Blood",
+                "specimen_type": "blood",
+                "reference_ranges": {
+                    "fasting": "70-100 mg/dL",
+                    "random": "70-140 mg/dL"
+                },
+                "critical_values": {"low": 40, "high": 400},
+                "turnaround_time_hours": 1,
+                "cost": 12.00,
+                "is_active": True
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "code": "2093-3",
+                "name": "Cholesterol Total",
+                "description": "Cholesterol [Mass/volume] in Serum or Plasma", 
+                "specimen_type": "blood",
+                "reference_ranges": {
+                    "optimal": "<200 mg/dL",
+                    "borderline": "200-239 mg/dL",
+                    "high": "≥240 mg/dL"
+                },
+                "critical_values": {"low": 0, "high": 500},
+                "turnaround_time_hours": 4,
+                "cost": 20.00,
+                "is_active": True
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "code": "33762-6",
+                "name": "TSH",
+                "description": "Thyroid stimulating hormone [Units/volume] in Serum or Plasma",
+                "specimen_type": "blood", 
+                "reference_ranges": {
+                    "normal": "0.27-4.20 mIU/L"
+                },
+                "critical_values": {"low": 0.01, "high": 100},
+                "turnaround_time_hours": 24,
+                "cost": 35.00,
+                "is_active": True
+            }
+        ]
+        
+        await db.lab_tests.insert_many(common_lab_tests)
+        
+        return {
+            "message": "Lab tests initialized successfully",
+            "tests_added": len(common_lab_tests)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error initializing lab tests: {str(e)}")
+
+@api_router.get("/lab-tests")
+async def get_lab_tests(current_user: User = Depends(get_current_active_user)):
+    """Get all available lab tests"""
+    try:
+        tests = await db.lab_tests.find({"is_active": True}).sort("name", 1).to_list(1000)
+        # Remove MongoDB ObjectId
+        for test in tests:
+            if "_id" in test:
+                del test["_id"]
+        return tests
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving lab tests: {str(e)}")
+
+# Lab Orders Management
+@api_router.post("/lab-orders")
+async def create_lab_order(order_data: dict, current_user: User = Depends(get_current_active_user)):
+    """Create a new lab order"""
+    try:
+        # Verify patient exists
+        patient = await db.patients.find_one({"id": order_data["patient_id"]})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Generate order number
+        count = await db.lab_orders.count_documents({})
+        order_number = f"LAB-{count + 1:06d}"
+        
+        # Create lab order
+        lab_order = LabOrder(
+            order_number=order_number,
+            ordered_by=current_user.username,
+            **order_data
+        )
+        
+        lab_order_dict = jsonable_encoder(lab_order)
+        await db.lab_orders.insert_one(lab_order_dict)
+        
+        return lab_order
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating lab order: {str(e)}")
+
+@api_router.get("/lab-orders")
+async def get_lab_orders(
+    patient_id: str = None,
+    status: str = None,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get lab orders with optional filtering"""
+    try:
+        query = {}
+        if patient_id:
+            query["patient_id"] = patient_id
+        if status:
+            query["status"] = status
+        
+        orders = await db.lab_orders.find(query).sort("ordered_at", -1).to_list(100)
+        return [LabOrder(**order) for order in orders]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving lab orders: {str(e)}")
+
+@api_router.get("/lab-orders/{order_id}")
+async def get_lab_order(order_id: str, current_user: User = Depends(get_current_active_user)):
+    """Get specific lab order details"""
+    try:
+        order = await db.lab_orders.find_one({"id": order_id})
+        if not order:
+            raise HTTPException(status_code=404, detail="Lab order not found")
+        return LabOrder(**order)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving lab order: {str(e)}")
+
+# Lab Results Management
+@api_router.post("/lab-results")
+async def create_lab_result(result_data: dict, current_user: User = Depends(get_current_active_user)):
+    """Create/receive lab results"""
+    try:
+        # Verify lab order exists
+        order = await db.lab_orders.find_one({"id": result_data["lab_order_id"]})
+        if not order:
+            raise HTTPException(status_code=404, detail="Lab order not found")
+        
+        # Get test details for critical value checking
+        test = await db.lab_tests.find_one({"code": result_data["test_code"]})
+        
+        # Check for critical values
+        is_critical = False
+        is_abnormal = False
+        
+        if test and result_data.get("numeric_value") is not None:
+            critical_vals = test.get("critical_values", {})
+            numeric_val = float(result_data["numeric_value"])
+            
+            if (critical_vals.get("low") and numeric_val <= critical_vals["low"]) or \
+               (critical_vals.get("high") and numeric_val >= critical_vals["high"]):
+                is_critical = True
+                is_abnormal = True
+        
+        result_data["is_critical"] = is_critical
+        result_data["is_abnormal"] = is_abnormal
+        result_data["status"] = "critical" if is_critical else "final"
+        
+        lab_result = LabResult(**result_data)
+        result_dict = jsonable_encoder(lab_result)
+        await db.lab_results.insert_one(result_dict)
+        
+        # Update lab order status
+        await db.lab_orders.update_one(
+            {"id": result_data["lab_order_id"]},
+            {"$set": {"status": "completed"}}
+        )
+        
+        # Send critical value alert if needed
+        if is_critical:
+            await send_critical_value_alert(lab_result)
+        
+        return lab_result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating lab result: {str(e)}")
+
+@api_router.get("/lab-results/patient/{patient_id}")
+async def get_patient_lab_results(
+    patient_id: str,
+    test_code: str = None,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get lab results for a patient with optional filtering"""
+    try:
+        query = {"patient_id": patient_id}
+        if test_code:
+            query["test_code"] = test_code
+        
+        results = await db.lab_results.find(query).sort("result_date", -1).to_list(100)
+        return [LabResult(**result) for result in results]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving lab results: {str(e)}")
+
+@api_router.get("/lab-results/trends/{patient_id}/{test_code}")
+async def get_lab_trends(
+    patient_id: str,
+    test_code: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get trending data for a specific lab test"""
+    try:
+        results = await db.lab_results.find({
+            "patient_id": patient_id,
+            "test_code": test_code,
+            "numeric_value": {"$exists": True}
+        }).sort("result_date", 1).to_list(100)
+        
+        trend_data = []
+        for result in results:
+            trend_data.append({
+                "date": result["result_date"].isoformat(),
+                "value": result["numeric_value"],
+                "unit": result.get("unit", ""),
+                "is_abnormal": result.get("is_abnormal", False),
+                "is_critical": result.get("is_critical", False)
+            })
+        
+        return {
+            "patient_id": patient_id,
+            "test_code": test_code,
+            "test_name": results[0]["test_name"] if results else "",
+            "data": trend_data,
+            "total_results": len(trend_data)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving lab trends: {str(e)}")
+
+# Critical Value Alert Function
+async def send_critical_value_alert(lab_result: LabResult):
+    """Send alert for critical lab values"""
+    try:
+        # Get patient info
+        patient = await db.patients.find_one({"id": lab_result.patient_id})
+        patient_name = "Unknown"
+        if patient and patient.get("name"):
+            name_obj = patient["name"][0] if isinstance(patient["name"], list) else patient["name"]
+            given = name_obj.get("given", [""])[0] if name_obj.get("given") else ""
+            family = name_obj.get("family", "")
+            patient_name = f"{given} {family}".strip()
+        
+        # Create alert message
+        alert_message = f"🚨 CRITICAL LAB VALUE ALERT\n\n" \
+                       f"Patient: {patient_name}\n" \
+                       f"Test: {lab_result.test_name}\n" \
+                       f"Result: {lab_result.value}\n" \
+                       f"Date: {lab_result.result_date}\n\n" \
+                       f"Immediate physician review required!"
+        
+        # Mock alert system (in production, would integrate with paging/SMS)
+        print(f"🚨 CRITICAL VALUE ALERT: {lab_result.test_name} = {lab_result.value} for patient {patient_name}")
+        
+        # Store alert in database
+        await db.critical_alerts.insert_one({
+            "id": str(uuid.uuid4()),
+            "type": "critical_lab_value",
+            "patient_id": lab_result.patient_id,
+            "result_id": lab_result.id,
+            "message": alert_message,
+            "sent_at": datetime.utcnow(),
+            "acknowledged": False
+        })
+        
+    except Exception as e:
+        print(f"Error sending critical value alert: {str(e)}")
+
+# Insurance Verification & Eligibility API Endpoints
+
+@api_router.post("/insurance/cards")
+async def create_insurance_card(card_data: dict, current_user: User = Depends(get_current_active_user)):
+    """Add insurance card information for a patient"""
+    try:
+        # Verify patient exists
+        patient = await db.patients.find_one({"id": card_data["patient_id"]})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        insurance_card = InsuranceCard(**card_data)
+        card_dict = jsonable_encoder(insurance_card)
+        await db.insurance_cards.insert_one(card_dict)
+        
+        return insurance_card
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating insurance card: {str(e)}")
+
+@api_router.get("/insurance/patient/{patient_id}")
+async def get_patient_insurance(patient_id: str, current_user: User = Depends(get_current_active_user)):
+    """Get insurance cards for a patient"""
+    try:
+        cards = await db.insurance_cards.find({
+            "patient_id": patient_id,
+            "is_active": True
+        }).sort("is_primary", -1).to_list(10)
+        
+        return [InsuranceCard(**card) for card in cards]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving insurance cards: {str(e)}")
+
+@api_router.post("/insurance/verify-eligibility")
+async def verify_eligibility(verification_data: dict, current_user: User = Depends(get_current_active_user)):
+    """Verify insurance eligibility (mock implementation)"""
+    try:
+        patient_id = verification_data["patient_id"]
+        insurance_card_id = verification_data["insurance_card_id"]
+        
+        # Get insurance card
+        card = await db.insurance_cards.find_one({"id": insurance_card_id})
+        if not card:
+            raise HTTPException(status_code=404, detail="Insurance card not found")
+        
+        # Mock eligibility response (in production, would call real payer APIs)
+        mock_response = {
+            "patient_id": patient_id,
+            "insurance_card_id": insurance_card_id,
+            "eligibility_status": "active",
+            "benefits_summary": {
+                "plan_type": "PPO" if card["insurance_type"] == "commercial" else card["insurance_type"].upper(),
+                "network_status": "in_network",
+                "effective_date": card["effective_date"],
+                "plan_description": f"{card['payer_name']} {card['insurance_type'].title()} Plan"
+            },
+            "copay_amounts": {
+                "primary_care": card.get("copay_primary", 25.00),
+                "specialist": card.get("copay_specialist", 45.00),
+                "emergency_room": 150.00,
+                "urgent_care": 75.00
+            },
+            "deductible_info": {
+                "annual_deductible": card.get("deductible", 1500.00),
+                "deductible_met": card.get("deductible_met", 0.00),
+                "remaining_deductible": card.get("deductible", 1500.00) - card.get("deductible_met", 0.00)
+            },
+            "coverage_details": {
+                "preventive_care": "100% covered",
+                "lab_work": "80% after deductible",
+                "imaging": "70% after deductible",
+                "prescription_drugs": "Generic: $10, Brand: $35"
+            },
+            "prior_auth_required": [
+                "MRI", "CT Scan", "Specialist referrals", "Durable medical equipment"
+            ],
+            "valid_until": (datetime.utcnow() + timedelta(hours=24)).isoformat(),
+            "raw_response": {
+                "mock_payer_response": "Eligibility verified successfully",
+                "transaction_id": str(uuid.uuid4()),
+                "response_time": datetime.utcnow().isoformat()
+            }
+        }
+        
+        # Create eligibility response record
+        eligibility = EligibilityResponse(
+            **mock_response,
+            valid_until=datetime.utcnow() + timedelta(hours=24)
+        )
+        
+        eligibility_dict = jsonable_encoder(eligibility)
+        await db.eligibility_responses.insert_one(eligibility_dict)
+        
+        return eligibility
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error verifying eligibility: {str(e)}")
+
+@api_router.get("/insurance/eligibility/patient/{patient_id}")
+async def get_patient_eligibility(patient_id: str, current_user: User = Depends(get_current_active_user)):
+    """Get recent eligibility verification for patient"""
+    try:
+        # Get most recent eligibility response
+        eligibility = await db.eligibility_responses.find_one(
+            {"patient_id": patient_id},
+            sort=[("checked_at", -1)]
+        )
+        
+        if not eligibility:
+            return {"message": "No eligibility verification found", "patient_id": patient_id}
+        
+        return EligibilityResponse(**eligibility)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving eligibility: {str(e)}")
+
+@api_router.post("/insurance/prior-auth")
+async def create_prior_authorization(auth_data: dict, current_user: User = Depends(get_current_active_user)):
+    """Create prior authorization request"""
+    try:
+        auth_data["submitted_by"] = current_user.username
+        
+        prior_auth = PriorAuthorization(**auth_data)
+        auth_dict = jsonable_encoder(prior_auth)
+        await db.prior_authorizations.insert_one(auth_dict)
+        
+        return prior_auth
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating prior authorization: {str(e)}")
+
+@api_router.get("/insurance/prior-auth/patient/{patient_id}")
+async def get_patient_prior_auths(patient_id: str, current_user: User = Depends(get_current_active_user)):
+    """Get prior authorizations for patient"""
+    try:
+        auths = await db.prior_authorizations.find({
+            "patient_id": patient_id
+        }).sort("requested_date", -1).to_list(50)
+        
+        return [PriorAuthorization(**auth) for auth in auths]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving prior authorizations: {str(e)}")
+
+# ICD-10 Diagnosis Codes Support
+@api_router.post("/icd10/init")
+async def initialize_icd10_codes(current_user: User = Depends(get_current_active_user)):
+    """Initialize common ICD-10 diagnosis codes"""
+    try:
+        existing = await db.icd10_codes.count_documents({})
+        if existing > 0:
+            return {"message": "ICD-10 codes already initialized", "count": existing}
+        
+        common_codes = [
+            {"code": "Z00.00", "description": "Encounter for general adult medical examination without abnormal findings", "category": "Preventive Care"},
+            {"code": "E11.9", "description": "Type 2 diabetes mellitus without complications", "category": "Endocrine"},
+            {"code": "I10", "description": "Essential hypertension", "category": "Cardiovascular"},
+            {"code": "E78.5", "description": "Hyperlipidemia, unspecified", "category": "Endocrine"},
+            {"code": "J06.9", "description": "Acute upper respiratory infection, unspecified", "category": "Respiratory"},
+            {"code": "M79.3", "description": "Panniculitis, unspecified", "category": "Musculoskeletal"},
+            {"code": "R06.02", "description": "Shortness of breath", "category": "Symptoms"},
+            {"code": "R50.9", "description": "Fever, unspecified", "category": "Symptoms"},
+            {"code": "F32.9", "description": "Major depressive disorder, single episode, unspecified", "category": "Mental Health"},
+            {"code": "Z51.11", "description": "Encounter for antineoplastic chemotherapy", "category": "Treatment"}
+        ]
+        
+        # Add IDs to codes
+        for code in common_codes:
+            code["id"] = str(uuid.uuid4())
+        
+        await db.icd10_codes.insert_many(common_codes)
+        
+        return {
+            "message": "ICD-10 codes initialized successfully",
+            "codes_added": len(common_codes)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error initializing ICD-10 codes: {str(e)}")
+
+@api_router.get("/icd10/search")
+async def search_icd10_codes(
+    query: str,
+    limit: int = 20,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Search ICD-10 codes by description"""
+    try:
+        # Search by description or code
+        search_query = {
+            "$or": [
+                {"description": {"$regex": query, "$options": "i"}},
+                {"code": {"$regex": query, "$options": "i"}}
+            ]
+        }
+        
+        codes = await db.icd10_codes.find(search_query).limit(limit).to_list(limit)
+        
+        # Remove MongoDB ObjectId
+        for code in codes:
+            if "_id" in code:
+                del code["_id"]
+        
+        return codes
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error searching ICD-10 codes: {str(e)}")
+
 # Include the router in the main app
 app.include_router(api_router)
 
