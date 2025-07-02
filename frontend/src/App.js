@@ -5397,8 +5397,62 @@ const EmployeeModule = ({ setActiveModule }) => {
         </div>
 
         {/* Forms */}
-        {showDocumentForm && <div>Document Form Placeholder</div>}
-        {showScheduleForm && <div>Schedule Form Placeholder</div>}
+        {showDocumentForm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold">Create Employee Document</h2>
+                  <button
+                    onClick={() => setShowDocumentForm(false)}
+                    className="text-gray-500 hover:text-gray-700 text-xl"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <DocumentForm />
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {showScheduleForm && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold">Manage Schedule & Shifts</h2>
+                  <button
+                    onClick={() => setShowScheduleForm(false)}
+                    className="text-gray-500 hover:text-gray-700 text-xl"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <ScheduleForm />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {showTimeEntry && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-lg w-full">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold">Time Entry</h2>
+                  <button
+                    onClick={() => setShowTimeEntry(false)}
+                    className="text-gray-500 hover:text-gray-700 text-xl"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <TimeEntryForm />
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
