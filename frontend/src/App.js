@@ -7526,11 +7526,21 @@ const InsuranceVerificationModule = ({ setActiveModule }) => {
 };
 
 const PatientQueueView = ({ setActiveModule }) => {
+  const [queueData, setQueueData] = useState({ locations: {}, summary: {} });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPatientQueue();
+    const interval = setInterval(fetchPatientQueue, 30000); // Refresh every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchPatientQueue = async () => {
     try {
-      const response = await axios.get(`${API}/dashboard/daily-log`);
-      setDailyData(response.data);
+      const response = await axios.get(`${API}/dashboard/patient-queue`);
+      setQueueData(response.data);
     } catch (error) {
-      console.error("Error fetching daily log:", error);
+      console.error("Error fetching patient queue:", error);
     } finally {
       setLoading(false);
     }
