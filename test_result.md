@@ -752,9 +752,9 @@ test_plan:
 
   - task: "Document Management System"
     implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 0
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
@@ -770,6 +770,9 @@ test_plan:
       - working: true
         agent: "testing"
         comment: "Comprehensive testing completed. All endpoints are now working correctly: POST /api/documents successfully creates documents with the required file_size field, GET /api/documents retrieves all documents, GET /api/documents/{id} retrieves a specific document, PUT /api/documents/{id} updates documents, GET /api/documents/patient/{patient_id} retrieves patient-specific documents, PUT /api/documents/{id}/workflow updates document workflow, and PUT /api/documents/{id}/status updates document status. The MongoDB ObjectId serialization issues have been resolved."
+      - working: false
+        agent: "testing"
+        comment: "The backend API for Document Management is working correctly, but the frontend component cannot be tested due to syntax errors in App.js. The frontend application fails to load properly, preventing access to the Document Management module. The login page loads but authentication does not proceed to the dashboard."
 
   - task: "Telehealth Module System"
     implemented: true
