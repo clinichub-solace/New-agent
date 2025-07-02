@@ -384,6 +384,7 @@ def test_insurance_verification(admin_token, patient_id):
             headers = {"Authorization": f"Bearer {admin_token}"}
             data = {
                 "insurance_card_id": insurance_card_id,
+                "patient_id": patient_id,
                 "service_date": date.today().isoformat(),
                 "service_type": "office_visit"
             }
