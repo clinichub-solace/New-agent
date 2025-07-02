@@ -908,9 +908,9 @@ def test_telehealth_module(admin_token, patient_id, provider_id):
         try:
             url = f"{API_URL}/telehealth/{session_id}/status"
             headers = {"Authorization": f"Bearer {admin_token}"}
-            params = {"status": "in_progress"}
+            data = {"status": "in_progress"}
             
-            response = requests.put(url, headers=headers, params=params)
+            response = requests.put(url, headers=headers, json=data)
             response.raise_for_status()
             result = response.json()
             
