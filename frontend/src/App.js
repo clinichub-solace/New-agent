@@ -985,6 +985,8 @@ const Dashboard = ({ setActiveModule, user, onLogout }) => {
     { name: "Smart Forms", key: "forms", icon: "📋", color: "bg-green-500", permission: "forms:read" },
     { name: "Inventory", key: "inventory", icon: "📦", color: "bg-orange-500", permission: "inventory:read" },
     { name: "Invoices", key: "invoices", icon: "🧾", color: "bg-purple-500", permission: "invoices:read" },
+    { name: "Lab Orders", key: "lab-orders", icon: "🧪", color: "bg-teal-600", permission: "lab:read" },
+    { name: "Insurance", key: "insurance", icon: "🏥", color: "bg-cyan-600", permission: "insurance:read" },
     { name: "Employees", key: "employees", icon: "👨‍⚕️", color: "bg-indigo-500", permission: "employees:read" },
     { name: "Finance", key: "finance", icon: "💰", color: "bg-green-600", permission: "finance:read" },
     { name: "Scheduling", key: "scheduling", icon: "📅", color: "bg-blue-600", permission: "scheduling:read" },
