@@ -922,8 +922,8 @@ def test_telehealth_module(token, patient_id=None):
         try:
             url = f"{API_URL}/telehealth/{session_id}"
             data = {
-                "scheduled_start_time": (datetime.now() + timedelta(hours=3)).isoformat(),
-                "scheduled_end_time": (datetime.now() + timedelta(hours=3, minutes=30)).isoformat(),
+                "scheduled_start": (datetime.now() + timedelta(hours=3)).isoformat(),
+                "scheduled_end": (datetime.now() + timedelta(hours=3, minutes=30)).isoformat(),
                 "reason": "Updated: Follow-up for hypertension management and medication review",
                 "patient_instructions": "Updated instructions: Please ensure you have a stable internet connection, are in a private location, and have your current medication list available."
             }
