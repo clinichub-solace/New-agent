@@ -8451,6 +8451,18 @@ function App() {
             </AppHeader>
           </ProtectedRoute>
         );
+      case 'lab-orders':
+        return (
+          <ProtectedRoute permission="lab:read">
+            <LabIntegrationModule setActiveModule={setActiveModule} />
+          </ProtectedRoute>
+        );
+      case 'insurance':
+        return (
+          <ProtectedRoute permission="insurance:read">
+            <InsuranceVerificationModule setActiveModule={setActiveModule} />
+          </ProtectedRoute>
+        );
       default:
         return (
           <ProtectedRoute>
