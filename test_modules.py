@@ -390,6 +390,7 @@ def test_quality_measures(admin_token, patient_id):
         url = f"{API_URL}/quality-measures"
         headers = {"Authorization": f"Bearer {admin_token}"}
         data = {
+            "measure_id": str(uuid.uuid4()),
             "name": "Diabetes HbA1c Control",
             "description": "Percentage of patients with diabetes who had HbA1c < 8.0%",
             "measure_type": "process",
