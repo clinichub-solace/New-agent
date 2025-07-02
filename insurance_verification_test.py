@@ -37,10 +37,14 @@ def get_admin_token():
     print("\n--- Getting Admin Token ---")
     
     try:
-        # Initialize admin user if needed
-        url = f"{API_URL}/auth/init-admin"
-        response = requests.post(url)
-        response.raise_for_status()
+        # Try to initialize admin user (may fail if already exists)
+        try:
+            url = f"{API_URL}/auth/init-admin"
+            response = requests.post(url)
+            response.raise_for_status()
+            print("Admin user initialized successfully")
+        except:
+            print("Admin user already exists, proceeding with login")
         
         # Login with admin credentials
         url = f"{API_URL}/auth/login"
