@@ -37,10 +37,16 @@ def get_admin_token():
     print("\n--- Getting Authentication Token ---")
     
     try:
-        # Initialize admin user if needed
-        init_url = f"{API_URL}/auth/init-admin"
-        init_response = requests.post(init_url)
-        init_response.raise_for_status()
+        # Try to initialize admin user (this might fail if admin already exists, which is fine)
+        try:
+            init_url = f"{API_URL}/auth/init-admin"
+            init_response = requests.post(init_url)
+            if init_response.status_code == 200:
+                print("Admin user initialized successfully")
+            else:
+                print(f"Admin user already exists: {init_response.json().get('detail', 'Unknown error')}")
+        except Exception as e:
+            print(f"Note: Admin initialization skipped: {str(e)}")
         
         # Login with admin credentials
         login_url = f"{API_URL}/auth/login"
