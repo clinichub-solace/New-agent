@@ -6917,8 +6917,8 @@ const LabIntegrationModule = ({ setActiveModule }) => {
   );
 };
 
-// Daily Log View Component
-const DailyLogView = ({ setActiveModule }) => {
+// Insurance Verification Module
+const InsuranceVerificationModule = ({ setActiveModule }) => {
   const [activeTab, setActiveTab] = useState('cards');
   const [insuranceCards, setInsuranceCards] = useState([]);
   const [eligibilityResponses, setEligibilityResponses] = useState([]);
