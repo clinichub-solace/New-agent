@@ -990,7 +990,13 @@ const Dashboard = ({ setActiveModule, user, onLogout }) => {
     { name: "Employees", key: "employees", icon: "👨‍⚕️", color: "bg-indigo-500", permission: "employees:read" },
     { name: "Finance", key: "finance", icon: "💰", color: "bg-green-600", permission: "finance:read" },
     { name: "Scheduling", key: "scheduling", icon: "📅", color: "bg-blue-600", permission: "scheduling:read" },
-    { name: "Communications", key: "communications", icon: "📨", color: "bg-teal-500", permission: "communications:read" }
+    { name: "Communications", key: "communications", icon: "📨", color: "bg-teal-500", permission: "communications:read" },
+    { name: "Referrals", key: "referrals", icon: "🔄", color: "bg-red-500", permission: "referrals:read" },
+    { name: "Clinical Templates", key: "clinical-templates", icon: "📋", color: "bg-green-700", permission: "templates:read" },
+    { name: "Quality Measures", key: "quality-measures", icon: "📊", color: "bg-blue-700", permission: "quality:read" },
+    { name: "Patient Portal", key: "patient-portal-mgmt", icon: "🚪", color: "bg-purple-600", permission: "portal:read" },
+    { name: "Documents", key: "documents", icon: "📄", color: "bg-gray-600", permission: "documents:read" },
+    { name: "Telehealth", key: "telehealth", icon: "📹", color: "bg-pink-600", permission: "telehealth:read" }
   ];
 
   const { hasPermission } = useAuth();
