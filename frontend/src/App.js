@@ -4904,8 +4904,806 @@ const EmployeeModule = ({ setActiveModule }) => {
     setActiveTab('overview');
   };
 
-  // Employee Creation Form
-  const EmployeeForm = () => {
+  // Document Management Form
+  const DocumentForm = () => {
+    const [documentData, setDocumentData] = useState({
+      document_type: 'performance_review',
+      title: '',
+      content: '',
+      effective_date: new Date().toISOString().split('T')[0],
+      expiry_date: '',
+      due_date: '',
+      priority: 'medium'
+    });
+
+    const documentTypes = [
+      { value: 'performance_review', label: 'Performance Review' },
+      { value: 'warning', label: 'Warning Notice' },
+      { value: 'vacation_request', label: 'Vacation Request' },
+      { value: 'sick_leave', label: 'Sick Leave' },
+      { value: 'training_certificate', label: 'Training Certificate' },
+      { value: 'policy_acknowledgment', label: 'Policy Acknowledgment' },
+      { value: 'contract', label: 'Employment Contract' },
+      { value: 'other', label: 'Other' }
+    ];
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        const submitData = {
+          ...documentData,
+          employee_id: selectedEmployee.id,
+          created_by: 'admin' // Should be current user
+        };
+        await axios.post(`${API}/employee-documents`, submitData);
+        setShowDocumentForm(false);
+        setDocumentData({
+          document_type: 'performance_review',
+          title: '',
+          content: '',
+          effective_date: new Date().toISOString().split('T')[0],
+          expiry_date: '',
+          due_date: '',
+          priority: 'medium'
+        });
+        alert('Document created successfully!');
+      } catch (error) {
+        console.error("Error creating document:", error);
+        alert('Error creating document: ' + (error.response?.data?.detail || 'Unknown error'));
+      }
+    };
+
+    return (
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-2">Document Type *</label>
+          <select
+            value={documentData.document_type}
+            onChange={(e) => setDocumentData({...documentData, document_type: e.target.value})}
+            className="w-full p-3 border border-gray-300 rounded-lg"
+            required
+          >
+            {documentTypes.map(type => (
+              <option key={type.value} value={type.value}>{type.label}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Title *</label>
+          <input
+            type="text"
+            value={documentData.title}
+            onChange={(e) => setDocumentData({...documentData, title: e.target.value})}
+            className="w-full p-3 border border-gray-300 rounded-lg"
+            placeholder="Document title"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Content *</label>
+          <textarea
+            value={documentData.content}
+            onChange={(e) => setDocumentData({...documentData, content: e.target.value})}
+            className="w-full p-3 border border-gray-300 rounded-lg"
+            rows="6"
+            placeholder="Document content..."
+            required
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Effective Date</label>
+            <input
+              type="date"
+              value={documentData.effective_date}
+              onChange={(e) => setDocumentData({...documentData, effective_date: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Due Date</label>
+            <input
+              type="date"
+              value={documentData.due_date}
+              onChange={(e) => setDocumentData({...documentData, due_date: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-2">Priority</label>
+          <select
+            value={documentData.priority}
+            onChange={(e) => setDocumentData({...documentData, priority: e.target.value})}
+            className="w-full p-3 border border-gray-300 rounded-lg"
+          >
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+            <option value="urgent">Urgent</option>
+          </select>
+        </div>
+        <div className="flex justify-end space-x-4 pt-4">
+          <button
+            type="button"
+            onClick={() => setShowDocumentForm(false)}
+            className="px-6 py-2 border border-gray-300 rounded-lg"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+          >
+            Create Document
+          </button>
+        </div>
+      </form>
+    );
+  };
+
+  // Schedule & Shift Management Form
+  const ScheduleForm = () => {
+    const [activeScheduleTab, setActiveScheduleTab] = useState('shifts');
+    const [shiftData, setShiftData] = useState({
+      shift_date: new Date().toISOString().split('T')[0],
+      start_time: '09:00',
+      end_time: '17:00',
+      break_duration: 60,
+      department: '',
+      notes: ''
+    });
+    const [workShifts, setWorkShifts] = useState([]);
+    const [timeEntries, setTimeEntries] = useState([]);
+
+    useEffect(() => {
+      fetchWorkShifts();
+      fetchTimeEntries();
+    }, []);
+
+    const fetchWorkShifts = async () => {
+      try {
+        const response = await axios.get(`${API}/work-shifts/employee/${selectedEmployee.id}`);
+        setWorkShifts(response.data);
+      } catch (error) {
+        console.error("Error fetching work shifts:", error);
+      }
+    };
+
+    const fetchTimeEntries = async () => {
+      try {
+        const response = await axios.get(`${API}/time-entries/employee/${selectedEmployee.id}`);
+        setTimeEntries(response.data);
+      } catch (error) {
+        console.error("Error fetching time entries:", error);
+      }
+    };
+
+    const handleShiftSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        const submitData = {
+          ...shiftData,
+          employee_id: selectedEmployee.id
+        };
+        await axios.post(`${API}/work-shifts`, submitData);
+        setShiftData({
+          shift_date: new Date().toISOString().split('T')[0],
+          start_time: '09:00',
+          end_time: '17:00',
+          break_duration: 60,
+          department: '',
+          notes: ''
+        });
+        fetchWorkShifts();
+        alert('Work shift scheduled successfully!');
+      } catch (error) {
+        console.error("Error creating work shift:", error);
+        alert('Error creating work shift: ' + (error.response?.data?.detail || 'Unknown error'));
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Tab Navigation */}
+        <div className="border-b border-gray-200">
+          <nav className="flex space-x-8">
+            {['shifts', 'schedule', 'time-tracking'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveScheduleTab(tab)}
+                className={`py-2 px-1 border-b-2 font-medium text-sm capitalize ${
+                  activeScheduleTab === tab
+                    ? 'border-indigo-500 text-indigo-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab.replace('-', ' ')}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Shifts Tab */}
+        {activeScheduleTab === 'shifts' && (
+          <div className="space-y-6">
+            <form onSubmit={handleShiftSubmit} className="space-y-4">
+              <h3 className="text-lg font-semibold">Schedule New Shift</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Shift Date *</label>
+                  <input
+                    type="date"
+                    value={shiftData.shift_date}
+                    onChange={(e) => setShiftData({...shiftData, shift_date: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Department</label>
+                  <select
+                    value={shiftData.department}
+                    onChange={(e) => setShiftData({...shiftData, department: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                  >
+                    <option value="">Select Department</option>
+                    <option value="Emergency">Emergency</option>
+                    <option value="ICU">ICU</option>
+                    <option value="Surgery">Surgery</option>
+                    <option value="Pediatrics">Pediatrics</option>
+                    <option value="Cardiology">Cardiology</option>
+                    <option value="Nursing">Nursing</option>
+                    <option value="Administration">Administration</option>
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Start Time *</label>
+                  <input
+                    type="time"
+                    value={shiftData.start_time}
+                    onChange={(e) => setShiftData({...shiftData, start_time: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">End Time *</label>
+                  <input
+                    type="time"
+                    value={shiftData.end_time}
+                    onChange={(e) => setShiftData({...shiftData, end_time: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Break Duration (min)</label>
+                  <input
+                    type="number"
+                    value={shiftData.break_duration}
+                    onChange={(e) => setShiftData({...shiftData, break_duration: parseInt(e.target.value)})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    min="0"
+                    max="240"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Notes</label>
+                <textarea
+                  value={shiftData.notes}
+                  onChange={(e) => setShiftData({...shiftData, notes: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  rows="3"
+                  placeholder="Shift notes or special instructions..."
+                />
+              </div>
+              <button
+                type="submit"
+                className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700"
+              >
+                Schedule Shift
+              </button>
+            </form>
+
+            {/* Scheduled Shifts */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Scheduled Shifts</h3>
+              <div className="space-y-3">
+                {workShifts.length > 0 ? (
+                  workShifts.map((shift) => (
+                    <div key={shift.id} className="border border-gray-200 rounded-lg p-4">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <p className="font-medium">{new Date(shift.shift_date).toLocaleDateString()}</p>
+                          <p className="text-sm text-gray-600">
+                            {shift.start_time} - {shift.end_time}
+                            {shift.department && ` • ${shift.department}`}
+                          </p>
+                          {shift.notes && (
+                            <p className="text-sm text-gray-500 mt-1">{shift.notes}</p>
+                          )}
+                        </div>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          new Date(shift.shift_date) >= new Date() ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                        }`}>
+                          {new Date(shift.shift_date) >= new Date() ? 'Upcoming' : 'Completed'}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-gray-500 text-center py-4">No shifts scheduled</p>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Time Tracking Tab */}
+        {activeScheduleTab === 'time-tracking' && (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold">Recent Time Entries</h3>
+            <div className="space-y-3">
+              {timeEntries.length > 0 ? (
+                timeEntries.slice(0, 10).map((entry) => (
+                  <div key={entry.id} className="border border-gray-200 rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="font-medium capitalize">{entry.entry_type.replace('_', ' ')}</p>
+                        <p className="text-sm text-gray-600">
+                          {new Date(entry.timestamp).toLocaleString()}
+                        </p>
+                        {entry.notes && (
+                          <p className="text-sm text-gray-500 mt-1">{entry.notes}</p>
+                        )}
+                      </div>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        entry.entry_type === 'clock_in' ? 'bg-green-100 text-green-800' :
+                        entry.entry_type === 'clock_out' ? 'bg-red-100 text-red-800' :
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {entry.entry_type.replace('_', ' ').toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-gray-500 text-center py-4">No time entries found</p>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  // Time Entry Form
+  const TimeEntryForm = () => {
+    const [timeEntryData, setTimeEntryData] = useState({
+      entry_type: 'clock_in',
+      timestamp: new Date().toISOString().slice(0, 16),
+      notes: ''
+    });
+    const [currentStatus, setCurrentStatus] = useState(null);
+
+    useEffect(() => {
+      fetchCurrentStatus();
+    }, []);
+
+    const fetchCurrentStatus = async () => {
+      try {
+        const response = await axios.get(`${API}/time-entries/employee/${selectedEmployee.id}/current-status`);
+        setCurrentStatus(response.data);
+      } catch (error) {
+        console.error("Error fetching current status:", error);
+      }
+    };
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        const submitData = {
+          ...timeEntryData,
+          employee_id: selectedEmployee.id,
+          timestamp: new Date(timeEntryData.timestamp).toISOString()
+        };
+        await axios.post(`${API}/time-entries`, submitData);
+        setTimeEntryData({
+          entry_type: 'clock_in',
+          timestamp: new Date().toISOString().slice(0, 16),
+          notes: ''
+        });
+        fetchCurrentStatus();
+        setShowTimeEntry(false);
+        alert('Time entry recorded successfully!');
+      } catch (error) {
+        console.error("Error creating time entry:", error);
+        alert('Error recording time entry: ' + (error.response?.data?.detail || 'Unknown error'));
+      }
+    };
+
+    const getNextAction = () => {
+      if (!currentStatus) return 'clock_in';
+      
+      if (currentStatus.status === 'clocked_out' || currentStatus.status === 'not_started') {
+        return 'clock_in';
+      } else if (currentStatus.status === 'clocked_in') {
+        return 'break_start';
+      } else if (currentStatus.status === 'on_break') {
+        return 'break_end';
+      }
+      return 'clock_out';
+    };
+
+    const suggestedAction = getNextAction();
+
+    return (
+      <div className="space-y-6">
+        {/* Current Status */}
+        {currentStatus && (
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h3 className="font-medium mb-2">Current Status</h3>
+            <p className="text-sm">
+              <span className="font-medium">Status:</span> 
+              <span className={`ml-2 px-2 py-1 text-xs rounded-full ${
+                currentStatus.status === 'clocked_in' ? 'bg-green-100 text-green-800' :
+                currentStatus.status === 'on_break' ? 'bg-yellow-100 text-yellow-800' :
+                'bg-gray-100 text-gray-800'
+              }`}>
+                {currentStatus.status?.replace('_', ' ').toUpperCase() || 'Unknown'}
+              </span>
+            </p>
+            {currentStatus.last_entry && (
+              <p className="text-sm text-gray-600 mt-1">
+                Last action: {new Date(currentStatus.last_entry).toLocaleString()}
+              </p>
+            )}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium mb-2">Action *</label>
+            <select
+              value={timeEntryData.entry_type}
+              onChange={(e) => setTimeEntryData({...timeEntryData, entry_type: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+              required
+            >
+              <option value="clock_in">Clock In</option>
+              <option value="clock_out">Clock Out</option>
+              <option value="break_start">Start Break</option>
+              <option value="break_end">End Break</option>
+            </select>
+            {suggestedAction !== timeEntryData.entry_type && (
+              <p className="text-sm text-blue-600 mt-1">
+                Suggested next action: {suggestedAction.replace('_', ' ')}
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Date & Time *</label>
+            <input
+              type="datetime-local"
+              value={timeEntryData.timestamp}
+              onChange={(e) => setTimeEntryData({...timeEntryData, timestamp: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+              required
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-2">Notes</label>
+            <textarea
+              value={timeEntryData.notes}
+              onChange={(e) => setTimeEntryData({...timeEntryData, notes: e.target.value})}
+              className="w-full p-3 border border-gray-300 rounded-lg"
+              rows="3"
+              placeholder="Optional notes about this time entry..."
+            />
+          </div>
+          <div className="flex justify-end space-x-4">
+            <button
+              type="button"
+              onClick={() => setShowTimeEntry(false)}
+              className="px-6 py-2 border border-gray-300 rounded-lg"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
+              Record Entry
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  };
+
+  // Enhanced Employee Detail View
+  const EmployeeDetailView = ({ employee }) => {
+    const [employeeDocuments, setEmployeeDocuments] = useState([]);
+    const [employeeHours, setEmployeeHours] = useState(null);
+
+    useEffect(() => {
+      if (employee?.id) {
+        fetchEmployeeDocuments();
+        fetchEmployeeHours();
+      }
+    }, [employee]);
+
+    const fetchEmployeeDocuments = async () => {
+      try {
+        const response = await axios.get(`${API}/employee-documents/employee/${employee.id}`);
+        setEmployeeDocuments(response.data);
+      } catch (error) {
+        console.error("Error fetching employee documents:", error);
+      }
+    };
+
+    const fetchEmployeeHours = async () => {
+      try {
+        const response = await axios.get(`${API}/employees/${employee.id}/hours-summary`);
+        setEmployeeHours(response.data);
+      } catch (error) {
+        console.error("Error fetching employee hours:", error);
+      }
+    };
+
+    const handleDocumentAction = async (documentId, action) => {
+      try {
+        await axios.put(`${API}/employee-documents/${documentId}/${action}`);
+        fetchEmployeeDocuments();
+        alert(`Document ${action}ed successfully!`);
+      } catch (error) {
+        console.error(`Error ${action}ing document:`, error);
+        alert(`Error ${action}ing document: ` + (error.response?.data?.detail || 'Unknown error'));
+      }
+    };
+
+    return (
+      <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-4">
+            <div className="w-16 h-16 bg-indigo-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-2xl">
+                {employee.first_name?.[0]}{employee.last_name?.[0]}
+              </span>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-white">
+                {employee.first_name} {employee.last_name}
+              </h2>
+              <p className="text-blue-200">{employee.role?.replace('_', ' ').toUpperCase()} • {employee.department}</p>
+              <p className="text-blue-200 text-sm">ID: {employee.employee_id}</p>
+            </div>
+          </div>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowTimeEntry(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+            >
+              ⏰ Time Entry
+            </button>
+            <button
+              onClick={() => setShowDocumentForm(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              📄 New Document
+            </button>
+            <button
+              onClick={() => setShowScheduleForm(true)}
+              className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg"
+            >
+              📅 Schedule
+            </button>
+            <button
+              onClick={() => setSelectedEmployee(null)}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+            >
+              ← Back to Employees
+            </button>
+          </div>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="border-b border-white/20 mb-6">
+          <nav className="flex space-x-8">
+            {['overview', 'documents', 'schedule', 'hours'].map((tab) => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`py-3 px-1 border-b-2 font-medium text-sm capitalize ${
+                  activeTab === tab
+                    ? 'border-indigo-400 text-indigo-400'
+                    : 'border-transparent text-blue-200 hover:text-white'
+                }`}
+              >
+                {tab}
+              </button>
+            ))}
+          </nav>
+        </div>
+
+        {/* Tab Content */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Personal Information */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-white">Personal Information</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm text-blue-200">Email</label>
+                    <p className="text-white">{employee.email}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-blue-200">Phone</label>
+                    <p className="text-white">{employee.phone || 'Not provided'}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-blue-200">Address</label>
+                    <p className="text-white">
+                      {employee.address ? `${employee.address}, ${employee.city}, ${employee.state} ${employee.zip_code}` : 'Not provided'}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Employment Details */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-white">Employment Details</h3>
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm text-blue-200">Hire Date</label>
+                    <p className="text-white">{new Date(employee.hire_date).toLocaleDateString()}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-blue-200">Employment Type</label>
+                    <p className="text-white">{employee.employment_type?.replace('_', ' ').toUpperCase()}</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-blue-200">Compensation</label>
+                    <p className="text-white">
+                      {employee.salary ? `$${employee.salary.toLocaleString()}/year` : 
+                       employee.hourly_rate ? `$${employee.hourly_rate}/hour` : 'Not specified'}
+                    </p>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-blue-200">Status</label>
+                    <span className={`px-2 py-1 text-xs rounded-full ${
+                      employee.is_active ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                    }`}>
+                      {employee.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Emergency Contact */}
+            {employee.emergency_contact_name && (
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-4">Emergency Contact</h3>
+                <div className="bg-white/5 rounded-lg p-4">
+                  <p className="text-white font-medium">{employee.emergency_contact_name}</p>
+                  <p className="text-blue-200">{employee.emergency_contact_relationship}</p>
+                  <p className="text-blue-200">{employee.emergency_contact_phone}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'documents' && (
+          <div className="space-y-4">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-semibold text-white">Employee Documents</h3>
+              <button
+                onClick={() => setShowDocumentForm(true)}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm"
+              >
+                + New Document
+              </button>
+            </div>
+            <div className="space-y-3">
+              {employeeDocuments.length > 0 ? (
+                employeeDocuments.map((doc) => (
+                  <div key={doc.id} className="bg-white/5 rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h4 className="text-white font-medium">{doc.title}</h4>
+                        <p className="text-blue-200 text-sm capitalize">
+                          {doc.document_type.replace('_', ' ')} • Created: {new Date(doc.created_at).toLocaleDateString()}
+                        </p>
+                        {doc.effective_date && (
+                          <p className="text-blue-200 text-sm">
+                            Effective: {new Date(doc.effective_date).toLocaleDateString()}
+                          </p>
+                        )}
+                        <p className="text-gray-300 text-sm mt-2">{doc.content}</p>
+                      </div>
+                      <div className="flex items-center space-x-2 ml-4">
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          doc.status === 'approved' ? 'bg-green-500 text-white' :
+                          doc.status === 'signed' ? 'bg-blue-500 text-white' :
+                          doc.status === 'pending_approval' ? 'bg-yellow-500 text-white' :
+                          'bg-gray-500 text-white'
+                        }`}>
+                          {doc.status.replace('_', ' ').toUpperCase()}
+                        </span>
+                        {doc.status === 'draft' && (
+                          <button
+                            onClick={() => handleDocumentAction(doc.id, 'sign')}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
+                          >
+                            Sign
+                          </button>
+                        )}
+                        {doc.status === 'signed' && (
+                          <button
+                            onClick={() => handleDocumentAction(doc.id, 'approve')}
+                            className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs"
+                          >
+                            Approve
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-blue-200 text-center py-4">No documents found</p>
+              )}
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'hours' && (
+          <div className="space-y-6">
+            <h3 className="text-lg font-semibold text-white">Hours Summary</h3>
+            {employeeHours ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="bg-white/5 rounded-lg p-4">
+                  <h4 className="text-blue-200 text-sm">This Week</h4>
+                  <p className="text-2xl font-bold text-white">
+                    {employeeHours.current_week_hours?.toFixed(1) || '0.0'}h
+                  </p>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4">
+                  <h4 className="text-blue-200 text-sm">This Month</h4>
+                  <p className="text-2xl font-bold text-white">
+                    {employeeHours.current_month_hours?.toFixed(1) || '0.0'}h
+                  </p>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4">
+                  <h4 className="text-blue-200 text-sm">Total Hours</h4>
+                  <p className="text-2xl font-bold text-white">
+                    {employeeHours.total_hours?.toFixed(1) || '0.0'}h
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-blue-200">Loading hours data...</p>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (selectedEmployee) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          <EmployeeDetailView employee={selectedEmployee} />
+        </div>
+        {showEmployeeForm && <EmployeeForm />}
     const [formData, setFormData] = useState({
       first_name: '', last_name: '', email: '', phone: '',
       role: 'nurse', department: '', hire_date: '',
