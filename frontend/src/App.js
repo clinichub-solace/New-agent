@@ -7526,9 +7526,7 @@ const InsuranceVerificationModule = ({ setActiveModule }) => {
 };
 
 // Daily Log View Component
-
-// Insurance Verification Module
-const InsuranceVerificationModule = ({ setActiveModule }) => {
+const DailyLogView = ({ setActiveModule }) => {
   const [dailyData, setDailyData] = useState({ visits: [], summary: {} });
   const [loading, setLoading] = useState(true);
 
