@@ -7505,7 +7505,379 @@ async def update_telehealth_session_status(session_id: str, status_data: Dict):
         logger.error(f"Error updating session status: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error updating session status: {str(e)}")
 
-# Original endpoints with /telehealth/sessions structure (kept for backwards compatibility)
+# ===== PHASE 3: INTEGRATION & WORKFLOW ENDPOINTS =====
+
+# 1. Workflow Integration Endpoints
+@api_router.post("/workflows/referral-to-appointment")
+async def create_referral_appointment_workflow(workflow_data: Dict):
+    """Create a workflow from referral to appointment to potential telehealth session"""
+    try:
+        referral_id = workflow_data["referral_id"]
+        appointment_data = workflow_data["appointment_data"]
+        telehealth_option = workflow_data.get("enable_telehealth", False)
+        
+        # Get referral details
+        referral = await db.referrals.find_one({"id": referral_id}, {"_id": 0})
+        if not referral:
+            raise HTTPException(status_code=404, detail="Referral not found")
+        
+        # Create appointment based on referral
+        appointment = {
+            "id": str(uuid.uuid4()),
+            "patient_id": referral["patient_id"],
+            "provider_id": appointment_data.get("provider_id"),
+            "appointment_type": "referral_follow_up",
+            "status": "scheduled",
+            "date": appointment_data["date"],
+            "time": appointment_data["time"],
+            "duration": appointment_data.get("duration", 30),
+            "notes": f"Follow-up for referral: {referral['reason_for_referral']}",
+            "referral_id": referral_id,
+            "created_at": datetime.now(),
+            "updated_at": datetime.now()
+        }
+        
+        appointment_result = await db.appointments.insert_one(appointment)
+        
+        # Create telehealth session if requested
+        telehealth_session = None
+        if telehealth_option:
+            session = TelehealthSession(
+                patient_id=referral["patient_id"],
+                provider_id=appointment_data.get("provider_id"),
+                session_type="referral_consultation",
+                scheduled_start=datetime.strptime(f"{appointment_data['date']} {appointment_data['time']}", "%Y-%m-%d %H:%M"),
+                scheduled_end=datetime.strptime(f"{appointment_data['date']} {appointment_data['time']}", "%Y-%m-%d %H:%M") + timedelta(minutes=appointment_data.get("duration", 30)),
+                notes=f"Telehealth session for referral: {referral['reason_for_referral']}",
+                appointment_id=appointment["id"]
+            )
+            
+            session_dict = session.dict()
+            meeting_id = f"clinichub-{session.patient_id}-{int(datetime.now().timestamp())}"
+            meeting_url = f"https://meet.jit.si/{meeting_id}"
+            session_dict["meeting_id"] = meeting_id
+            session_dict["meeting_url"] = meeting_url
+            
+            telehealth_result = await db.telehealth_sessions.insert_one(session_dict)
+            telehealth_session = session_dict
+        
+        # Update referral status
+        await db.referrals.update_one(
+            {"id": referral_id},
+            {"$set": {"status": "scheduled", "appointment_id": appointment["id"], "updated_at": datetime.now()}}
+        )
+        
+        # Create workflow record
+        workflow_record = {
+            "id": str(uuid.uuid4()),
+            "type": "referral_to_appointment",
+            "referral_id": referral_id,
+            "appointment_id": appointment["id"],
+            "telehealth_session_id": telehealth_session["id"] if telehealth_session else None,
+            "status": "active",
+            "created_at": datetime.now(),
+            "steps": [
+                {"step": "referral_created", "status": "completed", "timestamp": referral["created_at"]},
+                {"step": "appointment_scheduled", "status": "completed", "timestamp": datetime.now()},
+                {"step": "telehealth_prepared", "status": "completed" if telehealth_session else "skipped", "timestamp": datetime.now() if telehealth_session else None}
+            ]
+        }
+        
+        await db.workflows.insert_one(workflow_record)
+        
+        return {
+            "workflow_id": workflow_record["id"],
+            "referral_id": referral_id,
+            "appointment_id": appointment["id"],
+            "telehealth_session_id": telehealth_session["id"] if telehealth_session else None,
+            "status": "workflow_created",
+            "next_steps": ["appointment_reminder", "provider_notification"]
+        }
+        
+    except Exception as e:
+        logger.error(f"Error creating referral workflow: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating workflow: {str(e)}")
+
+@api_router.get("/workflows")
+async def get_workflows(workflow_type: Optional[str] = None, status: Optional[str] = None):
+    """Get all workflows with optional filtering"""
+    try:
+        query = {}
+        if workflow_type:
+            query["type"] = workflow_type
+        if status:
+            query["status"] = status
+            
+        workflows = []
+        async for workflow in db.workflows.find(query, {"_id": 0}).sort("created_at", -1):
+            workflows.append(workflow)
+            
+        return workflows
+    except Exception as e:
+        logger.error(f"Error fetching workflows: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching workflows: {str(e)}")
+
+@api_router.get("/workflows/{workflow_id}")
+async def get_workflow_details(workflow_id: str):
+    """Get detailed workflow information with related records"""
+    try:
+        workflow = await db.workflows.find_one({"id": workflow_id}, {"_id": 0})
+        if not workflow:
+            raise HTTPException(status_code=404, detail="Workflow not found")
+        
+        # Get related records
+        if workflow["referral_id"]:
+            referral = await db.referrals.find_one({"id": workflow["referral_id"]}, {"_id": 0})
+            workflow["referral_details"] = referral
+            
+        if workflow["appointment_id"]:
+            appointment = await db.appointments.find_one({"id": workflow["appointment_id"]}, {"_id": 0})
+            workflow["appointment_details"] = appointment
+            
+        if workflow.get("telehealth_session_id"):
+            session = await db.telehealth_sessions.find_one({"id": workflow["telehealth_session_id"]}, {"_id": 0})
+            workflow["telehealth_details"] = session
+            
+        return workflow
+    except Exception as e:
+        logger.error(f"Error fetching workflow details: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching workflow details: {str(e)}")
+
+# 2. Global Search Endpoint
+@api_router.get("/search")
+async def global_search(query: str, modules: Optional[str] = None, limit: int = 50):
+    """Global search across all modules"""
+    try:
+        search_results = {
+            "query": query,
+            "results": [],
+            "total_count": 0
+        }
+        
+        search_modules = modules.split(",") if modules else ["patients", "referrals", "appointments", "documents", "templates", "telehealth"]
+        
+        # Search patients
+        if "patients" in search_modules:
+            async for patient in db.patients.find({
+                "$or": [
+                    {"name.0.given": {"$regex": query, "$options": "i"}},
+                    {"name.0.family": {"$regex": query, "$options": "i"}},
+                    {"mrn": {"$regex": query, "$options": "i"}}
+                ]
+            }, {"_id": 0}).limit(10):
+                search_results["results"].append({
+                    "type": "patient",
+                    "id": patient["id"],
+                    "title": f"{patient['name'][0]['given']} {patient['name'][0]['family']}",
+                    "subtitle": f"MRN: {patient.get('mrn', 'N/A')}",
+                    "module": "patients",
+                    "data": patient
+                })
+        
+        # Search referrals
+        if "referrals" in search_modules:
+            async for referral in db.referrals.find({
+                "$or": [
+                    {"reason_for_referral": {"$regex": query, "$options": "i"}},
+                    {"referred_to_provider_name": {"$regex": query, "$options": "i"}},
+                    {"referred_to_specialty": {"$regex": query, "$options": "i"}}
+                ]
+            }, {"_id": 0}).limit(10):
+                search_results["results"].append({
+                    "type": "referral",
+                    "id": referral["id"],
+                    "title": f"Referral to {referral['referred_to_specialty']}",
+                    "subtitle": referral["reason_for_referral"],
+                    "module": "referrals",
+                    "data": referral
+                })
+        
+        # Search documents
+        if "documents" in search_modules:
+            async for document in db.clinical_documents.find({
+                "$or": [
+                    {"title": {"$regex": query, "$options": "i"}},
+                    {"content": {"$regex": query, "$options": "i"}},
+                    {"tags": {"$regex": query, "$options": "i"}}
+                ]
+            }, {"_id": 0}).limit(10):
+                search_results["results"].append({
+                    "type": "document",
+                    "id": document["id"],
+                    "title": document["title"],
+                    "subtitle": f"Type: {document['document_type']}",
+                    "module": "documents",
+                    "data": document
+                })
+        
+        # Search clinical templates
+        if "templates" in search_modules:
+            async for template in db.clinical_templates.find({
+                "$or": [
+                    {"name": {"$regex": query, "$options": "i"}},
+                    {"specialty": {"$regex": query, "$options": "i"}},
+                    {"condition": {"$regex": query, "$options": "i"}}
+                ]
+            }, {"_id": 0}).limit(10):
+                search_results["results"].append({
+                    "type": "template",
+                    "id": template["id"],
+                    "title": template["name"],
+                    "subtitle": f"Specialty: {template.get('specialty', 'General')}",
+                    "module": "clinical-templates",
+                    "data": template
+                })
+        
+        # Search telehealth sessions
+        if "telehealth" in search_modules:
+            async for session in db.telehealth_sessions.find({
+                "$or": [
+                    {"notes": {"$regex": query, "$options": "i"}},
+                    {"session_type": {"$regex": query, "$options": "i"}}
+                ]
+            }, {"_id": 0}).limit(10):
+                search_results["results"].append({
+                    "type": "telehealth",
+                    "id": session["id"],
+                    "title": f"Telehealth Session - {session['session_type']}",
+                    "subtitle": f"Status: {session['status']}",
+                    "module": "telehealth",
+                    "data": session
+                })
+        
+        search_results["total_count"] = len(search_results["results"])
+        return search_results
+        
+    except Exception as e:
+        logger.error(f"Error performing global search: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error performing search: {str(e)}")
+
+# 3. Notification System Endpoints
+@api_router.post("/notifications")
+async def create_notification(notification_data: Dict):
+    """Create a new notification"""
+    try:
+        notification = {
+            "id": str(uuid.uuid4()),
+            "user_id": notification_data["user_id"],
+            "type": notification_data["type"],  # workflow, reminder, alert, info
+            "title": notification_data["title"],
+            "message": notification_data["message"],
+            "module": notification_data.get("module"),
+            "related_id": notification_data.get("related_id"),
+            "priority": notification_data.get("priority", "normal"),  # low, normal, high, urgent
+            "is_read": False,
+            "created_at": datetime.now(),
+            "expires_at": datetime.now() + timedelta(days=30)
+        }
+        
+        result = await db.notifications.insert_one(notification)
+        if result.inserted_id:
+            return {"id": notification["id"], "message": "Notification created successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create notification")
+            
+    except Exception as e:
+        logger.error(f"Error creating notification: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating notification: {str(e)}")
+
+@api_router.get("/notifications")
+async def get_notifications(user_id: Optional[str] = None, is_read: Optional[bool] = None, limit: int = 50):
+    """Get notifications for a user"""
+    try:
+        query = {}
+        if user_id:
+            query["user_id"] = user_id
+        if is_read is not None:
+            query["is_read"] = is_read
+        
+        # Only get non-expired notifications
+        query["expires_at"] = {"$gt": datetime.now()}
+        
+        notifications = []
+        async for notification in db.notifications.find(query, {"_id": 0}).sort("created_at", -1).limit(limit):
+            notifications.append(notification)
+            
+        return notifications
+    except Exception as e:
+        logger.error(f"Error fetching notifications: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching notifications: {str(e)}")
+
+@api_router.put("/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: str):
+    """Mark a notification as read"""
+    try:
+        result = await db.notifications.update_one(
+            {"id": notification_id},
+            {"$set": {"is_read": True, "read_at": datetime.now()}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Notification not found")
+            
+        return {"message": "Notification marked as read"}
+    except Exception as e:
+        logger.error(f"Error marking notification as read: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating notification: {str(e)}")
+
+# 4. User Preferences Endpoints
+@api_router.post("/user-preferences")
+async def save_user_preferences(preferences_data: Dict):
+    """Save user preferences"""
+    try:
+        user_id = preferences_data["user_id"]
+        preferences = {
+            "id": str(uuid.uuid4()),
+            "user_id": user_id,
+            "dashboard_layout": preferences_data.get("dashboard_layout", "default"),
+            "module_order": preferences_data.get("module_order", []),
+            "theme": preferences_data.get("theme", "dark"),
+            "notifications_enabled": preferences_data.get("notifications_enabled", True),
+            "default_module": preferences_data.get("default_module", "dashboard"),
+            "items_per_page": preferences_data.get("items_per_page", 25),
+            "auto_refresh": preferences_data.get("auto_refresh", False),
+            "mobile_optimized": preferences_data.get("mobile_optimized", True),
+            "created_at": datetime.now(),
+            "updated_at": datetime.now()
+        }
+        
+        # Upsert user preferences
+        result = await db.user_preferences.update_one(
+            {"user_id": user_id},
+            {"$set": preferences},
+            upsert=True
+        )
+        
+        return {"message": "User preferences saved successfully"}
+        
+    except Exception as e:
+        logger.error(f"Error saving user preferences: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error saving preferences: {str(e)}")
+
+@api_router.get("/user-preferences/{user_id}")
+async def get_user_preferences(user_id: str):
+    """Get user preferences"""
+    try:
+        preferences = await db.user_preferences.find_one({"user_id": user_id}, {"_id": 0})
+        if not preferences:
+            # Return default preferences
+            return {
+                "user_id": user_id,
+                "dashboard_layout": "default",
+                "module_order": [],
+                "theme": "dark",
+                "notifications_enabled": True,
+                "default_module": "dashboard",
+                "items_per_page": 25,
+                "auto_refresh": False,
+                "mobile_optimized": True
+            }
+        return preferences
+    except Exception as e:
+        logger.error(f"Error fetching user preferences: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching preferences: {str(e)}")
+
+# Configure logging
 @api_router.post("/telehealth/sessions")
 async def create_telehealth_session(session: TelehealthSession):
     try:
