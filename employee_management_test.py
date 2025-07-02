@@ -488,8 +488,8 @@ def test_hours_summary(admin_token, employee_id):
         url = f"{API_URL}/employees/{employee_id}/hours-summary"
         headers = {"Authorization": f"Bearer {admin_token}"}
         params = {
-            "start_date": (date.today() - timedelta(days=7)).isoformat(),
-            "end_date": date.today().isoformat()
+            "start_date": (date.today() - timedelta(days=7)).strftime("%Y-%m-%d"),
+            "end_date": date.today().strftime("%Y-%m-%d")
         }
         
         response = requests.get(url, headers=headers, params=params)
