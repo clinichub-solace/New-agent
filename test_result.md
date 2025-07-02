@@ -651,6 +651,78 @@ test_plan:
         agent: "testing"
         comment: "Despite the issues with some endpoints, the initialization process successfully created the core demo data needed for testing: patients, providers, encounters, SOAP notes, vital signs, diagnoses, prescriptions, insurance cards, and invoices. The system is now populated with realistic test data that can be used for manual testing and demonstration purposes."
 
+  - task: "Referrals Management System"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Recently implemented Referral model and API endpoints for managing patient referrals to specialists, tracking status, and handling reports. Includes CRUD operations for referrals: POST/GET /api/referrals, GET/PUT /api/referrals/{id}, GET /api/referrals/patient/{patient_id}. Ready for backend testing."
+
+  - task: "Clinical Templates & Protocols System"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Recently implemented ClinicalTemplate model and API endpoints for creating and managing disease-specific templates, clinical protocols, and care plans. Includes template CRUD operations: POST/GET /api/clinical-templates, GET/PUT /api/clinical-templates/{id}, POST /api/clinical-templates/init. Ready for backend testing."
+
+  - task: "Quality Measures & Reporting System"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Recently implemented QualityMeasure model and API endpoints to track and report on HEDIS measures, Clinical Quality Measures (CQMs), and MIPS quality reporting. Includes endpoints: POST/GET /api/quality-measures, GET/PUT /api/quality-measures/{id}, POST /api/quality-measures/calculate, GET /api/quality-measures/report. Ready for backend testing."
+
+  - task: "Patient Portal System"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Recently implemented PatientPortal model and API endpoints to support patient self-scheduling, viewing records, lab results, secure messaging, and online payments. Includes endpoints: POST/GET /api/patient-portal, GET /api/patient-portal/patient/{patient_id}, POST /api/patient-portal/{id}/schedule, GET /api/patient-portal/{id}/records. Ready for backend testing."
+
+  - task: "Document Management System"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Recently implemented Document model and API endpoints for document scanning, upload, categorization, tagging, workflow, and retention policies. Includes endpoints: POST/GET /api/documents, GET/PUT /api/documents/{id}, POST /api/documents/upload, GET /api/documents/patient/{patient_id}, PUT /api/documents/{id}/workflow. Ready for backend testing."
+
+  - task: "Telehealth Module System"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Recently implemented TelehealthSession model and API endpoints to facilitate video consultations, virtual waiting rooms, and remote patient monitoring integration. Includes endpoints: POST/GET /api/telehealth, GET/PUT /api/telehealth/{id}, POST /api/telehealth/{id}/join, PUT /api/telehealth/{id}/status. Ready for backend testing."
+
 agent_communication:
   - agent: "testing"
     message: "Tested the newly implemented Lab Integration and Insurance Verification endpoints. Lab Integration is working correctly with all endpoints functioning as expected. Successfully tested initializing lab tests, retrieving lab tests, creating lab orders with patient, provider, lab tests, and ICD-10 codes, and retrieving lab orders. Insurance Verification is partially working - insurance card creation and retrieval, prior authorization, and eligibility retrieval endpoints work correctly. However, the eligibility verification endpoint has an issue with the 'valid_until' parameter being set twice, causing a 'multiple values for keyword argument' error. This needs to be fixed to fully support the insurance verification workflow."
