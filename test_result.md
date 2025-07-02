@@ -680,9 +680,9 @@ test_plan:
 
   - task: "Clinical Templates & Protocols System"
     implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 0
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
@@ -698,6 +698,9 @@ test_plan:
       - working: true
         agent: "testing"
         comment: "Comprehensive testing completed. All endpoints are now working correctly: POST /api/clinical-templates/init successfully initializes standard templates, POST /api/clinical-templates creates custom templates, GET /api/clinical-templates retrieves all templates, GET /api/clinical-templates/{id} retrieves a specific template, and PUT /api/clinical-templates/{id} updates templates. The MongoDB ObjectId serialization issues have been resolved."
+      - working: false
+        agent: "testing"
+        comment: "The backend API for Clinical Templates is working correctly, but the frontend component cannot be tested due to syntax errors in App.js. The frontend application fails to load properly, preventing access to the Clinical Templates module. The login page loads but authentication does not proceed to the dashboard."
 
   - task: "Quality Measures & Reporting System"
     implemented: true
