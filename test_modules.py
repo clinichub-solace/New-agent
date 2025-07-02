@@ -595,7 +595,8 @@ def test_patient_portal(admin_token, patient_id):
                 "preferred_time": "morning",
                 "reason": "Annual check-up",
                 "notes": "Requesting Dr. Smith if available",
-                "insurance_changed": False
+                "insurance_changed": False,
+                "appointment_type": "consultation"
             }
             
             response = requests.post(url, headers=headers, json=data)
