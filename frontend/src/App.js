@@ -9323,6 +9323,434 @@ const ClinicalTemplateForm = ({ onSubmit, onCancel }) => {
   );
 };
 
+// 3. Quality Measures Module
+const QualityMeasuresModule = ({ setActiveModule }) => {
+  const [measures, setMeasures] = useState([]);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [reportData, setReportData] = useState(null);
+
+  useEffect(() => {
+    fetchMeasures();
+  }, []);
+
+  const fetchMeasures = async () => {
+    try {
+      const response = await axios.get(`${API}/quality-measures`);
+      setMeasures(response.data);
+    } catch (error) {
+      console.error('Error fetching measures:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const generateReport = async () => {
+    try {
+      const response = await axios.get(`${API}/quality-measures/report`);
+      setReportData(response.data);
+    } catch (error) {
+      console.error('Error generating report:', error);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <button
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-400 hover:text-blue-300 mb-2 flex items-center"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-white">Quality Measures & Reporting</h1>
+            <p className="text-blue-200">Track HEDIS, CQMs, and MIPS quality measures</p>
+          </div>
+          <div className="space-x-4">
+            <button
+              onClick={generateReport}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg"
+            >
+              Generate Report
+            </button>
+          </div>
+        </div>
+
+        {/* Report Section */}
+        {reportData && (
+          <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 mb-8">
+            <div className="p-6">
+              <h2 className="text-xl font-bold text-white mb-4">Quality Measures Report</h2>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-white/5 rounded-lg p-4">
+                  <p className="text-blue-200 text-sm">Total Measures</p>
+                  <p className="text-2xl font-bold text-white">{reportData.summary?.total_measures || 0}</p>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4">
+                  <p className="text-green-200 text-sm">Passed</p>
+                  <p className="text-2xl font-bold text-green-300">{reportData.summary?.passed_measures || 0}</p>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4">
+                  <p className="text-red-200 text-sm">Failed</p>
+                  <p className="text-2xl font-bold text-red-300">{reportData.summary?.failed_measures || 0}</p>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4">
+                  <p className="text-blue-200 text-sm">Overall Score</p>
+                  <p className="text-2xl font-bold text-white">{reportData.summary?.overall_score || 0}%</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Measures List */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-white mb-4">Quality Measures</h2>
+            {loading ? (
+              <div className="text-center text-white py-8">Loading measures...</div>
+            ) : measures.length === 0 ? (
+              <div className="text-center text-blue-200 py-8">No measures found</div>
+            ) : (
+              <div className="space-y-4">
+                {measures.map((measure) => (
+                  <div key={measure.id} className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-white font-semibold">{measure.name}</h3>
+                        <p className="text-blue-200">{measure.description}</p>
+                        <p className="text-blue-300 text-sm">Type: {measure.measure_type}</p>
+                        {measure.measure_id && (
+                          <p className="text-blue-300 text-sm">ID: {measure.measure_id}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-3 py-1 rounded-full text-sm ${
+                          measure.is_active ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'
+                        }`}>
+                          {measure.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 4. Patient Portal Management Module
+const PatientPortalMgmtModule = ({ setActiveModule }) => {
+  const [portalAccess, setPortalAccess] = useState([]);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchPortalAccess();
+  }, []);
+
+  const fetchPortalAccess = async () => {
+    try {
+      const response = await axios.get(`${API}/patient-portal`);
+      setPortalAccess(response.data);
+    } catch (error) {
+      console.error('Error fetching portal access:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreatePortalAccess = async (formData) => {
+    try {
+      await axios.post(`${API}/patient-portal`, formData);
+      fetchPortalAccess();
+      setShowCreateForm(false);
+    } catch (error) {
+      console.error('Error creating portal access:', error);
+      alert('Error creating portal access');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <button
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-400 hover:text-blue-300 mb-2 flex items-center"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-white">Patient Portal Management</h1>
+            <p className="text-blue-200">Manage patient portal access and features</p>
+          </div>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+          >
+            Grant Portal Access
+          </button>
+        </div>
+
+        {/* Portal Access List */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-white mb-4">Portal Access Records</h2>
+            {loading ? (
+              <div className="text-center text-white py-8">Loading portal access...</div>
+            ) : portalAccess.length === 0 ? (
+              <div className="text-center text-blue-200 py-8">No portal access records found</div>
+            ) : (
+              <div className="space-y-4">
+                {portalAccess.map((access) => (
+                  <div key={access.id} className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-white font-semibold">{access.patient_name}</h3>
+                        <p className="text-blue-200">Access Level: {access.access_level}</p>
+                        <p className="text-blue-300 text-sm">
+                          Features: {access.features_enabled?.join(', ') || 'None'}
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-3 py-1 rounded-full text-sm ${
+                          access.is_active ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'
+                        }`}>
+                          {access.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 5. Documents Module
+const DocumentsModule = ({ setActiveModule }) => {
+  const [documents, setDocuments] = useState([]);
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
+
+  const fetchDocuments = async () => {
+    try {
+      const response = await axios.get(`${API}/documents`);
+      setDocuments(response.data);
+    } catch (error) {
+      console.error('Error fetching documents:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUploadDocument = async (formData) => {
+    try {
+      await axios.post(`${API}/documents/upload`, formData);
+      fetchDocuments();
+      setShowUploadForm(false);
+    } catch (error) {
+      console.error('Error uploading document:', error);
+      alert('Error uploading document');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <button
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-400 hover:text-blue-300 mb-2 flex items-center"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-white">Document Management</h1>
+            <p className="text-blue-200">Manage clinical documents and workflows</p>
+          </div>
+          <button
+            onClick={() => setShowUploadForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+          >
+            Upload Document
+          </button>
+        </div>
+
+        {/* Documents List */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-white mb-4">Documents</h2>
+            {loading ? (
+              <div className="text-center text-white py-8">Loading documents...</div>
+            ) : documents.length === 0 ? (
+              <div className="text-center text-blue-200 py-8">No documents found</div>
+            ) : (
+              <div className="space-y-4">
+                {documents.map((document) => (
+                  <div key={document.id} className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-white font-semibold">{document.title}</h3>
+                        <p className="text-blue-200">Type: {document.document_type}</p>
+                        <p className="text-blue-300 text-sm">Patient: {document.patient_name || 'N/A'}</p>
+                        <p className="text-blue-300 text-sm">Category: {document.category_name || 'Uncategorized'}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-3 py-1 rounded-full text-sm ${
+                          document.status === 'active' ? 'bg-green-500/20 text-green-300' :
+                          document.status === 'pending' ? 'bg-yellow-500/20 text-yellow-300' :
+                          'bg-gray-500/20 text-gray-300'
+                        }`}>
+                          {document.status?.charAt(0).toUpperCase() + document.status?.slice(1) || 'Unknown'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 6. Telehealth Module
+const TelehealthModule = ({ setActiveModule }) => {
+  const [sessions, setSessions] = useState([]);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchSessions();
+  }, []);
+
+  const fetchSessions = async () => {
+    try {
+      const response = await axios.get(`${API}/telehealth`);
+      setSessions(response.data);
+    } catch (error) {
+      console.error('Error fetching sessions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateSession = async (formData) => {
+    try {
+      await axios.post(`${API}/telehealth`, formData);
+      fetchSessions();
+      setShowCreateForm(false);
+    } catch (error) {
+      console.error('Error creating session:', error);
+      alert('Error creating session');
+    }
+  };
+
+  const joinSession = async (sessionId) => {
+    try {
+      const response = await axios.post(`${API}/telehealth/${sessionId}/join`, { user_type: 'provider' });
+      window.open(response.data.join_url, '_blank');
+    } catch (error) {
+      console.error('Error joining session:', error);
+      alert('Error joining session');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <button
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-400 hover:text-blue-300 mb-2 flex items-center"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-white">Telehealth Sessions</h1>
+            <p className="text-blue-200">Manage video consultations and virtual visits</p>
+          </div>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+          >
+            Schedule Session
+          </button>
+        </div>
+
+        {/* Sessions List */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-white mb-4">Telehealth Sessions</h2>
+            {loading ? (
+              <div className="text-center text-white py-8">Loading sessions...</div>
+            ) : sessions.length === 0 ? (
+              <div className="text-center text-blue-200 py-8">No sessions found</div>
+            ) : (
+              <div className="space-y-4">
+                {sessions.map((session) => (
+                  <div key={session.id} className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-white font-semibold">{session.patient_name}</h3>
+                        <p className="text-blue-200">Provider: {session.provider_name}</p>
+                        <p className="text-blue-300 text-sm">Type: {session.session_type}</p>
+                        <p className="text-blue-300 text-sm">
+                          Scheduled: {new Date(session.scheduled_start).toLocaleString()}
+                        </p>
+                      </div>
+                      <div className="text-right space-y-2">
+                        <span className={`px-3 py-1 rounded-full text-sm block ${
+                          session.status === 'scheduled' ? 'bg-blue-500/20 text-blue-300' :
+                          session.status === 'active' ? 'bg-green-500/20 text-green-300' :
+                          session.status === 'completed' ? 'bg-gray-500/20 text-gray-300' :
+                          'bg-yellow-500/20 text-yellow-300'
+                        }`}>
+                          {session.status?.charAt(0).toUpperCase() + session.status?.slice(1)}
+                        </span>
+                        {session.status === 'scheduled' && (
+                          <button
+                            onClick={() => joinSession(session.id)}
+                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-1 rounded text-sm"
+                          >
+                            Join Session
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Main App Component
 function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
