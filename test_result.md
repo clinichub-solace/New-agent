@@ -656,7 +656,7 @@ test_plan:
 
   - task: "Referrals Management System"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
@@ -671,6 +671,9 @@ test_plan:
       - working: false
         agent: "testing"
         comment: "Retested with fixed validation parameters. POST /api/referrals endpoint works correctly and successfully creates a referral. However, all other endpoints (GET /api/referrals, GET /api/referrals/{id}, PUT /api/referrals/{id}, GET /api/referrals/patient/{patient_id}) return 500 Internal Server Error. The system needs further development to fully support the required functionality."
+      - working: true
+        agent: "testing"
+        comment: "Comprehensive testing completed. All endpoints are now working correctly: POST /api/referrals successfully creates referrals, GET /api/referrals retrieves all referrals, GET /api/referrals/{id} retrieves a specific referral, PUT /api/referrals/{id} updates a referral, PUT /api/referrals/{id}/status updates referral status, GET /api/referrals/patient/{patient_id} retrieves patient-specific referrals, and POST /api/referrals/{id}/reports adds referral reports. The MongoDB ObjectId serialization issues have been resolved."
 
   - task: "Clinical Templates & Protocols System"
     implemented: true
