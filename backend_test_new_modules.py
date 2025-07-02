@@ -210,7 +210,7 @@ def test_clinical_templates(token):
         url = f"{API_URL}/clinical-templates"
         data = {
             "name": "Diabetes Management Protocol",
-            "type": "protocol",
+            "template_type": "protocol",
             "specialty": "Endocrinology",
             "version": "1.0",
             "content": {
@@ -234,7 +234,8 @@ def test_clinical_templates(token):
                 "American Diabetes Association Standards of Care 2023",
                 "European Association for the Study of Diabetes Guidelines"
             ],
-            "status": "active"
+            "status": "active",
+            "created_by": "admin"
         }
         
         response = requests.post(url, json=data, headers=headers)
