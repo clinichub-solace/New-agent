@@ -648,6 +648,7 @@ def test_document_management(admin_token, patient_id):
             "category_id": "lab",
             "file_name": "cbc_results.pdf",
             "file_path": "/virtual/path/to/file.pdf",
+            "file_size": 1024,
             "mime_type": "application/pdf",
             "tags": ["lab", "cbc", "routine"],
             "created_by": "admin"
