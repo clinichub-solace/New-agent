@@ -722,6 +722,9 @@ test_plan:
       - working: false
         agent: "testing"
         comment: "The Patient Portal System is not properly implemented. All tested endpoints (POST/GET /api/patient-portal, GET /api/patient-portal/patient/{patient_id}) return 404 Not Found. The system needs to be implemented according to the requirements."
+      - working: false
+        agent: "testing"
+        comment: "Retested with fixed validation parameters. POST /api/patient-portal endpoint now works correctly and successfully creates patient portal access. POST /api/patient-portal/{id}/schedule endpoint also works correctly and successfully schedules an appointment. However, GET /api/patient-portal, GET /api/patient-portal/patient/{patient_id}, and GET /api/patient-portal/{id}/records endpoints return 500 Internal Server Error. The system needs further development to fully support the required functionality."
 
   - task: "Document Management System"
     implemented: true
