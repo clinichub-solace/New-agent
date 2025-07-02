@@ -1295,6 +1295,143 @@ class MockEmailService:
 
 # Enhanced EHR Models
 
+# Lab Integration Models
+class LabOrderStatus(str, Enum):
+    ORDERED = "ordered"
+    COLLECTED = "collected"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    AMENDED = "amended"
+
+class LabResultStatus(str, Enum):
+    PENDING = "pending"
+    FINAL = "final"
+    CORRECTED = "corrected"
+    CRITICAL = "critical"
+    ABNORMAL = "abnormal"
+
+class ICD10Code(BaseModel):
+    code: str
+    description: str
+    category: str
+
+class LabTest(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    code: str  # LOINC code
+    name: str
+    description: str
+    specimen_type: str  # blood, urine, etc.
+    reference_ranges: Dict[str, Any]  # Normal ranges by age/gender
+    critical_values: Dict[str, Any]  # Critical high/low values
+    turnaround_time_hours: int
+    cost: float
+    is_active: bool = True
+
+class LabOrder(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    provider_id: str
+    encounter_id: Optional[str] = None
+    order_number: str
+    lab_tests: List[str]  # List of LabTest IDs
+    icd10_codes: List[str]  # Diagnosis codes justifying the order
+    status: LabOrderStatus
+    priority: str = "routine"  # routine, urgent, stat
+    notes: Optional[str] = None
+    ordered_by: str
+    ordered_at: datetime = Field(default_factory=datetime.utcnow)
+    collected_at: Optional[datetime] = None
+    expected_completion: Optional[datetime] = None
+    lab_facility: str = "Internal Lab"
+
+class LabResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    lab_order_id: str
+    patient_id: str
+    test_code: str  # LOINC code
+    test_name: str
+    value: Optional[str] = None
+    numeric_value: Optional[float] = None
+    unit: Optional[str] = None
+    reference_range: Optional[str] = None
+    status: LabResultStatus
+    is_critical: bool = False
+    is_abnormal: bool = False
+    result_date: datetime = Field(default_factory=datetime.utcnow)
+    reviewed_by: Optional[str] = None
+    reviewed_at: Optional[datetime] = None
+    notes: Optional[str] = None
+
+# Insurance Models
+class InsuranceType(str, Enum):
+    COMMERCIAL = "commercial"
+    MEDICARE = "medicare"
+    MEDICAID = "medicaid"
+    TRICARE = "tricare"
+    SELF_PAY = "self_pay"
+    WORKERS_COMP = "workers_comp"
+
+class EligibilityStatus(str, Enum):
+    ACTIVE = "active"
+    INACTIVE = "inactive"
+    TERMINATED = "terminated"
+    PENDING = "pending"
+
+class InsuranceCard(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    insurance_type: InsuranceType
+    payer_name: str
+    payer_id: str
+    member_id: str
+    group_number: Optional[str] = None
+    policy_number: Optional[str] = None
+    subscriber_name: str
+    subscriber_dob: str
+    relationship_to_subscriber: str = "self"
+    effective_date: str
+    termination_date: Optional[str] = None
+    copay_primary: Optional[float] = None
+    copay_specialist: Optional[float] = None
+    deductible: Optional[float] = None
+    deductible_met: Optional[float] = None
+    out_of_pocket_max: Optional[float] = None
+    out_of_pocket_met: Optional[float] = None
+    is_primary: bool = True
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class EligibilityResponse(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    insurance_card_id: str
+    eligibility_status: EligibilityStatus
+    benefits_summary: Dict[str, Any]
+    copay_amounts: Dict[str, float]
+    deductible_info: Dict[str, Any]
+    coverage_details: Dict[str, Any]
+    prior_auth_required: List[str]  # Services requiring prior auth
+    checked_at: datetime = Field(default_factory=datetime.utcnow)
+    valid_until: datetime
+    raw_response: Optional[Dict[str, Any]] = None
+
+class PriorAuthorization(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    insurance_card_id: str
+    provider_id: str
+    service_code: str  # CPT code
+    service_description: str
+    diagnosis_codes: List[str]  # ICD-10 codes
+    status: str = "pending"  # pending, approved, denied, expired
+    auth_number: Optional[str] = None
+    requested_date: datetime = Field(default_factory=datetime.utcnow)
+    decision_date: Optional[datetime] = None
+    expiration_date: Optional[datetime] = None
+    notes: Optional[str] = None
+    submitted_by: str
+
 # Vital Signs Model
 class VitalSigns(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
