@@ -9303,6 +9303,469 @@ const EnhancedAppHeader = ({ children, user, onSearch }) => {
   );
 };
 
+// ===== PHASE 3: GLOBAL SEARCH COMPONENT =====
+const GlobalSearchComponent = ({ onSelectResult }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+
+  useEffect(() => {
+    const delayedSearch = setTimeout(() => {
+      if (searchQuery.trim().length > 2) {
+        performSearch();
+      } else {
+        setSearchResults([]);
+        setShowResults(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayedSearch);
+  }, [searchQuery]);
+
+  const performSearch = async () => {
+    setIsSearching(true);
+    try {
+      const response = await axios.get(`${API}/search`, {
+        params: { query: searchQuery, limit: 20 }
+      });
+      setSearchResults(response.data.results);
+      setShowResults(true);
+    } catch (error) {
+      console.error('Search error:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleResultClick = (result) => {
+    setShowResults(false);
+    setSearchQuery('');
+    onSelectResult(result);
+  };
+
+  const getResultIcon = (type) => {
+    const icons = {
+      patient: '👤',
+      referral: '🔄',
+      document: '📄',
+      template: '📋',
+      telehealth: '📹',
+      appointment: '📅'
+    };
+    return icons[type] || '📋';
+  };
+
+  return (
+    <div className="relative w-full max-w-md">
+      <div className="relative">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search patients, referrals, documents..."
+          className="w-full bg-white/10 text-white placeholder-blue-200 rounded-lg px-4 py-2 pr-10 border border-white/20 focus:border-blue-400 focus:outline-none"
+        />
+        <div className="absolute right-3 top-2.5">
+          {isSearching ? (
+            <div className="animate-spin w-4 h-4 border-2 border-blue-400 border-t-transparent rounded-full"></div>
+          ) : (
+            <span className="text-blue-300">🔍</span>
+          )}
+        </div>
+      </div>
+
+      {/* Search Results Dropdown */}
+      {showResults && searchResults.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white/10 backdrop-blur-md rounded-lg border border-white/20 max-h-96 overflow-y-auto z-50">
+          <div className="p-2">
+            <div className="text-xs text-blue-200 px-2 py-1">
+              {searchResults.length} results for "{searchQuery}"
+            </div>
+            {searchResults.map((result) => (
+              <div
+                key={`${result.type}-${result.id}`}
+                onClick={() => handleResultClick(result)}
+                className="flex items-center space-x-3 p-2 hover:bg-white/10 rounded cursor-pointer transition-colors"
+              >
+                <span className="text-lg">{getResultIcon(result.type)}</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-white font-medium truncate">{result.title}</p>
+                  <p className="text-blue-200 text-sm truncate">{result.subtitle}</p>
+                  <p className="text-blue-300 text-xs">in {result.module}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ===== PHASE 3: NOTIFICATION COMPONENT =====
+const NotificationCenter = ({ userId }) => {
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (userId) {
+      fetchNotifications();
+      // Set up polling for new notifications
+      const interval = setInterval(fetchNotifications, 30000); // Check every 30 seconds
+      return () => clearInterval(interval);
+    }
+  }, [userId]);
+
+  const fetchNotifications = async () => {
+    try {
+      const response = await axios.get(`${API}/notifications`, {
+        params: { user_id: userId, limit: 50 }
+      });
+      setNotifications(response.data);
+      setUnreadCount(response.data.filter(n => !n.is_read).length);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  const markAsRead = async (notificationId) => {
+    try {
+      await axios.put(`${API}/notifications/${notificationId}/read`);
+      fetchNotifications(); // Refresh notifications
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    const colors = {
+      low: 'text-gray-300',
+      normal: 'text-blue-300',
+      high: 'text-yellow-300',
+      urgent: 'text-red-300'
+    };
+    return colors[priority] || 'text-blue-300';
+  };
+
+  const getTypeIcon = (type) => {
+    const icons = {
+      workflow: '🔄',
+      reminder: '⏰',
+      alert: '⚠️',
+      info: 'ℹ️'
+    };
+    return icons[type] || 'ℹ️';
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowNotifications(!showNotifications)}
+        className="relative p-2 text-white hover:text-blue-300 transition-colors"
+      >
+        <span className="text-xl">🔔</span>
+        {unreadCount > 0 && (
+          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {showNotifications && (
+        <div className="absolute top-full right-0 mt-2 w-80 bg-white/10 backdrop-blur-md rounded-lg border border-white/20 max-h-96 overflow-y-auto z-50">
+          <div className="p-4 border-b border-white/20">
+            <h3 className="text-white font-semibold">Notifications</h3>
+            {unreadCount > 0 && (
+              <p className="text-blue-200 text-sm">{unreadCount} unread</p>
+            )}
+          </div>
+          
+          <div className="max-h-80 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="p-4 text-center text-blue-200">No notifications</div>
+            ) : (
+              notifications.map((notification) => (
+                <div
+                  key={notification.id}
+                  className={`p-3 border-b border-white/10 hover:bg-white/5 cursor-pointer ${
+                    !notification.is_read ? 'bg-blue-500/10' : ''
+                  }`}
+                  onClick={() => !notification.is_read && markAsRead(notification.id)}
+                >
+                  <div className="flex items-start space-x-2">
+                    <span className="text-lg">{getTypeIcon(notification.type)}</span>
+                    <div className="flex-1 min-w-0">
+                      <p className={`font-medium ${getPriorityColor(notification.priority)}`}>
+                        {notification.title}
+                      </p>
+                      <p className="text-blue-200 text-sm">{notification.message}</p>
+                      <p className="text-blue-300 text-xs">
+                        {new Date(notification.created_at).toLocaleString()}
+                      </p>
+                    </div>
+                    {!notification.is_read && (
+                      <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ===== PHASE 3: WORKFLOW INTEGRATION COMPONENT =====
+const WorkflowIntegrationPanel = ({ setActiveModule }) => {
+  const [workflows, setWorkflows] = useState([]);
+  const [showCreateWorkflow, setShowCreateWorkflow] = useState(false);
+  const [referrals, setReferrals] = useState([]);
+  const [providers, setProviders] = useState([]);
+
+  useEffect(() => {
+    fetchWorkflows();
+    fetchReferrals();
+    fetchProviders();
+  }, []);
+
+  const fetchWorkflows = async () => {
+    try {
+      const response = await axios.get(`${API}/workflows`);
+      setWorkflows(response.data);
+    } catch (error) {
+      console.error('Error fetching workflows:', error);
+    }
+  };
+
+  const fetchReferrals = async () => {
+    try {
+      const response = await axios.get(`${API}/referrals`);
+      setReferrals(response.data.filter(r => r.status === 'pending'));
+    } catch (error) {
+      console.error('Error fetching referrals:', error);
+    }
+  };
+
+  const fetchProviders = async () => {
+    try {
+      const response = await axios.get(`${API}/providers`);
+      setProviders(response.data);
+    } catch (error) {
+      console.error('Error fetching providers:', error);
+    }
+  };
+
+  const createWorkflow = async (workflowData) => {
+    try {
+      await axios.post(`${API}/workflows/referral-to-appointment`, workflowData);
+      fetchWorkflows();
+      setShowCreateWorkflow(false);
+    } catch (error) {
+      console.error('Error creating workflow:', error);
+      alert('Error creating workflow');
+    }
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-white">Smart Workflows</h2>
+        <button
+          onClick={() => setShowCreateWorkflow(true)}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+        >
+          Create Workflow
+        </button>
+      </div>
+
+      {/* Recent Workflows */}
+      <div className="space-y-3">
+        {workflows.slice(0, 5).map((workflow) => (
+          <div key={workflow.id} className="bg-white/5 rounded-lg p-3">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-white font-medium">{workflow.type.replace('_', ' → ')}</p>
+                <p className="text-blue-200 text-sm">
+                  Status: {workflow.status} • {workflow.steps?.filter(s => s.status === 'completed').length || 0} steps completed
+                </p>
+              </div>
+              <span className={`px-2 py-1 rounded text-xs ${
+                workflow.status === 'active' ? 'bg-green-500/20 text-green-300' : 
+                workflow.status === 'completed' ? 'bg-blue-500/20 text-blue-300' :
+                'bg-gray-500/20 text-gray-300'
+              }`}>
+                {workflow.status}
+              </span>
+            </div>
+          </div>
+        ))}
+        
+        {workflows.length === 0 && (
+          <div className="text-center text-blue-200 py-4">
+            No workflows created yet
+          </div>
+        )}
+      </div>
+
+      {/* Create Workflow Modal */}
+      {showCreateWorkflow && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 w-full max-w-2xl border border-white/20">
+            <h3 className="text-xl font-bold text-white mb-4">Create Referral → Appointment Workflow</h3>
+            <WorkflowForm
+              referrals={referrals}
+              providers={providers}
+              onSubmit={createWorkflow}
+              onCancel={() => setShowCreateWorkflow(false)}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Workflow Form Component
+const WorkflowForm = ({ referrals, providers, onSubmit, onCancel }) => {
+  const [formData, setFormData] = useState({
+    referral_id: '',
+    appointment_data: {
+      provider_id: '',
+      date: '',
+      time: '',
+      duration: 30
+    },
+    enable_telehealth: false
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-blue-200 text-sm mb-1">Select Referral</label>
+        <select
+          value={formData.referral_id}
+          onChange={(e) => setFormData({ ...formData, referral_id: e.target.value })}
+          className="w-full bg-white/10 text-white rounded px-3 py-2"
+          required
+        >
+          <option value="">Choose a pending referral</option>
+          {referrals.map(referral => (
+            <option key={referral.id} value={referral.id}>
+              {referral.patient_name} → {referral.referred_to_specialty}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Provider</label>
+          <select
+            value={formData.appointment_data.provider_id}
+            onChange={(e) => setFormData({
+              ...formData,
+              appointment_data: { ...formData.appointment_data, provider_id: e.target.value }
+            })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+            required
+          >
+            <option value="">Select Provider</option>
+            {providers.map(provider => (
+              <option key={provider.id} value={provider.id}>
+                {provider.first_name} {provider.last_name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Duration (minutes)</label>
+          <select
+            value={formData.appointment_data.duration}
+            onChange={(e) => setFormData({
+              ...formData,
+              appointment_data: { ...formData.appointment_data, duration: parseInt(e.target.value) }
+            })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+          >
+            <option value={15}>15 minutes</option>
+            <option value={30}>30 minutes</option>
+            <option value={45}>45 minutes</option>
+            <option value={60}>60 minutes</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Date</label>
+          <input
+            type="date"
+            value={formData.appointment_data.date}
+            onChange={(e) => setFormData({
+              ...formData,
+              appointment_data: { ...formData.appointment_data, date: e.target.value }
+            })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Time</label>
+          <input
+            type="time"
+            value={formData.appointment_data.time}
+            onChange={(e) => setFormData({
+              ...formData,
+              appointment_data: { ...formData.appointment_data, time: e.target.value }
+            })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+            required
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center space-x-2">
+        <input
+          type="checkbox"
+          id="telehealth"
+          checked={formData.enable_telehealth}
+          onChange={(e) => setFormData({ ...formData, enable_telehealth: e.target.checked })}
+          className="rounded"
+        />
+        <label htmlFor="telehealth" className="text-blue-200">
+          Enable telehealth session for this appointment
+        </label>
+      </div>
+
+      <div className="flex justify-end space-x-4 pt-4">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 text-blue-200 hover:text-white"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+        >
+          Create Workflow
+        </button>
+      </div>
+    </form>
+  );
+};
+
 // ===== NEW MODULES COMPONENTS =====
 
 // 1. Referrals Management Module
