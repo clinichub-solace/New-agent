@@ -563,7 +563,13 @@ test_plan:
     - "Patient Portal System"
     - "Document Management System"
     - "Telehealth Module System"
-  stuck_tasks: []
+  stuck_tasks:
+    - "Referrals Management System"
+    - "Clinical Templates & Protocols System"
+    - "Quality Measures & Reporting System"
+    - "Patient Portal System"
+    - "Document Management System"
+    - "Telehealth Module System"
   test_all: false
   test_priority: "high_first"
       - working: false
