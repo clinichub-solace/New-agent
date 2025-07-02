@@ -6707,7 +6707,7 @@ async def create_quality_measure(measure: QualityMeasure):
 async def get_quality_measures():
     try:
         measures = []
-        async for measure in db.quality_measures.find({"is_active": True}).sort("name", 1):
+        async for measure in db.quality_measures.find({"is_active": True}, {"_id": 0}).sort("name", 1):
             measures.append(measure)
         return measures
     except Exception as e:
@@ -6717,7 +6717,7 @@ async def get_quality_measures():
 @api_router.get("/quality-measures/{measure_id}")
 async def get_quality_measure_by_id(measure_id: str):
     try:
-        measure = await db.quality_measures.find_one({"id": measure_id})
+        measure = await db.quality_measures.find_one({"id": measure_id}, {"_id": 0})
         if not measure:
             raise HTTPException(status_code=404, detail="Quality measure not found")
         return measure
@@ -6739,7 +6739,7 @@ async def update_quality_measure(measure_id: str, update_data: Dict):
             raise HTTPException(status_code=404, detail="Quality measure not found")
             
         # Get updated measure
-        updated_measure = await db.quality_measures.find_one({"id": measure_id})
+        updated_measure = await db.quality_measures.find_one({"id": measure_id}, {"_id": 0})
         return updated_measure
     except Exception as e:
         logger.error(f"Error updating quality measure: {str(e)}")
@@ -6753,7 +6753,7 @@ async def calculate_quality_measures(patient_id: str, measure_ids: List[str] = N
         
         if measure_ids:
             for measure_id in measure_ids:
-                measure = await db.quality_measures.find_one({"id": measure_id})
+                measure = await db.quality_measures.find_one({"id": measure_id}, {"_id": 0})
                 if measure:
                     calculations.append({
                         "measure_id": measure_id,
@@ -6765,7 +6765,7 @@ async def calculate_quality_measures(patient_id: str, measure_ids: List[str] = N
                     })
         else:
             # Calculate all active measures
-            async for measure in db.quality_measures.find({"is_active": True}):
+            async for measure in db.quality_measures.find({"is_active": True}, {"_id": 0}):
                 calculations.append({
                     "measure_id": measure["id"],
                     "measure_name": measure["name"],
