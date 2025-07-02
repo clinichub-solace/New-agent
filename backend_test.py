@@ -1701,6 +1701,293 @@ def test_patient_communications(patient_id, admin_token):
     
     return template_id, message_id
 
+def test_lab_integration(admin_token, patient_id, provider_id=None):
+    print("\n--- Testing Lab Integration ---")
+    
+    # If no provider_id is provided, create a provider
+    if not provider_id:
+        try:
+            url = f"{API_URL}/providers"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            data = {
+                "first_name": "Robert",
+                "last_name": "Wilson",
+                "title": "Dr.",
+                "specialties": ["Cardiology", "Internal Medicine"],
+                "license_number": "MD12345",
+                "npi_number": "1234567890",
+                "email": "dr.wilson@clinichub.com",
+                "phone": "+1-555-789-0123"
+            }
+            
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            result = response.json()
+            
+            provider_id = result["id"]
+            print_test_result("Create Provider for Lab Tests", True, result)
+        except Exception as e:
+            print(f"Error creating provider: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Create Provider for Lab Tests", False)
+            return None
+    
+    # Test 1: Initialize Lab Tests
+    try:
+        url = f"{API_URL}/lab-tests/init"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.post(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Initialize Lab Tests", True, result)
+    except Exception as e:
+        print(f"Error initializing lab tests: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Initialize Lab Tests", False)
+    
+    # Test 2: Get Lab Tests
+    lab_test_ids = []
+    try:
+        url = f"{API_URL}/lab-tests"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        # Store lab test IDs for later use
+        if len(result) > 0:
+            lab_test_ids = [test["id"] for test in result[:3]]  # Get first 3 tests
+        
+        print_test_result("Get Lab Tests", True, result)
+    except Exception as e:
+        print(f"Error getting lab tests: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Get Lab Tests", False)
+    
+    # Test 3: Initialize ICD-10 Codes
+    try:
+        url = f"{API_URL}/icd10/init"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.post(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Initialize ICD-10 Codes", True, result)
+    except Exception as e:
+        print(f"Error initializing ICD-10 codes: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Initialize ICD-10 Codes", False)
+    
+    # Test 4: Search ICD-10 Codes
+    icd10_codes = []
+    try:
+        url = f"{API_URL}/icd10/search"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        params = {"query": "diabetes"}
+        
+        response = requests.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        result = response.json()
+        
+        # Store ICD-10 codes for later use
+        if len(result) > 0:
+            icd10_codes = [code["code"] for code in result[:2]]  # Get first 2 codes
+        
+        print_test_result("Search ICD-10 Codes", True, result)
+    except Exception as e:
+        print(f"Error searching ICD-10 codes: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Search ICD-10 Codes", False)
+    
+    # Test 5: Create Lab Order
+    lab_order_id = None
+    if patient_id and provider_id and lab_test_ids and icd10_codes:
+        try:
+            url = f"{API_URL}/lab-orders"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            data = {
+                "patient_id": patient_id,
+                "provider_id": provider_id,
+                "lab_tests": lab_test_ids,
+                "icd10_codes": icd10_codes,
+                "status": "ordered",
+                "priority": "routine",
+                "notes": "Patient fasting for 12 hours",
+                "ordered_by": "Dr. Robert Wilson"
+            }
+            
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            result = response.json()
+            
+            lab_order_id = result["id"]
+            print_test_result("Create Lab Order", True, result)
+        except Exception as e:
+            print(f"Error creating lab order: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Create Lab Order", False)
+    else:
+        print("Skipping Create Lab Order test - missing required IDs")
+    
+    # Test 6: Get Lab Orders
+    try:
+        url = f"{API_URL}/lab-orders"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Lab Orders", True, result)
+    except Exception as e:
+        print(f"Error getting lab orders: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Get Lab Orders", False)
+    
+    # Test 7: Get Specific Lab Order
+    if lab_order_id:
+        try:
+            url = f"{API_URL}/lab-orders/{lab_order_id}"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Get Lab Order by ID", True, result)
+        except Exception as e:
+            print(f"Error getting lab order by ID: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Get Lab Order by ID", False)
+    
+    return lab_order_id
+
+# Test Insurance Verification
+def test_insurance_verification(admin_token, patient_id):
+    print("\n--- Testing Insurance Verification ---")
+    
+    # Test 1: Create Insurance Card
+    insurance_card_id = None
+    try:
+        url = f"{API_URL}/insurance/cards"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        data = {
+            "patient_id": patient_id,
+            "insurance_type": "commercial",
+            "payer_name": "Blue Cross Blue Shield",
+            "payer_id": "BCBS123",
+            "member_id": "XYZ987654321",
+            "group_number": "GRP12345",
+            "policy_number": "POL987654",
+            "subscriber_name": "Sarah Johnson",
+            "subscriber_dob": "1985-06-15",
+            "relationship_to_subscriber": "self",
+            "effective_date": "2023-01-01",
+            "copay_primary": 25.00,
+            "copay_specialist": 40.00,
+            "deductible": 1500.00,
+            "deductible_met": 500.00,
+            "out_of_pocket_max": 5000.00,
+            "out_of_pocket_met": 1200.00,
+            "is_primary": True
+        }
+        
+        response = requests.post(url, headers=headers, json=data)
+        response.raise_for_status()
+        result = response.json()
+        
+        insurance_card_id = result["id"]
+        print_test_result("Create Insurance Card", True, result)
+    except Exception as e:
+        print(f"Error creating insurance card: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Create Insurance Card", False)
+    
+    # Test 2: Get Patient Insurance
+    try:
+        url = f"{API_URL}/insurance/patient/{patient_id}"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Patient Insurance", True, result)
+    except Exception as e:
+        print(f"Error getting patient insurance: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Get Patient Insurance", False)
+    
+    # Test 3: Verify Eligibility
+    eligibility_id = None
+    if insurance_card_id:
+        try:
+            url = f"{API_URL}/insurance/verify-eligibility"
+            headers = {"Authorization": f"Bearer {admin_token}"}
+            data = {
+                "insurance_card_id": insurance_card_id,
+                "service_date": date.today().isoformat(),
+                "service_type": "office_visit"
+            }
+            
+            response = requests.post(url, headers=headers, json=data)
+            response.raise_for_status()
+            result = response.json()
+            
+            eligibility_id = result["id"]
+            print_test_result("Verify Eligibility", True, result)
+        except Exception as e:
+            print(f"Error verifying eligibility: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Verify Eligibility", False)
+    else:
+        print("Skipping Verify Eligibility test - no insurance card ID available")
+    
+    # Test 4: Get Patient Eligibility
+    try:
+        url = f"{API_URL}/insurance/eligibility/patient/{patient_id}"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Get Patient Eligibility", True, result)
+    except Exception as e:
+        print(f"Error getting patient eligibility: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Get Patient Eligibility", False)
+    
+    return insurance_card_id, eligibility_id
+
 def run_all_tests():
     print("\n" + "=" * 80)
     print("TESTING CLINICHUB BACKEND API")
@@ -1732,8 +2019,12 @@ def run_all_tests():
     
     # Test new Scheduling and Communications systems
     if admin_token and patient_id:
-        test_scheduling_system(patient_id, admin_token)
+        provider_id, appointment_id = test_scheduling_system(patient_id, admin_token)
         test_patient_communications(patient_id, admin_token)
+        
+        # Test Lab Integration and Insurance Verification
+        test_lab_integration(admin_token, patient_id, provider_id)
+        test_insurance_verification(admin_token, patient_id)
     
     test_dashboard_analytics()
     
