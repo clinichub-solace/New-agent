@@ -7634,22 +7634,20 @@ const DailyLogView = ({ setActiveModule }) => {
   );
 };
 
-const PatientQueueView = ({ setActiveModule }) => {
-  const [queueData, setQueueData] = useState({ locations: {}, summary: {} });
+const DailyLogView = ({ setActiveModule }) => {
+  const [dailyData, setDailyData] = useState({ visits: [], summary: {} });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchPatientQueue();
-    const interval = setInterval(fetchPatientQueue, 30000); // Refresh every 30 seconds
-    return () => clearInterval(interval);
+    fetchDailyLog();
   }, []);
 
-  const fetchPatientQueue = async () => {
+  const fetchDailyLog = async () => {
     try {
-      const response = await axios.get(`${API}/dashboard/patient-queue`);
-      setQueueData(response.data);
+      const response = await axios.get(`${API}/dashboard/daily-log`);
+      setDailyData(response.data);
     } catch (error) {
-      console.error("Error fetching patient queue:", error);
+      console.error("Error fetching daily log:", error);
     } finally {
       setLoading(false);
     }
