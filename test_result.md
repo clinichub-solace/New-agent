@@ -656,9 +656,9 @@ test_plan:
 
   - task: "Referrals Management System"
     implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 0
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
@@ -674,6 +674,9 @@ test_plan:
       - working: true
         agent: "testing"
         comment: "Comprehensive testing completed. All endpoints are now working correctly: POST /api/referrals successfully creates referrals, GET /api/referrals retrieves all referrals, GET /api/referrals/{id} retrieves a specific referral, PUT /api/referrals/{id} updates a referral, PUT /api/referrals/{id}/status updates referral status, GET /api/referrals/patient/{patient_id} retrieves patient-specific referrals, and POST /api/referrals/{id}/reports adds referral reports. The MongoDB ObjectId serialization issues have been resolved."
+      - working: false
+        agent: "testing"
+        comment: "The backend API for Referrals Management is working correctly, but the frontend component cannot be tested due to syntax errors in App.js. The frontend application fails to load properly, preventing access to the Referrals module. The login page loads but authentication does not proceed to the dashboard."
 
   - task: "Clinical Templates & Protocols System"
     implemented: true
