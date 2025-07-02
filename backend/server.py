@@ -6529,10 +6529,10 @@ async def update_referral(referral_id: str, update_data: Dict):
 async def get_referrals_by_patient(patient_id: str):
     try:
         referrals = []
-        async for referral in db.referrals.find({"patient_id": patient_id}).sort("created_at", -1):
+        async for referral in db.referrals.find({"patient_id": patient_id}, {"_id": 0}).sort("created_at", -1):
             # Get patient and provider names
-            patient = await db.patients.find_one({"id": referral["patient_id"]})
-            provider = await db.providers.find_one({"id": referral.get("referring_provider_id")})
+            patient = await db.patients.find_one({"id": referral["patient_id"]}, {"_id": 0})
+            provider = await db.providers.find_one({"id": referral.get("referring_provider_id")}, {"_id": 0})
             
             referral["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
             referral["referring_provider_name"] = f"{provider['first_name']} {provider['last_name']}" if provider else "Unknown"
