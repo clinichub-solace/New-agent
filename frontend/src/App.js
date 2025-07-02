@@ -7615,8 +7615,6 @@ const DailyLogView = ({ setActiveModule }) => {
       </div>
     </div>
   );
-};
-
 const PatientQueueView = ({ setActiveModule }) => {
   const [queueData, setQueueData] = useState({ locations: {}, summary: {} });
   const [loading, setLoading] = useState(true);
