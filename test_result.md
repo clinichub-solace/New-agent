@@ -668,6 +668,9 @@ test_plan:
       - working: false
         agent: "testing"
         comment: "The Referrals Management System is partially implemented but has validation issues. The POST /api/referrals endpoint exists but requires additional fields not mentioned in the documentation: referring_provider_id, referred_to_provider_name, referred_to_specialty, and reason_for_referral. The GET /api/referrals endpoint works correctly. The other endpoints were not tested due to the failure to create a referral."
+      - working: false
+        agent: "testing"
+        comment: "Retested with fixed validation parameters. POST /api/referrals endpoint works correctly and successfully creates a referral. However, all other endpoints (GET /api/referrals, GET /api/referrals/{id}, PUT /api/referrals/{id}, GET /api/referrals/patient/{patient_id}) return 500 Internal Server Error. The system needs further development to fully support the required functionality."
 
   - task: "Clinical Templates & Protocols System"
     implemented: true
