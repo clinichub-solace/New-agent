@@ -677,7 +677,7 @@ test_plan:
 
   - task: "Clinical Templates & Protocols System"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
@@ -692,6 +692,9 @@ test_plan:
       - working: false
         agent: "testing"
         comment: "Retested with fixed validation parameters. POST /api/clinical-templates endpoint works correctly and successfully creates a template. POST /api/clinical-templates/init endpoint also works correctly and initializes standard templates. However, GET /api/clinical-templates, GET /api/clinical-templates/{id}, and PUT /api/clinical-templates/{id} endpoints still return 500 Internal Server Error. The system needs further development to fully support the required functionality."
+      - working: true
+        agent: "testing"
+        comment: "Comprehensive testing completed. All endpoints are now working correctly: POST /api/clinical-templates/init successfully initializes standard templates, POST /api/clinical-templates creates custom templates, GET /api/clinical-templates retrieves all templates, GET /api/clinical-templates/{id} retrieves a specific template, and PUT /api/clinical-templates/{id} updates templates. The MongoDB ObjectId serialization issues have been resolved."
 
   - task: "Quality Measures & Reporting System"
     implemented: true
