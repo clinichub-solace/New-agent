@@ -676,7 +676,9 @@ def test_document_management(token, patient_id=None):
                 "ordering_provider": "Dr. Sarah Williams",
                 "collection_date": "2023-06-15"
             },
-            "status": "pending"
+            "status": "pending",
+            "file_size": 1024000,  # 1MB
+            "created_by": "admin"
         }
         
         response = requests.post(url, json=data, headers=headers)
