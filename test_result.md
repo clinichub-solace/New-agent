@@ -686,6 +686,9 @@ test_plan:
       - working: false
         agent: "testing"
         comment: "The Clinical Templates & Protocols System is partially implemented. The POST /api/clinical-templates endpoint works correctly and successfully creates a template. However, the GET /api/clinical-templates endpoint returns a 500 Internal Server Error, and the GET/PUT /api/clinical-templates/{id} endpoints return 404 Not Found. The POST /api/clinical-templates/init endpoint also returns 404 Not Found. The system needs further development to fully support the required functionality."
+      - working: false
+        agent: "testing"
+        comment: "Retested with fixed validation parameters. POST /api/clinical-templates endpoint works correctly and successfully creates a template. POST /api/clinical-templates/init endpoint also works correctly and initializes standard templates. However, GET /api/clinical-templates, GET /api/clinical-templates/{id}, and PUT /api/clinical-templates/{id} endpoints still return 500 Internal Server Error. The system needs further development to fully support the required functionality."
 
   - task: "Quality Measures & Reporting System"
     implemented: true
