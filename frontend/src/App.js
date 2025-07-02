@@ -7526,13 +7526,7 @@ const DailyLogView = ({ setActiveModule }) => {
 };
 
 // Daily Log View Component
-const DailyLogView = ({ setActiveModule }) => {
-  const [dailyData, setDailyData] = useState({ visits: [], summary: {} });
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchDailyLog();
-  }, []);
+const PatientQueueView = ({ setActiveModule }) => {
 
   const fetchDailyLog = async () => {
     try {
