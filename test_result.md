@@ -557,9 +557,12 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Lab Integration Frontend Module"
-    - "Insurance Verification Frontend Module"
-    - "General System Health Check"
+    - "Referrals Management System"
+    - "Clinical Templates & Protocols System"
+    - "Quality Measures & Reporting System"
+    - "Patient Portal System"
+    - "Document Management System"
+    - "Telehealth Module System"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
