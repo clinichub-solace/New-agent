@@ -6567,7 +6567,7 @@ async def get_clinical_templates(template_type: Optional[str] = None, specialty:
             query["specialty"] = specialty
             
         templates = []
-        async for template in db.clinical_templates.find(query).sort("name", 1):
+        async for template in db.clinical_templates.find(query, {"_id": 0}).sort("name", 1):
             templates.append(template)
             
         return templates
@@ -6578,7 +6578,7 @@ async def get_clinical_templates(template_type: Optional[str] = None, specialty:
 @api_router.get("/clinical-templates/{template_id}")
 async def get_clinical_template_by_id(template_id: str):
     try:
-        template = await db.clinical_templates.find_one({"id": template_id})
+        template = await db.clinical_templates.find_one({"id": template_id}, {"_id": 0})
         if not template:
             raise HTTPException(status_code=404, detail="Clinical template not found")
         return template
