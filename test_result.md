@@ -758,6 +758,9 @@ test_plan:
       - working: false
         agent: "testing"
         comment: "The Telehealth Module System is not properly implemented. The endpoints are implemented with a different URL structure than specified. The actual endpoints use /api/telehealth/sessions instead of /api/telehealth. All tested endpoints (POST/GET /api/telehealth) return 404 Not Found. The system needs to be updated to use the correct URL structure or the documentation needs to be updated to match the implementation."
+      - working: false
+        agent: "testing"
+        comment: "Retested with fixed validation parameters. POST /api/telehealth endpoint now works correctly and successfully creates a telehealth session. POST /api/telehealth/{id}/join endpoint also works correctly and successfully joins a telehealth session. PUT /api/telehealth/{id}/status endpoint works correctly for updating session status. However, GET /api/telehealth, GET /api/telehealth/{id}, and PUT /api/telehealth/{id} endpoints return 500 Internal Server Error. The system needs further development to fully support the required functionality."
 
 agent_communication:
   - agent: "testing"
