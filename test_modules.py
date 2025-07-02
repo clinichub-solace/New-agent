@@ -795,11 +795,13 @@ def test_telehealth_module(admin_token, patient_id, provider_id):
     try:
         url = f"{API_URL}/telehealth"
         headers = {"Authorization": f"Bearer {admin_token}"}
+        scheduled_datetime = datetime.combine(date.today() + timedelta(days=1), datetime.strptime("14:00", "%H:%M").time())
         data = {
             "patient_id": patient_id,
             "provider_id": provider_id,
             "scheduled_date": (date.today() + timedelta(days=1)).isoformat(),
             "scheduled_time": "14:00",
+            "scheduled_start": scheduled_datetime.isoformat(),
             "duration_minutes": 30,
             "reason": "Follow-up consultation",
             "session_type": "video",
