@@ -6423,6 +6423,1108 @@ const CommunicationsModule = ({ setActiveModule }) => {
   );
 };
 
+// Lab Integration Module
+const LabIntegrationModule = ({ setActiveModule }) => {
+  const [activeTab, setActiveTab] = useState('orders');
+  const [labOrders, setLabOrders] = useState([]);
+  const [labResults, setLabResults] = useState([]);
+  const [labTests, setLabTests] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [providers, setProviders] = useState([]);
+  const [showOrderForm, setShowOrderForm] = useState(false);
+  const [showResultForm, setShowResultForm] = useState(false);
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  const [icd10Codes, setIcd10Codes] = useState([]);
+
+  useEffect(() => {
+    fetchLabTests();
+    fetchLabOrders();
+    fetchPatients();
+    fetchProviders();
+    fetchIcd10Codes();
+  }, []);
+
+  const fetchLabTests = async () => {
+    try {
+      const response = await axios.get(`${API}/lab-tests`);
+      setLabTests(response.data);
+    } catch (error) {
+      console.error("Error fetching lab tests:", error);
+    }
+  };
+
+  const fetchLabOrders = async () => {
+    try {
+      const response = await axios.get(`${API}/lab-orders`);
+      setLabOrders(response.data);
+    } catch (error) {
+      console.error("Error fetching lab orders:", error);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/patients`);
+      setPatients(response.data);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+    }
+  };
+
+  const fetchProviders = async () => {
+    try {
+      const response = await axios.get(`${API}/providers`);
+      setProviders(response.data);
+    } catch (error) {
+      console.error("Error fetching providers:", error);
+    }
+  };
+
+  const fetchIcd10Codes = async () => {
+    try {
+      const response = await axios.get(`${API}/icd10/search?query=common`);
+      setIcd10Codes(response.data.slice(0, 50)); // Limit for UI
+    } catch (error) {
+      console.error("Error fetching ICD-10 codes:", error);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      ordered: 'bg-blue-500',
+      collected: 'bg-yellow-500',
+      processing: 'bg-purple-500',
+      completed: 'bg-green-500',
+      cancelled: 'bg-red-500'
+    };
+    return colors[status] || 'bg-gray-500';
+  };
+
+  const OrderForm = () => {
+    const [orderData, setOrderData] = useState({
+      patient_id: '',
+      provider_id: '',
+      lab_test_ids: [],
+      icd10_codes: [],
+      priority: 'routine',
+      clinical_notes: '',
+      fasting_required: false
+    });
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await axios.post(`${API}/lab-orders`, orderData);
+        setShowOrderForm(false);
+        setOrderData({
+          patient_id: '',
+          provider_id: '',
+          lab_test_ids: [],
+          icd10_codes: [],
+          priority: 'routine',
+          clinical_notes: '',
+          fasting_required: false
+        });
+        fetchLabOrders();
+        alert('Lab order created successfully!');
+      } catch (error) {
+        console.error("Error creating lab order:", error);
+        alert('Error creating lab order: ' + (error.response?.data?.detail || 'Unknown error'));
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">Create Lab Order</h2>
+              <button
+                onClick={() => setShowOrderForm(false)}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Patient *</label>
+                <select
+                  value={orderData.patient_id}
+                  onChange={(e) => setOrderData({...orderData, patient_id: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  required
+                >
+                  <option value="">Select Patient</option>
+                  {patients.map(patient => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.name?.[0]?.given} {patient.name?.[0]?.family}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Provider *</label>
+                <select
+                  value={orderData.provider_id}
+                  onChange={(e) => setOrderData({...orderData, provider_id: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  required
+                >
+                  <option value="">Select Provider</option>
+                  {providers.map(provider => (
+                    <option key={provider.id} value={provider.id}>
+                      {provider.first_name} {provider.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Lab Tests *</label>
+                <div className="max-h-32 overflow-y-auto border border-gray-300 rounded-lg p-2">
+                  {labTests.map(test => (
+                    <label key={test.id} className="flex items-center space-x-2 p-1">
+                      <input
+                        type="checkbox"
+                        checked={orderData.lab_test_ids.includes(test.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setOrderData({
+                              ...orderData,
+                              lab_test_ids: [...orderData.lab_test_ids, test.id]
+                            });
+                          } else {
+                            setOrderData({
+                              ...orderData,
+                              lab_test_ids: orderData.lab_test_ids.filter(id => id !== test.id)
+                            });
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm">{test.name} ({test.loinc_code})</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">ICD-10 Diagnosis Codes</label>
+                <div className="max-h-32 overflow-y-auto border border-gray-300 rounded-lg p-2">
+                  {icd10Codes.map(code => (
+                    <label key={code.code} className="flex items-center space-x-2 p-1">
+                      <input
+                        type="checkbox"
+                        checked={orderData.icd10_codes.includes(code.code)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setOrderData({
+                              ...orderData,
+                              icd10_codes: [...orderData.icd10_codes, code.code]
+                            });
+                          } else {
+                            setOrderData({
+                              ...orderData,
+                              icd10_codes: orderData.icd10_codes.filter(c => c !== code.code)
+                            });
+                          }
+                        }}
+                        className="rounded"
+                      />
+                      <span className="text-sm">{code.code} - {code.description}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Priority</label>
+                <select
+                  value={orderData.priority}
+                  onChange={(e) => setOrderData({...orderData, priority: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                >
+                  <option value="routine">Routine</option>
+                  <option value="urgent">Urgent</option>
+                  <option value="stat">STAT</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Clinical Notes</label>
+                <textarea
+                  value={orderData.clinical_notes}
+                  onChange={(e) => setOrderData({...orderData, clinical_notes: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  rows="3"
+                  placeholder="Enter clinical notes..."
+                />
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="fasting"
+                  checked={orderData.fasting_required}
+                  onChange={(e) => setOrderData({...orderData, fasting_required: e.target.checked})}
+                  className="rounded"
+                />
+                <label htmlFor="fasting" className="text-sm">Fasting Required</label>
+              </div>
+              <div className="flex justify-end space-x-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowOrderForm(false)}
+                  className="px-6 py-2 border border-gray-300 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+                >
+                  Create Order
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-200 hover:text-white"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-white">Lab Integration</h1>
+          </div>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowOrderForm(true)}
+              className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2 rounded-lg"
+            >
+              + New Lab Order
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+          <div className="border-b border-white/20">
+            <nav className="flex space-x-8 px-6">
+              {['orders', 'tests', 'results'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`py-4 px-2 border-b-2 font-medium text-sm capitalize ${
+                    activeTab === tab
+                      ? 'border-teal-400 text-teal-400'
+                      : 'border-transparent text-blue-200 hover:text-white'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          <div className="p-6">
+            {activeTab === 'orders' && (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-white/5">
+                    <tr>
+                      <th className="text-left p-4 text-blue-200">Order ID</th>
+                      <th className="text-left p-4 text-blue-200">Patient</th>
+                      <th className="text-left p-4 text-blue-200">Provider</th>
+                      <th className="text-left p-4 text-blue-200">Tests</th>
+                      <th className="text-left p-4 text-blue-200">Status</th>
+                      <th className="text-left p-4 text-blue-200">Priority</th>
+                      <th className="text-left p-4 text-blue-200">Date</th>
+                      <th className="text-left p-4 text-blue-200">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {labOrders.length > 0 ? (
+                      labOrders.map((order) => (
+                        <tr key={order.id} className="border-b border-white/10 hover:bg-white/5">
+                          <td className="p-4 text-white font-mono text-sm">{order.order_number}</td>
+                          <td className="p-4 text-white">{order.patient_name}</td>
+                          <td className="p-4 text-blue-200">{order.provider_name}</td>
+                          <td className="p-4 text-blue-200">{order.lab_tests?.length || 0} tests</td>
+                          <td className="p-4">
+                            <span className={`px-2 py-1 text-xs rounded-full text-white ${getStatusColor(order.status)}`}>
+                              {order.status}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              order.priority === 'stat' ? 'bg-red-500 text-white' :
+                              order.priority === 'urgent' ? 'bg-orange-500 text-white' :
+                              'bg-blue-500 text-white'
+                            }`}>
+                              {order.priority?.toUpperCase()}
+                            </span>
+                          </td>
+                          <td className="p-4 text-blue-200">{formatDate(order.created_at)}</td>
+                          <td className="p-4">
+                            <button
+                              onClick={() => setSelectedOrder(order)}
+                              className="bg-teal-600 hover:bg-teal-700 text-white px-3 py-1 rounded text-sm"
+                            >
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="8" className="p-8 text-center text-blue-200">
+                          No lab orders found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {activeTab === 'tests' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {labTests.map((test) => (
+                  <div key={test.id} className="bg-white/5 rounded-lg p-6">
+                    <h3 className="text-white font-semibold mb-2">{test.name}</h3>
+                    <p className="text-blue-200 text-sm mb-2">LOINC: {test.loinc_code}</p>
+                    <p className="text-blue-200 text-sm mb-2">Category: {test.category}</p>
+                    <p className="text-blue-200 text-sm">{test.description}</p>
+                    {test.reference_range && (
+                      <div className="mt-3 p-2 bg-white/5 rounded">
+                        <p className="text-xs text-blue-200">Reference Range:</p>
+                        <p className="text-xs text-white">{test.reference_range}</p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {activeTab === 'results' && (
+              <div className="text-center py-8">
+                <p className="text-blue-200">Lab results functionality coming soon...</p>
+                <p className="text-blue-200 text-sm mt-2">
+                  This section will display completed lab results with values and interpretations.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {showOrderForm && <OrderForm />}
+        
+        {/* Order Details Modal */}
+        {selectedOrder && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold">Lab Order Details</h2>
+                  <button
+                    onClick={() => setSelectedOrder(null)}
+                    className="text-gray-500 hover:text-gray-700 text-xl"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Order Number</p>
+                      <p className="font-mono">{selectedOrder.order_number}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Status</p>
+                      <span className={`px-2 py-1 text-xs rounded-full text-white ${getStatusColor(selectedOrder.status)}`}>
+                        {selectedOrder.status}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Patient</p>
+                      <p>{selectedOrder.patient_name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Provider</p>
+                      <p>{selectedOrder.provider_name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Priority</p>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        selectedOrder.priority === 'stat' ? 'bg-red-500 text-white' :
+                        selectedOrder.priority === 'urgent' ? 'bg-orange-500 text-white' :
+                        'bg-blue-500 text-white'
+                      }`}>
+                        {selectedOrder.priority?.toUpperCase()}
+                      </span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Fasting Required</p>
+                      <p>{selectedOrder.fasting_required ? 'Yes' : 'No'}</p>
+                    </div>
+                  </div>
+                  {selectedOrder.clinical_notes && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Clinical Notes</p>
+                      <p className="bg-gray-50 p-3 rounded">{selectedOrder.clinical_notes}</p>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-sm font-medium text-gray-600">Ordered Tests</p>
+                    <div className="bg-gray-50 p-3 rounded">
+                      {selectedOrder.lab_tests?.map((test, index) => (
+                        <div key={index} className="mb-2">
+                          <p className="font-medium">{test.name}</p>
+                          <p className="text-sm text-gray-600">LOINC: {test.loinc_code}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  {selectedOrder.icd10_codes?.length > 0 && (
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">ICD-10 Diagnosis Codes</p>
+                      <div className="bg-gray-50 p-3 rounded">
+                        {selectedOrder.icd10_codes.map((code, index) => (
+                          <span key={index} className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs mr-2 mb-1">
+                            {code}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Insurance Verification Module
+const InsuranceVerificationModule = ({ setActiveModule }) => {
+  const [activeTab, setActiveTab] = useState('cards');
+  const [insuranceCards, setInsuranceCards] = useState([]);
+  const [eligibilityResponses, setEligibilityResponses] = useState([]);
+  const [priorAuths, setPriorAuths] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [showCardForm, setShowCardForm] = useState(false);
+  const [showEligibilityForm, setShowEligibilityForm] = useState(false);
+  const [showPriorAuthForm, setShowPriorAuthForm] = useState(false);
+  const [selectedCard, setSelectedCard] = useState(null);
+
+  useEffect(() => {
+    fetchPatients();
+    fetchInsuranceCards();
+    fetchEligibilityResponses();
+    fetchPriorAuths();
+  }, []);
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/patients`);
+      setPatients(response.data);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+    }
+  };
+
+  const fetchInsuranceCards = async () => {
+    try {
+      const response = await axios.get(`${API}/insurance/cards`);
+      setInsuranceCards(response.data);
+    } catch (error) {
+      console.error("Error fetching insurance cards:", error);
+    }
+  };
+
+  const fetchEligibilityResponses = async () => {
+    try {
+      // This would need to be implemented to get all eligibility responses
+      // For now, we'll just set an empty array
+      setEligibilityResponses([]);
+    } catch (error) {
+      console.error("Error fetching eligibility responses:", error);
+    }
+  };
+
+  const fetchPriorAuths = async () => {
+    try {
+      // This would fetch prior authorizations for all patients
+      // For demo purposes, we'll just set an empty array
+      setPriorAuths([]);
+    } catch (error) {
+      console.error("Error fetching prior auths:", error);
+    }
+  };
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString();
+  };
+
+  const InsuranceCardForm = () => {
+    const [cardData, setCardData] = useState({
+      patient_id: '',
+      insurance_company: '',
+      policy_number: '',
+      group_number: '',
+      member_id: '',
+      plan_name: '',
+      effective_date: '',
+      expiration_date: '',
+      copay_primary: '',
+      copay_specialist: '',
+      deductible: '',
+      is_primary: true
+    });
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await axios.post(`${API}/insurance/cards`, cardData);
+        setShowCardForm(false);
+        setCardData({
+          patient_id: '',
+          insurance_company: '',
+          policy_number: '',
+          group_number: '',
+          member_id: '',
+          plan_name: '',
+          effective_date: '',
+          expiration_date: '',
+          copay_primary: '',
+          copay_specialist: '',
+          deductible: '',
+          is_primary: true
+        });
+        fetchInsuranceCards();
+        alert('Insurance card added successfully!');
+      } catch (error) {
+        console.error("Error adding insurance card:", error);
+        alert('Error adding insurance card: ' + (error.response?.data?.detail || 'Unknown error'));
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">Add Insurance Card</h2>
+              <button
+                onClick={() => setShowCardForm(false)}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Patient *</label>
+                <select
+                  value={cardData.patient_id}
+                  onChange={(e) => setCardData({...cardData, patient_id: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  required
+                >
+                  <option value="">Select Patient</option>
+                  {patients.map(patient => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.name?.[0]?.given} {patient.name?.[0]?.family}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Insurance Company *</label>
+                  <input
+                    type="text"
+                    value={cardData.insurance_company}
+                    onChange={(e) => setCardData({...cardData, insurance_company: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Plan Name</label>
+                  <input
+                    type="text"
+                    value={cardData.plan_name}
+                    onChange={(e) => setCardData({...cardData, plan_name: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Policy Number *</label>
+                  <input
+                    type="text"
+                    value={cardData.policy_number}
+                    onChange={(e) => setCardData({...cardData, policy_number: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Member ID *</label>
+                  <input
+                    type="text"
+                    value={cardData.member_id}
+                    onChange={(e) => setCardData({...cardData, member_id: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                    required
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Group Number</label>
+                <input
+                  type="text"
+                  value={cardData.group_number}
+                  onChange={(e) => setCardData({...cardData, group_number: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Effective Date</label>
+                  <input
+                    type="date"
+                    value={cardData.effective_date}
+                    onChange={(e) => setCardData({...cardData, effective_date: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Expiration Date</label>
+                  <input
+                    type="date"
+                    value={cardData.expiration_date}
+                    onChange={(e) => setCardData({...cardData, expiration_date: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Primary Copay ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={cardData.copay_primary}
+                    onChange={(e) => setCardData({...cardData, copay_primary: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Specialist Copay ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={cardData.copay_specialist}
+                    onChange={(e) => setCardData({...cardData, copay_specialist: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Deductible ($)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={cardData.deductible}
+                    onChange={(e) => setCardData({...cardData, deductible: e.target.value})}
+                    className="w-full p-3 border border-gray-300 rounded-lg"
+                  />
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="is_primary"
+                  checked={cardData.is_primary}
+                  onChange={(e) => setCardData({...cardData, is_primary: e.target.checked})}
+                  className="rounded"
+                />
+                <label htmlFor="is_primary" className="text-sm">Primary Insurance</label>
+              </div>
+              <div className="flex justify-end space-x-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowCardForm(false)}
+                  className="px-6 py-2 border border-gray-300 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
+                >
+                  Add Card
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const EligibilityForm = () => {
+    const [eligibilityData, setEligibilityData] = useState({
+      patient_id: '',
+      insurance_card_id: '',
+      service_type: 'medical',
+      date_of_service: new Date().toISOString().split('T')[0]
+    });
+
+    const [availableCards, setAvailableCards] = useState([]);
+
+    useEffect(() => {
+      if (eligibilityData.patient_id) {
+        // Filter cards for selected patient
+        const patientCards = insuranceCards.filter(card => card.patient_id === eligibilityData.patient_id);
+        setAvailableCards(patientCards);
+      }
+    }, [eligibilityData.patient_id, insuranceCards]);
+
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      try {
+        const response = await axios.post(`${API}/insurance/verify-eligibility`, eligibilityData);
+        alert(`Eligibility verified! Status: ${response.data.coverage_status}`);
+        setShowEligibilityForm(false);
+        setEligibilityData({
+          patient_id: '',
+          insurance_card_id: '',
+          service_type: 'medical',
+          date_of_service: new Date().toISOString().split('T')[0]
+        });
+      } catch (error) {
+        console.error("Error verifying eligibility:", error);
+        alert('Error verifying eligibility: ' + (error.response?.data?.detail || 'Unknown error'));
+      }
+    };
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white rounded-xl max-w-lg w-full">
+          <div className="p-6">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold">Verify Eligibility</h2>
+              <button
+                onClick={() => setShowEligibilityForm(false)}
+                className="text-gray-500 hover:text-gray-700 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">Patient *</label>
+                <select
+                  value={eligibilityData.patient_id}
+                  onChange={(e) => setEligibilityData({...eligibilityData, patient_id: e.target.value, insurance_card_id: ''})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  required
+                >
+                  <option value="">Select Patient</option>
+                  {patients.map(patient => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.name?.[0]?.given} {patient.name?.[0]?.family}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Insurance Card *</label>
+                <select
+                  value={eligibilityData.insurance_card_id}
+                  onChange={(e) => setEligibilityData({...eligibilityData, insurance_card_id: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  required
+                  disabled={!eligibilityData.patient_id}
+                >
+                  <option value="">Select Insurance Card</option>
+                  {availableCards.map(card => (
+                    <option key={card.id} value={card.id}>
+                      {card.insurance_company} - {card.member_id} {card.is_primary ? '(Primary)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Service Type</label>
+                <select
+                  value={eligibilityData.service_type}
+                  onChange={(e) => setEligibilityData({...eligibilityData, service_type: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                >
+                  <option value="medical">Medical</option>
+                  <option value="surgical">Surgical</option>
+                  <option value="diagnostic">Diagnostic</option>
+                  <option value="pharmacy">Pharmacy</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Date of Service</label>
+                <input
+                  type="date"
+                  value={eligibilityData.date_of_service}
+                  onChange={(e) => setEligibilityData({...eligibilityData, date_of_service: e.target.value})}
+                  className="w-full p-3 border border-gray-300 rounded-lg"
+                  required
+                />
+              </div>
+              <div className="flex justify-end space-x-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setShowEligibilityForm(false)}
+                  className="px-6 py-2 border border-gray-300 rounded-lg"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-6 py-2 bg-cyan-600 text-white rounded-lg hover:bg-cyan-700"
+                >
+                  Verify Eligibility
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-200 hover:text-white"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-white">Insurance Verification</h1>
+          </div>
+          <div className="flex space-x-3">
+            <button
+              onClick={() => setShowCardForm(true)}
+              className="bg-cyan-600 hover:bg-cyan-700 text-white px-4 py-2 rounded-lg"
+            >
+              + Add Insurance Card
+            </button>
+            <button
+              onClick={() => setShowEligibilityForm(true)}
+              className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+            >
+              Verify Eligibility
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+          <div className="border-b border-white/20">
+            <nav className="flex space-x-8 px-6">
+              {['cards', 'eligibility', 'prior-auth'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`py-4 px-2 border-b-2 font-medium text-sm capitalize ${
+                    activeTab === tab
+                      ? 'border-cyan-400 text-cyan-400'
+                      : 'border-transparent text-blue-200 hover:text-white'
+                  }`}
+                >
+                  {tab.replace('-', ' ')}
+                </button>
+              ))}
+            </nav>
+          </div>
+
+          <div className="p-6">
+            {activeTab === 'cards' && (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-white/5">
+                    <tr>
+                      <th className="text-left p-4 text-blue-200">Patient</th>
+                      <th className="text-left p-4 text-blue-200">Insurance Company</th>
+                      <th className="text-left p-4 text-blue-200">Plan</th>
+                      <th className="text-left p-4 text-blue-200">Member ID</th>
+                      <th className="text-left p-4 text-blue-200">Type</th>
+                      <th className="text-left p-4 text-blue-200">Status</th>
+                      <th className="text-left p-4 text-blue-200">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {insuranceCards.length > 0 ? (
+                      insuranceCards.map((card) => (
+                        <tr key={card.id} className="border-b border-white/10 hover:bg-white/5">
+                          <td className="p-4 text-white">{card.patient_name}</td>
+                          <td className="p-4 text-white">{card.insurance_company}</td>
+                          <td className="p-4 text-blue-200">{card.plan_name || 'N/A'}</td>
+                          <td className="p-4 text-blue-200 font-mono">{card.member_id}</td>
+                          <td className="p-4">
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              card.is_primary ? 'bg-blue-500 text-white' : 'bg-gray-500 text-white'
+                            }`}>
+                              {card.is_primary ? 'Primary' : 'Secondary'}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <span className={`px-2 py-1 text-xs rounded-full ${
+                              new Date(card.expiration_date) > new Date() ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                            }`}>
+                              {new Date(card.expiration_date) > new Date() ? 'Active' : 'Expired'}
+                            </span>
+                          </td>
+                          <td className="p-4">
+                            <button
+                              onClick={() => setSelectedCard(card)}
+                              className="bg-cyan-600 hover:bg-cyan-700 text-white px-3 py-1 rounded text-sm"
+                            >
+                              View Details
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td colSpan="7" className="p-8 text-center text-blue-200">
+                          No insurance cards found
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {activeTab === 'eligibility' && (
+              <div className="text-center py-8">
+                <p className="text-blue-200">Eligibility verification history will appear here...</p>
+                <p className="text-blue-200 text-sm mt-2">
+                  This section will show all previous eligibility verifications with results.
+                </p>
+              </div>
+            )}
+
+            {activeTab === 'prior-auth' && (
+              <div className="text-center py-8">
+                <p className="text-blue-200">Prior authorization requests will appear here...</p>
+                <p className="text-blue-200 text-sm mt-2">
+                  This section will show prior authorization status and management.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {showCardForm && <InsuranceCardForm />}
+        {showEligibilityForm && <EligibilityForm />}
+        
+        {/* Card Details Modal */}
+        {selectedCard && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl max-w-2xl w-full">
+              <div className="p-6">
+                <div className="flex justify-between items-center mb-6">
+                  <h2 className="text-xl font-bold">Insurance Card Details</h2>
+                  <button
+                    onClick={() => setSelectedCard(null)}
+                    className="text-gray-500 hover:text-gray-700 text-xl"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Patient</p>
+                      <p>{selectedCard.patient_name}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Insurance Company</p>
+                      <p>{selectedCard.insurance_company}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Plan Name</p>
+                      <p>{selectedCard.plan_name || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Member ID</p>
+                      <p className="font-mono">{selectedCard.member_id}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Policy Number</p>
+                      <p className="font-mono">{selectedCard.policy_number}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Group Number</p>
+                      <p className="font-mono">{selectedCard.group_number || 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Effective Date</p>
+                      <p>{formatDate(selectedCard.effective_date)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Expiration Date</p>
+                      <p>{formatDate(selectedCard.expiration_date)}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Primary Care Copay</p>
+                      <p>{selectedCard.copay_primary ? `$${selectedCard.copay_primary}` : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Specialist Copay</p>
+                      <p>{selectedCard.copay_specialist ? `$${selectedCard.copay_specialist}` : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Deductible</p>
+                      <p>{selectedCard.deductible ? `$${selectedCard.deductible}` : 'N/A'}</p>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-600">Coverage Type</p>
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        selectedCard.is_primary ? 'bg-blue-500 text-white' : 'bg-gray-500 text-white'
+                      }`}>
+                        {selectedCard.is_primary ? 'Primary' : 'Secondary'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 
 const DailyLogView = ({ setActiveModule }) => {
   const [dailyData, setDailyData] = useState({ visits: [], summary: {} });
