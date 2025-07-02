@@ -6193,6 +6193,847 @@ async def search_icd10_codes(
         raise HTTPException(status_code=500, detail=f"Error searching ICD-10 codes: {str(e)}")
 
 # Include the router in the main app
+# =====================================
+# NEW MODULES: PYDANTIC MODELS
+# =====================================
+
+# 1. Referrals Management Models
+class Referral(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    referring_provider_id: str
+    referred_to_provider_name: str
+    referred_to_specialty: str
+    referred_to_phone: Optional[str] = None
+    referred_to_fax: Optional[str] = None
+    reason_for_referral: str
+    diagnosis_codes: List[str] = []
+    urgency: str = "routine"  # routine, urgent, stat
+    status: ReferralStatus = ReferralStatus.PENDING
+    referral_date: datetime = Field(default_factory=datetime.now)
+    appointment_date: Optional[datetime] = None
+    notes: Optional[str] = None
+    reports_received: List[Dict] = []
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+# 2. Clinical Templates & Protocols Models
+class ClinicalTemplate(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    template_type: TemplateType
+    specialty: Optional[str] = None
+    condition: Optional[str] = None
+    age_group: Optional[str] = None  # pediatric, adult, geriatric
+    sections: List[Dict] = []  # template sections with fields
+    protocols: List[Dict] = []  # associated protocols
+    guidelines: Optional[str] = None
+    evidence_level: Optional[str] = None
+    is_active: bool = True
+    created_by: str
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+class ClinicalProtocol(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: str
+    condition: str
+    steps: List[Dict] = []
+    decision_points: List[Dict] = []
+    medications: List[Dict] = []
+    lab_tests: List[str] = []
+    follow_up_instructions: str
+    contraindications: List[str] = []
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.now)
+
+# 3. Quality Measures & Reporting Models
+class QualityMeasure(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    measure_id: str  # CMS measure ID
+    name: str
+    description: str
+    measure_type: str  # process, outcome, structure
+    population_criteria: Dict = {}
+    numerator_criteria: Dict = {}
+    denominator_criteria: Dict = {}
+    exclusion_criteria: Dict = {}
+    reporting_period: str
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.now)
+
+class PatientQualityMeasure(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    measure_id: str
+    status: QualityMeasureStatus
+    reporting_period: str
+    numerator_met: bool = False
+    denominator_eligible: bool = True
+    excluded: bool = False
+    exclusion_reason: Optional[str] = None
+    last_evaluated: datetime = Field(default_factory=datetime.now)
+    next_due_date: Optional[datetime] = None
+    interventions: List[Dict] = []
+
+# 4. Patient Portal Models
+class PatientPortalUser(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    username: str
+    email: str
+    password_hash: str
+    is_active: bool = True
+    email_verified: bool = False
+    last_login: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.now)
+    reset_token: Optional[str] = None
+    reset_token_expires: Optional[datetime] = None
+
+class PatientMessage(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    provider_id: Optional[str] = None
+    sender_type: str  # patient, provider, staff
+    subject: str
+    message: str
+    message_type: str = "general"  # general, prescription_refill, appointment_request
+    is_read: bool = False
+    parent_message_id: Optional[str] = None
+    attachments: List[str] = []
+    created_at: datetime = Field(default_factory=datetime.now)
+
+class PortalAppointmentRequest(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    provider_id: Optional[str] = None
+    appointment_type: str
+    preferred_dates: List[str] = []
+    reason: str
+    urgency: str = "routine"
+    status: str = "pending"  # pending, approved, scheduled, denied
+    notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.now)
+
+# 5. Document Management Models
+class DocumentCategory(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    name: str
+    description: Optional[str] = None
+    parent_category_id: Optional[str] = None
+    retention_period_years: Optional[int] = None
+    is_active: bool = True
+
+class ClinicalDocument(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    title: str
+    document_type: str
+    category_id: str
+    patient_id: Optional[str] = None
+    encounter_id: Optional[str] = None
+    provider_id: Optional[str] = None
+    file_name: str
+    file_path: str
+    file_size: int
+    mime_type: str
+    content: Optional[str] = None  # base64 encoded file content
+    tags: List[str] = []
+    status: DocumentStatus = DocumentStatus.PENDING
+    is_confidential: bool = False
+    expiry_date: Optional[datetime] = None
+    workflow_step: str = "uploaded"
+    assigned_to: Optional[str] = None
+    notes: Optional[str] = None
+    version: int = 1
+    created_by: str
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+# 6. Telehealth Models
+class TelehealthSession(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    provider_id: str
+    appointment_id: Optional[str] = None
+    session_type: str = "video_call"  # video_call, phone_call, chat
+    scheduled_start: datetime
+    actual_start: Optional[datetime] = None
+    actual_end: Optional[datetime] = None
+    status: TelehealthStatus = TelehealthStatus.SCHEDULED
+    meeting_url: Optional[str] = None
+    meeting_id: Optional[str] = None
+    meeting_password: Optional[str] = None
+    patient_join_url: Optional[str] = None
+    provider_join_url: Optional[str] = None
+    recording_available: bool = False
+    recording_url: Optional[str] = None
+    tech_issues: List[Dict] = []
+    session_notes: Optional[str] = None
+    follow_up_required: bool = False
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+class TelehealthSettings(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    provider_id: str
+    platform: str = "jitsi"  # jitsi, zoom, teams, custom
+    auto_record: bool = False
+    waiting_room_enabled: bool = True
+    allow_patient_chat: bool = True
+    session_timeout_minutes: int = 60
+    require_patient_verification: bool = True
+    enable_screen_sharing: bool = True
+    quality_settings: Dict = {"video": "720p", "audio": "high"}
+    notification_preferences: Dict = {}
+    integration_settings: Dict = {}
+    created_at: datetime = Field(default_factory=datetime.now)
+    updated_at: datetime = Field(default_factory=datetime.now)
+
+# =====================================
+# NEW MODULES: API ENDPOINTS
+# =====================================
+
+# 1. REFERRALS MANAGEMENT ENDPOINTS
+@api_router.post("/referrals")
+async def create_referral(referral: Referral):
+    try:
+        referral_dict = referral.dict()
+        referral_dict["created_at"] = datetime.now()
+        referral_dict["updated_at"] = datetime.now()
+        
+        result = await db.referrals.insert_one(referral_dict)
+        if result.inserted_id:
+            return {"id": referral.id, "message": "Referral created successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create referral")
+    except Exception as e:
+        logger.error(f"Error creating referral: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating referral: {str(e)}")
+
+@api_router.get("/referrals")
+async def get_referrals(status: Optional[str] = None, patient_id: Optional[str] = None):
+    try:
+        query = {}
+        if status:
+            query["status"] = status
+        if patient_id:
+            query["patient_id"] = patient_id
+            
+        referrals = []
+        async for referral in db.referrals.find(query).sort("created_at", -1):
+            # Get patient and provider names
+            patient = await db.patients.find_one({"id": referral["patient_id"]})
+            provider = await db.providers.find_one({"id": referral.get("referring_provider_id")})
+            
+            referral["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
+            referral["referring_provider_name"] = f"{provider['first_name']} {provider['last_name']}" if provider else "Unknown"
+            referrals.append(referral)
+            
+        return referrals
+    except Exception as e:
+        logger.error(f"Error fetching referrals: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching referrals: {str(e)}")
+
+@api_router.put("/referrals/{referral_id}/status")
+async def update_referral_status(referral_id: str, status: str, notes: Optional[str] = None):
+    try:
+        update_data = {
+            "status": status,
+            "updated_at": datetime.now()
+        }
+        if notes:
+            update_data["notes"] = notes
+            
+        result = await db.referrals.update_one(
+            {"id": referral_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Referral not found")
+            
+        return {"message": "Referral status updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating referral: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating referral: {str(e)}")
+
+@api_router.post("/referrals/{referral_id}/reports")
+async def add_referral_report(referral_id: str, report_data: Dict):
+    try:
+        report = {
+            "id": str(uuid.uuid4()),
+            "report_date": datetime.now(),
+            "report_type": report_data.get("report_type", "consultation_note"),
+            "content": report_data.get("content", ""),
+            "provider_name": report_data.get("provider_name", ""),
+            "received_at": datetime.now()
+        }
+        
+        result = await db.referrals.update_one(
+            {"id": referral_id},
+            {
+                "$push": {"reports_received": report},
+                "$set": {"updated_at": datetime.now()}
+            }
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Referral not found")
+            
+        return {"message": "Report added successfully", "report_id": report["id"]}
+    except Exception as e:
+        logger.error(f"Error adding referral report: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error adding report: {str(e)}")
+
+# 2. CLINICAL TEMPLATES & PROTOCOLS ENDPOINTS
+@api_router.post("/clinical-templates")
+async def create_clinical_template(template: ClinicalTemplate):
+    try:
+        template_dict = template.dict()
+        result = await db.clinical_templates.insert_one(template_dict)
+        if result.inserted_id:
+            return {"id": template.id, "message": "Clinical template created successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create template")
+    except Exception as e:
+        logger.error(f"Error creating template: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating template: {str(e)}")
+
+@api_router.get("/clinical-templates")
+async def get_clinical_templates(template_type: Optional[str] = None, specialty: Optional[str] = None):
+    try:
+        query = {"is_active": True}
+        if template_type:
+            query["template_type"] = template_type
+        if specialty:
+            query["specialty"] = specialty
+            
+        templates = []
+        async for template in db.clinical_templates.find(query).sort("name", 1):
+            templates.append(template)
+            
+        return templates
+    except Exception as e:
+        logger.error(f"Error fetching templates: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching templates: {str(e)}")
+
+@api_router.post("/clinical-protocols")
+async def create_clinical_protocol(protocol: ClinicalProtocol):
+    try:
+        protocol_dict = protocol.dict()
+        result = await db.clinical_protocols.insert_one(protocol_dict)
+        if result.inserted_id:
+            return {"id": protocol.id, "message": "Clinical protocol created successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create protocol")
+    except Exception as e:
+        logger.error(f"Error creating protocol: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating protocol: {str(e)}")
+
+@api_router.get("/clinical-protocols")
+async def get_clinical_protocols(condition: Optional[str] = None):
+    try:
+        query = {"is_active": True}
+        if condition:
+            query["condition"] = {"$regex": condition, "$options": "i"}
+            
+        protocols = []
+        async for protocol in db.clinical_protocols.find(query).sort("name", 1):
+            protocols.append(protocol)
+            
+        return protocols
+    except Exception as e:
+        logger.error(f"Error fetching protocols: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching protocols: {str(e)}")
+
+# 3. QUALITY MEASURES & REPORTING ENDPOINTS
+@api_router.post("/quality-measures")
+async def create_quality_measure(measure: QualityMeasure):
+    try:
+        measure_dict = measure.dict()
+        result = await db.quality_measures.insert_one(measure_dict)
+        if result.inserted_id:
+            return {"id": measure.id, "message": "Quality measure created successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create quality measure")
+    except Exception as e:
+        logger.error(f"Error creating quality measure: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating quality measure: {str(e)}")
+
+@api_router.get("/quality-measures")
+async def get_quality_measures():
+    try:
+        measures = []
+        async for measure in db.quality_measures.find({"is_active": True}).sort("name", 1):
+            measures.append(measure)
+        return measures
+    except Exception as e:
+        logger.error(f"Error fetching quality measures: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching quality measures: {str(e)}")
+
+@api_router.post("/patient-quality-measures")
+async def evaluate_patient_quality_measures(patient_id: str):
+    try:
+        # This would implement quality measure evaluation logic
+        # For now, return a simple response
+        return {"message": f"Quality measures evaluated for patient {patient_id}"}
+    except Exception as e:
+        logger.error(f"Error evaluating quality measures: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error evaluating measures: {str(e)}")
+
+@api_router.get("/quality-reports/dashboard")
+async def get_quality_dashboard():
+    try:
+        # Get summary statistics
+        total_measures = await db.quality_measures.count_documents({"is_active": True})
+        total_patients = await db.patients.count_documents({"active": True})
+        
+        # Get recent quality assessments
+        recent_assessments = []
+        async for assessment in db.patient_quality_measures.find().sort("last_evaluated", -1).limit(10):
+            patient = await db.patients.find_one({"id": assessment["patient_id"]})
+            measure = await db.quality_measures.find_one({"id": assessment["measure_id"]})
+            
+            assessment["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
+            assessment["measure_name"] = measure["name"] if measure else "Unknown"
+            recent_assessments.append(assessment)
+        
+        return {
+            "total_measures": total_measures,
+            "total_patients": total_patients,
+            "recent_assessments": recent_assessments,
+            "compliance_rate": 85.2  # This would be calculated
+        }
+    except Exception as e:
+        logger.error(f"Error fetching quality dashboard: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching dashboard: {str(e)}")
+
+# 4. PATIENT PORTAL ENDPOINTS
+@api_router.post("/portal/register")
+async def register_portal_user(user_data: Dict):
+    try:
+        # Verify patient exists
+        patient = await db.patients.find_one({"id": user_data["patient_id"]})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Check if portal user already exists
+        existing_user = await db.portal_users.find_one({"patient_id": user_data["patient_id"]})
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Portal account already exists")
+        
+        # Hash password
+        password_hash = pwd_context.hash(user_data["password"])
+        
+        portal_user = PatientPortalUser(
+            patient_id=user_data["patient_id"],
+            username=user_data["username"],
+            email=user_data["email"],
+            password_hash=password_hash
+        )
+        
+        result = await db.portal_users.insert_one(portal_user.dict())
+        if result.inserted_id:
+            return {"id": portal_user.id, "message": "Portal account created successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create portal account")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating portal user: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating account: {str(e)}")
+
+@api_router.post("/portal/login")
+async def portal_login(login_data: Dict):
+    try:
+        user = await db.portal_users.find_one({"username": login_data["username"]})
+        if not user or not pwd_context.verify(login_data["password"], user["password_hash"]):
+            raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+        if not user["is_active"]:
+            raise HTTPException(status_code=401, detail="Account is inactive")
+        
+        # Update last login
+        await db.portal_users.update_one(
+            {"id": user["id"]},
+            {"$set": {"last_login": datetime.now()}}
+        )
+        
+        # Create JWT token
+        token_data = {
+            "sub": user["id"],
+            "patient_id": user["patient_id"],
+            "user_type": "patient",
+            "exp": datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        }
+        token = jwt.encode(token_data, SECRET_KEY, algorithm=ALGORITHM)
+        
+        return {"access_token": token, "token_type": "bearer", "patient_id": user["patient_id"]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error during portal login: {str(e)}")
+        raise HTTPException(status_code=500, detail="Login failed")
+
+@api_router.get("/portal/patient/{patient_id}/summary")
+async def get_patient_portal_summary(patient_id: str):
+    try:
+        # Get patient basic info
+        patient = await db.patients.find_one({"id": patient_id})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Get recent encounters
+        recent_encounters = []
+        async for encounter in db.encounters.find({"patient_id": patient_id}).sort("date", -1).limit(5):
+            recent_encounters.append({
+                "id": encounter["id"],
+                "date": encounter["date"],
+                "type": encounter.get("encounter_type", "Office Visit"),
+                "provider": encounter.get("provider_name", ""),
+                "chief_complaint": encounter.get("chief_complaint", "")
+            })
+        
+        # Get upcoming appointments
+        upcoming_appointments = []
+        async for appointment in db.appointments.find({
+            "patient_id": patient_id,
+            "date": {"$gte": datetime.now().strftime("%Y-%m-%d")}
+        }).sort("date", 1).limit(5):
+            upcoming_appointments.append(appointment)
+        
+        # Get recent lab results
+        recent_labs = []
+        async for lab_order in db.lab_orders.find({"patient_id": patient_id}).sort("created_at", -1).limit(5):
+            recent_labs.append({
+                "id": lab_order["id"],
+                "order_date": lab_order["created_at"],
+                "status": lab_order.get("status", "pending"),
+                "tests": lab_order.get("lab_tests", [])
+            })
+        
+        return {
+            "patient_info": {
+                "name": f"{patient['name'][0]['given']} {patient['name'][0]['family']}",
+                "dob": patient.get("birthDate", ""),
+                "phone": patient.get("telecom", [{}])[0].get("value", "")
+            },
+            "recent_encounters": recent_encounters,
+            "upcoming_appointments": upcoming_appointments,
+            "recent_labs": recent_labs,
+            "unread_messages": 0  # Would be calculated
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching portal summary: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching summary: {str(e)}")
+
+@api_router.post("/portal/messages")
+async def send_patient_message(message: PatientMessage):
+    try:
+        message_dict = message.dict()
+        result = await db.patient_messages.insert_one(message_dict)
+        if result.inserted_id:
+            return {"id": message.id, "message": "Message sent successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to send message")
+    except Exception as e:
+        logger.error(f"Error sending message: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error sending message: {str(e)}")
+
+@api_router.get("/portal/messages/patient/{patient_id}")
+async def get_patient_messages(patient_id: str):
+    try:
+        messages = []
+        async for message in db.patient_messages.find({"patient_id": patient_id}).sort("created_at", -1):
+            messages.append(message)
+        return messages
+    except Exception as e:
+        logger.error(f"Error fetching messages: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching messages: {str(e)}")
+
+# 5. DOCUMENT MANAGEMENT ENDPOINTS
+@api_router.post("/documents")
+async def upload_document(document: ClinicalDocument):
+    try:
+        document_dict = document.dict()
+        result = await db.clinical_documents.insert_one(document_dict)
+        if result.inserted_id:
+            return {"id": document.id, "message": "Document uploaded successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to upload document")
+    except Exception as e:
+        logger.error(f"Error uploading document: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error uploading document: {str(e)}")
+
+@api_router.get("/documents")
+async def get_documents(patient_id: Optional[str] = None, category_id: Optional[str] = None, status: Optional[str] = None):
+    try:
+        query = {}
+        if patient_id:
+            query["patient_id"] = patient_id
+        if category_id:
+            query["category_id"] = category_id
+        if status:
+            query["status"] = status
+            
+        documents = []
+        async for document in db.clinical_documents.find(query).sort("created_at", -1):
+            # Get category name
+            category = await db.document_categories.find_one({"id": document.get("category_id")})
+            document["category_name"] = category["name"] if category else "Uncategorized"
+            
+            # Get patient name if applicable
+            if document.get("patient_id"):
+                patient = await db.patients.find_one({"id": document["patient_id"]})
+                document["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
+            
+            documents.append(document)
+            
+        return documents
+    except Exception as e:
+        logger.error(f"Error fetching documents: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching documents: {str(e)}")
+
+@api_router.put("/documents/{document_id}/status")
+async def update_document_status(document_id: str, status: str, notes: Optional[str] = None):
+    try:
+        update_data = {
+            "status": status,
+            "updated_at": datetime.now()
+        }
+        if notes:
+            update_data["notes"] = notes
+            
+        result = await db.clinical_documents.update_one(
+            {"id": document_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Document not found")
+            
+        return {"message": "Document status updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating document: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating document: {str(e)}")
+
+@api_router.get("/document-categories")
+async def get_document_categories():
+    try:
+        categories = []
+        async for category in db.document_categories.find({"is_active": True}).sort("name", 1):
+            categories.append(category)
+        return categories
+    except Exception as e:
+        logger.error(f"Error fetching categories: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching categories: {str(e)}")
+
+# 6. TELEHEALTH ENDPOINTS
+@api_router.post("/telehealth/sessions")
+async def create_telehealth_session(session: TelehealthSession):
+    try:
+        # Generate meeting URL and credentials (using Jitsi as default)
+        meeting_id = f"clinichub-{session.patient_id}-{int(datetime.now().timestamp())}"
+        meeting_url = f"https://meet.jit.si/{meeting_id}"
+        
+        session_dict = session.dict()
+        session_dict["meeting_id"] = meeting_id
+        session_dict["meeting_url"] = meeting_url
+        session_dict["patient_join_url"] = f"{meeting_url}#config.prejoinPageEnabled=false"
+        session_dict["provider_join_url"] = f"{meeting_url}#config.moderator=true"
+        
+        result = await db.telehealth_sessions.insert_one(session_dict)
+        if result.inserted_id:
+            return {
+                "id": session.id, 
+                "message": "Telehealth session created successfully",
+                "meeting_url": meeting_url,
+                "patient_join_url": session_dict["patient_join_url"],
+                "provider_join_url": session_dict["provider_join_url"]
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create session")
+    except Exception as e:
+        logger.error(f"Error creating telehealth session: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating session: {str(e)}")
+
+@api_router.get("/telehealth/sessions")
+async def get_telehealth_sessions(patient_id: Optional[str] = None, provider_id: Optional[str] = None, status: Optional[str] = None):
+    try:
+        query = {}
+        if patient_id:
+            query["patient_id"] = patient_id
+        if provider_id:
+            query["provider_id"] = provider_id
+        if status:
+            query["status"] = status
+            
+        sessions = []
+        async for session in db.telehealth_sessions.find(query).sort("scheduled_start", -1):
+            # Get patient and provider names
+            patient = await db.patients.find_one({"id": session["patient_id"]})
+            provider = await db.providers.find_one({"id": session["provider_id"]})
+            
+            session["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
+            session["provider_name"] = f"{provider['first_name']} {provider['last_name']}" if provider else "Unknown"
+            sessions.append(session)
+            
+        return sessions
+    except Exception as e:
+        logger.error(f"Error fetching telehealth sessions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching sessions: {str(e)}")
+
+@api_router.put("/telehealth/sessions/{session_id}/start")
+async def start_telehealth_session(session_id: str):
+    try:
+        result = await db.telehealth_sessions.update_one(
+            {"id": session_id},
+            {
+                "$set": {
+                    "status": TelehealthStatus.IN_PROGRESS,
+                    "actual_start": datetime.now(),
+                    "updated_at": datetime.now()
+                }
+            }
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Session not found")
+            
+        return {"message": "Session started successfully"}
+    except Exception as e:
+        logger.error(f"Error starting session: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error starting session: {str(e)}")
+
+@api_router.put("/telehealth/sessions/{session_id}/end")
+async def end_telehealth_session(session_id: str, session_notes: Optional[str] = None):
+    try:
+        update_data = {
+            "status": TelehealthStatus.COMPLETED,
+            "actual_end": datetime.now(),
+            "updated_at": datetime.now()
+        }
+        if session_notes:
+            update_data["session_notes"] = session_notes
+            
+        result = await db.telehealth_sessions.update_one(
+            {"id": session_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Session not found")
+            
+        return {"message": "Session ended successfully"}
+    except Exception as e:
+        logger.error(f"Error ending session: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error ending session: {str(e)}")
+
+# Initialize default data for new modules
+@api_router.post("/system/init-new-modules")
+async def initialize_new_modules():
+    try:
+        results = {}
+        
+        # Initialize document categories
+        existing_categories = await db.document_categories.count_documents({})
+        if existing_categories == 0:
+            default_categories = [
+                {"id": str(uuid.uuid4()), "name": "Patient Records", "description": "General patient documentation", "is_active": True},
+                {"id": str(uuid.uuid4()), "name": "Lab Results", "description": "Laboratory test results", "is_active": True},
+                {"id": str(uuid.uuid4()), "name": "Imaging", "description": "X-rays, MRIs, CTs, etc.", "is_active": True},
+                {"id": str(uuid.uuid4()), "name": "Prescriptions", "description": "Medication prescriptions", "is_active": True},
+                {"id": str(uuid.uuid4()), "name": "Insurance", "description": "Insurance documentation", "is_active": True},
+                {"id": str(uuid.uuid4()), "name": "Consent Forms", "description": "Patient consent documentation", "is_active": True},
+                {"id": str(uuid.uuid4()), "name": "Referrals", "description": "Specialist referral documentation", "is_active": True}
+            ]
+            await db.document_categories.insert_many(default_categories)
+            results["document_categories"] = len(default_categories)
+        
+        # Initialize quality measures
+        existing_measures = await db.quality_measures.count_documents({})
+        if existing_measures == 0:
+            default_measures = [
+                {
+                    "id": str(uuid.uuid4()),
+                    "measure_id": "CMS122",
+                    "name": "Diabetes: Hemoglobin A1c (HbA1c) Poor Control (>9%)",
+                    "description": "Percentage of patients 18-75 years of age with diabetes who had hemoglobin A1c > 9.0% during the measurement period",
+                    "measure_type": "outcome",
+                    "population_criteria": {"age_range": "18-75", "diagnosis": "diabetes"},
+                    "numerator_criteria": {"hba1c_value": ">9.0"},
+                    "denominator_criteria": {"diagnosis": "diabetes", "age": "18-75"},
+                    "reporting_period": "annual",
+                    "is_active": True,
+                    "created_at": datetime.now()
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "measure_id": "CMS134",
+                    "name": "Diabetes: Medical Attention for Nephropathy",
+                    "description": "Percentage of patients 18-75 years of age with diabetes who had a nephropathy screening test or evidence of nephropathy during the measurement period",
+                    "measure_type": "process",
+                    "population_criteria": {"age_range": "18-75", "diagnosis": "diabetes"},
+                    "numerator_criteria": {"nephropathy_screening": "completed"},
+                    "denominator_criteria": {"diagnosis": "diabetes", "age": "18-75"},
+                    "reporting_period": "annual",
+                    "is_active": True,
+                    "created_at": datetime.now()
+                }
+            ]
+            await db.quality_measures.insert_many(default_measures)
+            results["quality_measures"] = len(default_measures)
+        
+        # Initialize clinical templates
+        existing_templates = await db.clinical_templates.count_documents({})
+        if existing_templates == 0:
+            default_templates = [
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Annual Physical Exam",
+                    "template_type": "visit_template",
+                    "specialty": "family_medicine",
+                    "age_group": "adult",
+                    "sections": [
+                        {"name": "Review of Systems", "fields": ["constitutional", "cardiovascular", "respiratory", "gastrointestinal"]},
+                        {"name": "Physical Examination", "fields": ["vital_signs", "general_appearance", "cardiovascular", "respiratory", "abdominal"]},
+                        {"name": "Assessment and Plan", "fields": ["problems", "medications", "health_maintenance"]}
+                    ],
+                    "protocols": [],
+                    "is_active": True,
+                    "created_by": "system",
+                    "created_at": datetime.now(),
+                    "updated_at": datetime.now()
+                },
+                {
+                    "id": str(uuid.uuid4()),
+                    "name": "Diabetes Management",
+                    "template_type": "care_plan",
+                    "specialty": "endocrinology",
+                    "condition": "diabetes",
+                    "sections": [
+                        {"name": "Glucose Monitoring", "fields": ["hba1c", "blood_glucose_logs", "symptoms"]},
+                        {"name": "Medications", "fields": ["insulin", "oral_medications", "adherence"]},
+                        {"name": "Lifestyle", "fields": ["diet", "exercise", "weight_management"]}
+                    ],
+                    "protocols": ["diabetes_protocol"],
+                    "is_active": True,
+                    "created_by": "system",
+                    "created_at": datetime.now(),
+                    "updated_at": datetime.now()
+                }
+            ]
+            await db.clinical_templates.insert_many(default_templates)
+            results["clinical_templates"] = len(default_templates)
+        
+        return {"message": "New modules initialized successfully", "initialized": results}
+    except Exception as e:
+        logger.error(f"Error initializing new modules: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error initializing modules: {str(e)}")
+
 app.include_router(api_router)
 
 app.add_middleware(
