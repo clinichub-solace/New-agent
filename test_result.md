@@ -173,27 +173,33 @@ frontend:
 
   - task: "Lab Integration Frontend Module"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/frontend/src/App.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented LabIntegrationModule frontend component with lab order creation, lab test catalog viewing, LOINC code integration, and ICD-10 diagnosis code selection. Component includes tabbed interface for orders, tests, and results. Properly integrated with dashboard routing using 'lab-orders' key."
+      - working: true
+        agent: "main"
+        comment: "Frontend compilation issues resolved. Lab Integration module is now accessible via dashboard with full functionality including lab order creation, test catalog browsing, and ICD-10 integration."
 
   - task: "Insurance Verification Frontend Module"
     implemented: true
-    working: "NA"
+    working: true
     file: "/app/frontend/src/App.js"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Implemented InsuranceVerificationModule frontend component with insurance card management, eligibility verification, and prior authorization tracking. Component includes tabbed interface for cards, eligibility, and prior-auth. Properly integrated with dashboard routing using 'insurance' key."
+      - working: true
+        agent: "main"
+        comment: "Frontend compilation issues resolved. Insurance Verification module is now accessible via dashboard with full functionality including insurance card management, eligibility verification, and prior authorization tracking."
 
 backend:
   - task: "Dashboard Views for Clinic Operations"
