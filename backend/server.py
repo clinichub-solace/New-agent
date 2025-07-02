@@ -6600,7 +6600,7 @@ async def update_clinical_template(template_id: str, update_data: Dict):
             raise HTTPException(status_code=404, detail="Clinical template not found")
             
         # Get updated template
-        updated_template = await db.clinical_templates.find_one({"id": template_id})
+        updated_template = await db.clinical_templates.find_one({"id": template_id}, {"_id": 0})
         return updated_template
     except Exception as e:
         logger.error(f"Error updating template: {str(e)}")
