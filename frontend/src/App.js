@@ -998,7 +998,6 @@ const Dashboard = ({ setActiveModule, user, onLogout }) => {
     { name: "Documents", key: "documents", icon: "📄", color: "bg-gray-600", permission: "documents:read" },
     { name: "Telehealth", key: "telehealth", icon: "📹", color: "bg-pink-600", permission: "telehealth:read" }
   ];
-  ];
 
   const { hasPermission } = useAuth();
 
