@@ -7525,16 +7525,7 @@ const DailyLogView = ({ setActiveModule }) => {
   );
 };
 
-const PatientQueueView = ({ setActiveModule }) => {
-    try {
-      const response = await axios.get(`${API}/dashboard/daily-log`);
-      setDailyData(response.data);
-    } catch (error) {
-      console.error("Error fetching daily log:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   if (loading) {
     return <div className="text-white text-center py-8">Loading...</div>;
