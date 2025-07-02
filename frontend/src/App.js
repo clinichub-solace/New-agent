@@ -7525,7 +7525,6 @@ const DailyLogView = ({ setActiveModule }) => {
   );
 };
 
-// Daily Log View Component
 const PatientQueueView = ({ setActiveModule }) => {
 
   const fetchDailyLog = async () => {
