@@ -300,7 +300,8 @@ def test_clinical_templates(admin_token):
                 "treatment_plan": "Lifestyle modifications, medication management, and regular monitoring",
                 "follow_up": "Every 3 months for HbA1c check"
             },
-            "is_active": True
+            "is_active": True,
+            "created_by": "admin"
         }
         
         response = requests.post(url, headers=headers, json=data)
