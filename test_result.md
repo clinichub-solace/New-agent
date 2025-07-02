@@ -528,8 +528,10 @@ test_plan:
     - "Add Patient Functionality in EHR"
     - "eRx Functionality"
     - "General System Health Check"
+    - "Insurance Verification System"
   stuck_tasks:
     - "Add Patient Functionality in EHR"
+    - "Insurance Verification System"
   test_all: false
   test_priority: "high_first"
       - working: false
