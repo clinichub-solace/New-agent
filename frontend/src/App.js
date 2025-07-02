@@ -6358,47 +6358,69 @@ const EmployeeModule = ({ setActiveModule }) => {
                   <tr key={employee.id} className="border-b border-white/10 hover:bg-white/5">
                     <td className="p-4">
                       <div className="flex items-center space-x-3">
-                        {employee.profile_picture ? (
-                          <img 
-                            src={`data:image/jpeg;base64,${employee.profile_picture}`}
-                            alt="Profile"
-                            className="w-10 h-10 rounded-full object-cover"
-                          />
-                        ) : (
-                          <div className="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center">
-                            <span className="text-white font-medium">
-                              {employee.first_name.charAt(0)}{employee.last_name.charAt(0)}
-                            </span>
-                          </div>
-                        )}
+                        <div className="w-10 h-10 bg-indigo-500 rounded-full flex items-center justify-center">
+                          <span className="text-white text-sm font-medium">
+                            {employee.first_name?.[0]}{employee.last_name?.[0]}
+                          </span>
+                        </div>
                         <div>
                           <p className="text-white font-medium">
                             {employee.first_name} {employee.last_name}
                           </p>
-                          <p className="text-blue-200 text-sm">{employee.employee_id}</p>
+                          <p className="text-blue-200 text-sm">{employee.email}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="p-4 text-blue-200 capitalize">{employee.role}</td>
-                    <td className="p-4 text-blue-200">{employee.department || 'N/A'}</td>
-                    <td className="p-4 text-blue-200">{formatDate(employee.hire_date)}</td>
-                    <td className="p-4 text-blue-200 capitalize">
-                      {employee.employment_type?.replace('_', ' ')}
+                    <td className="p-4">
+                      <span className="px-2 py-1 text-xs rounded-full bg-blue-500 text-white">
+                        {employee.role?.replace('_', ' ').toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="p-4 text-blue-200">{employee.department}</td>
+                    <td className="p-4 text-blue-200">
+                      {new Date(employee.hire_date).toLocaleDateString()}
                     </td>
                     <td className="p-4">
-                      <span className={`px-2 py-1 text-white text-xs rounded-full ${
-                        employee.is_active ? 'bg-green-500' : 'bg-red-500'
+                      <span className="px-2 py-1 text-xs rounded-full bg-green-500 text-white">
+                        {employee.employment_type?.replace('_', ' ').toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className={`px-2 py-1 text-xs rounded-full ${
+                        employee.is_active ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
                       }`}>
                         {employee.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td className="p-4">
-                      <button
-                        onClick={() => handleEmployeeSelect(employee)}
-                        className="bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1 rounded text-sm"
-                      >
-                        View Details
-                      </button>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleEmployeeSelect(employee)}
+                          className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          View Details
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedEmployee(employee);
+                            setShowTimeEntry(true);
+                          }}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                          title="Quick Time Entry"
+                        >
+                          ⏰
+                        </button>
+                        <button
+                          onClick={() => {
+                            setSelectedEmployee(employee);
+                            setShowDocumentForm(true);
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                          title="New Document"
+                        >
+                          📄
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
