@@ -7003,6 +7003,157 @@ async def get_patient_messages(patient_id: str):
         logger.error(f"Error fetching messages: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching messages: {str(e)}")
 
+# Patient Portal endpoints with correct URL structure expected by testing
+@api_router.post("/patient-portal")
+async def create_patient_portal_access(portal_data: Dict):
+    try:
+        # Verify patient exists
+        patient = await db.patients.find_one({"id": portal_data["patient_id"]})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Create portal access record
+        portal_access = {
+            "id": str(uuid.uuid4()),
+            "patient_id": portal_data["patient_id"],
+            "access_level": portal_data.get("access_level", "full"),
+            "features_enabled": portal_data.get("features_enabled", ["appointments", "records", "messages", "payments"]),
+            "is_active": True,
+            "created_at": datetime.now(),
+            "updated_at": datetime.now()
+        }
+        
+        result = await db.patient_portal_access.insert_one(portal_access)
+        if result.inserted_id:
+            return {"id": portal_access["id"], "message": "Patient portal access created successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create portal access")
+    except Exception as e:
+        logger.error(f"Error creating portal access: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating portal access: {str(e)}")
+
+@api_router.get("/patient-portal")
+async def get_patient_portal_access():
+    try:
+        portal_access_list = []
+        async for access in db.patient_portal_access.find({"is_active": True}).sort("created_at", -1):
+            # Get patient name
+            patient = await db.patients.find_one({"id": access["patient_id"]})
+            if patient:
+                access["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}"
+            else:
+                access["patient_name"] = "Unknown"
+            
+            portal_access_list.append(access)
+        
+        return portal_access_list
+    except Exception as e:
+        logger.error(f"Error fetching portal access: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching portal access: {str(e)}")
+
+@api_router.get("/patient-portal/patient/{patient_id}")
+async def get_patient_portal_for_patient(patient_id: str):
+    try:
+        # Get patient portal access
+        portal_access = await db.patient_portal_access.find_one({"patient_id": patient_id, "is_active": True})
+        if not portal_access:
+            raise HTTPException(status_code=404, detail="Patient portal access not found")
+        
+        # Get patient basic info
+        patient = await db.patients.find_one({"id": patient_id})
+        if patient:
+            portal_access["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}"
+        
+        return portal_access
+    except Exception as e:
+        logger.error(f"Error fetching patient portal: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching patient portal: {str(e)}")
+
+@api_router.post("/patient-portal/{portal_id}/schedule")
+async def schedule_via_patient_portal(portal_id: str, appointment_data: Dict):
+    try:
+        # Verify portal access exists
+        portal_access = await db.patient_portal_access.find_one({"id": portal_id})
+        if not portal_access:
+            raise HTTPException(status_code=404, detail="Portal access not found")
+        
+        if "appointments" not in portal_access.get("features_enabled", []):
+            raise HTTPException(status_code=403, detail="Appointment scheduling not enabled for this portal")
+        
+        # Create appointment request
+        appointment_request = PortalAppointmentRequest(
+            patient_id=portal_access["patient_id"],
+            provider_id=appointment_data.get("provider_id"),
+            appointment_type=appointment_data["appointment_type"],
+            preferred_dates=appointment_data.get("preferred_dates", []),
+            reason=appointment_data["reason"],
+            urgency=appointment_data.get("urgency", "routine"),
+            notes=appointment_data.get("notes")
+        )
+        
+        result = await db.portal_appointment_requests.insert_one(appointment_request.dict())
+        if result.inserted_id:
+            return {"id": appointment_request.id, "message": "Appointment request submitted successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to submit appointment request")
+    except Exception as e:
+        logger.error(f"Error scheduling appointment: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error scheduling appointment: {str(e)}")
+
+@api_router.get("/patient-portal/{portal_id}/records")
+async def get_patient_records_via_portal(portal_id: str):
+    try:
+        # Verify portal access exists
+        portal_access = await db.patient_portal_access.find_one({"id": portal_id})
+        if not portal_access:
+            raise HTTPException(status_code=404, detail="Portal access not found")
+        
+        if "records" not in portal_access.get("features_enabled", []):
+            raise HTTPException(status_code=403, detail="Medical records access not enabled for this portal")
+        
+        patient_id = portal_access["patient_id"]
+        
+        # Get patient summary data
+        patient = await db.patients.find_one({"id": patient_id})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Get recent encounters
+        encounters = []
+        async for encounter in db.encounters.find({"patient_id": patient_id}).sort("encounter_date", -1).limit(10):
+            encounters.append(encounter)
+        
+        # Get medications
+        medications = []
+        async for med in db.medications.find({"patient_id": patient_id, "status": "active"}):
+            medications.append(med)
+        
+        # Get allergies
+        allergies = []
+        async for allergy in db.allergies.find({"patient_id": patient_id}):
+            allergies.append(allergy)
+        
+        # Get lab results (last 6 months)
+        lab_results = []
+        six_months_ago = datetime.now() - timedelta(days=180)
+        async for lab in db.lab_orders.find({
+            "patient_id": patient_id, 
+            "status": "completed",
+            "created_at": {"$gte": six_months_ago}
+        }).sort("created_at", -1):
+            lab_results.append(lab)
+        
+        return {
+            "patient": patient,
+            "encounters": encounters,
+            "medications": medications,
+            "allergies": allergies,
+            "lab_results": lab_results
+        }
+    except Exception as e:
+        logger.error(f"Error fetching patient records: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching patient records: {str(e)}")
+
 # 5. DOCUMENT MANAGEMENT ENDPOINTS
 @api_router.post("/documents")
 async def upload_document(document: ClinicalDocument):
