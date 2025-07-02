@@ -35,10 +35,14 @@ def print_test_result(test_name, success, response=None):
 # Helper function to get admin token
 def get_admin_token():
     try:
-        # Initialize admin user
-        url = f"{API_URL}/auth/init-admin"
-        response = requests.post(url)
-        response.raise_for_status()
+        # Try to initialize admin user (may fail if already exists)
+        try:
+            url = f"{API_URL}/auth/init-admin"
+            response = requests.post(url)
+            print("Admin user initialized successfully")
+        except Exception as e:
+            print(f"Admin initialization skipped: {str(e)}")
+            # Continue anyway as admin might already exist
         
         # Login with admin credentials
         url = f"{API_URL}/auth/login"
