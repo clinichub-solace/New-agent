@@ -6714,6 +6714,113 @@ async def get_quality_measures():
         logger.error(f"Error fetching quality measures: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching quality measures: {str(e)}")
 
+@api_router.get("/quality-measures/{measure_id}")
+async def get_quality_measure_by_id(measure_id: str):
+    try:
+        measure = await db.quality_measures.find_one({"id": measure_id})
+        if not measure:
+            raise HTTPException(status_code=404, detail="Quality measure not found")
+        return measure
+    except Exception as e:
+        logger.error(f"Error fetching quality measure: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching quality measure: {str(e)}")
+
+@api_router.put("/quality-measures/{measure_id}")
+async def update_quality_measure(measure_id: str, update_data: Dict):
+    try:
+        update_data["updated_at"] = datetime.now()
+        
+        result = await db.quality_measures.update_one(
+            {"id": measure_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Quality measure not found")
+            
+        # Get updated measure
+        updated_measure = await db.quality_measures.find_one({"id": measure_id})
+        return updated_measure
+    except Exception as e:
+        logger.error(f"Error updating quality measure: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating quality measure: {str(e)}")
+
+@api_router.post("/quality-measures/calculate")
+async def calculate_quality_measures(patient_id: str, measure_ids: List[str] = None):
+    try:
+        # Mock calculation for demonstration
+        calculations = []
+        
+        if measure_ids:
+            for measure_id in measure_ids:
+                measure = await db.quality_measures.find_one({"id": measure_id})
+                if measure:
+                    calculations.append({
+                        "measure_id": measure_id,
+                        "measure_name": measure["name"],
+                        "patient_id": patient_id,
+                        "result": "passed",  # Mock result
+                        "score": 85.5,
+                        "calculated_at": datetime.now()
+                    })
+        else:
+            # Calculate all active measures
+            async for measure in db.quality_measures.find({"is_active": True}):
+                calculations.append({
+                    "measure_id": measure["id"],
+                    "measure_name": measure["name"],
+                    "patient_id": patient_id,
+                    "result": "passed",  # Mock result
+                    "score": 85.5,
+                    "calculated_at": datetime.now()
+                })
+        
+        return {"patient_id": patient_id, "calculations": calculations}
+    except Exception as e:
+        logger.error(f"Error calculating quality measures: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error calculating quality measures: {str(e)}")
+
+@api_router.get("/quality-measures/report")
+async def get_quality_measures_report(start_date: str = None, end_date: str = None, measure_type: str = None):
+    try:
+        # Mock report generation
+        report = {
+            "report_period": {
+                "start_date": start_date or datetime.now().replace(day=1).isoformat(),
+                "end_date": end_date or datetime.now().isoformat()
+            },
+            "summary": {
+                "total_measures": 5,
+                "passed_measures": 4,
+                "failed_measures": 1,
+                "overall_score": 88.2
+            },
+            "measures": [
+                {
+                    "measure_name": "Diabetes HbA1c Control",
+                    "measure_type": "clinical",
+                    "numerator": 45,
+                    "denominator": 50,
+                    "percentage": 90.0,
+                    "status": "passed"
+                },
+                {
+                    "measure_name": "Blood Pressure Control",
+                    "measure_type": "clinical", 
+                    "numerator": 38,
+                    "denominator": 42,
+                    "percentage": 90.5,
+                    "status": "passed"
+                }
+            ],
+            "generated_at": datetime.now()
+        }
+        
+        return report
+    except Exception as e:
+        logger.error(f"Error generating quality measures report: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating report: {str(e)}")
+
 @api_router.post("/patient-quality-measures")
 async def evaluate_patient_quality_measures(patient_id: str):
     try:
