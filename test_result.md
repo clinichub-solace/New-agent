@@ -731,15 +731,18 @@ test_plan:
 
   - task: "Telehealth Module System"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Recently implemented TelehealthSession model and API endpoints to facilitate video consultations, virtual waiting rooms, and remote patient monitoring integration. Includes endpoints: POST/GET /api/telehealth, GET/PUT /api/telehealth/{id}, POST /api/telehealth/{id}/join, PUT /api/telehealth/{id}/status. Ready for backend testing."
+      - working: false
+        agent: "testing"
+        comment: "The Telehealth Module System is not properly implemented. The endpoints are implemented with a different URL structure than specified. The actual endpoints use /api/telehealth/sessions instead of /api/telehealth. All tested endpoints (POST/GET /api/telehealth) return 404 Not Found. The system needs to be updated to use the correct URL structure or the documentation needs to be updated to match the implementation."
 
 agent_communication:
   - agent: "testing"
