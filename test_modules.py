@@ -478,12 +478,10 @@ def test_quality_measures(admin_token, patient_id):
         try:
             url = f"{API_URL}/quality-measures/calculate"
             headers = {"Authorization": f"Bearer {admin_token}"}
-            data = {
-                "patient_id": patient_id,
-                "measure_ids": [measure_id]
-            }
+            params = {"patient_id": patient_id}
+            data = [measure_id]
             
-            response = requests.post(url, headers=headers, json=data)
+            response = requests.post(url, headers=headers, params=params, json=data)
             response.raise_for_status()
             result = response.json()
             
