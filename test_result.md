@@ -701,15 +701,18 @@ test_plan:
 
   - task: "Patient Portal System"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Recently implemented PatientPortal model and API endpoints to support patient self-scheduling, viewing records, lab results, secure messaging, and online payments. Includes endpoints: POST/GET /api/patient-portal, GET /api/patient-portal/patient/{patient_id}, POST /api/patient-portal/{id}/schedule, GET /api/patient-portal/{id}/records. Ready for backend testing."
+      - working: false
+        agent: "testing"
+        comment: "The Patient Portal System is not properly implemented. All tested endpoints (POST/GET /api/patient-portal, GET /api/patient-portal/patient/{patient_id}) return 404 Not Found. The system needs to be implemented according to the requirements."
 
   - task: "Document Management System"
     implemented: true
