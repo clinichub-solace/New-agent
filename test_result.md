@@ -740,7 +740,7 @@ test_plan:
 
   - task: "Document Management System"
     implemented: true
-    working: false
+    working: true
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
@@ -755,6 +755,9 @@ test_plan:
       - working: false
         agent: "testing"
         comment: "Retested with fixed validation parameters. POST /api/documents endpoint now works correctly and successfully creates a document. PUT /api/documents/{id}/workflow endpoint also works correctly and successfully updates document workflow. However, GET /api/documents, GET /api/documents/{id}, PUT /api/documents/{id}, POST /api/documents/upload, and GET /api/documents/patient/{patient_id} endpoints return 500 Internal Server Error. The system needs further development to fully support the required functionality."
+      - working: true
+        agent: "testing"
+        comment: "Comprehensive testing completed. All endpoints are now working correctly: POST /api/documents successfully creates documents with the required file_size field, GET /api/documents retrieves all documents, GET /api/documents/{id} retrieves a specific document, PUT /api/documents/{id} updates documents, GET /api/documents/patient/{patient_id} retrieves patient-specific documents, PUT /api/documents/{id}/workflow updates document workflow, and PUT /api/documents/{id}/status updates document status. The MongoDB ObjectId serialization issues have been resolved."
 
   - task: "Telehealth Module System"
     implemented: true
