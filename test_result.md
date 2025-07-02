@@ -716,15 +716,18 @@ test_plan:
 
   - task: "Document Management System"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Recently implemented Document model and API endpoints for document scanning, upload, categorization, tagging, workflow, and retention policies. Includes endpoints: POST/GET /api/documents, GET/PUT /api/documents/{id}, POST /api/documents/upload, GET /api/documents/patient/{patient_id}, PUT /api/documents/{id}/workflow. Ready for backend testing."
+      - working: false
+        agent: "testing"
+        comment: "The Document Management System is partially implemented. The GET /api/documents endpoint works correctly, but the POST /api/documents endpoint has validation issues - it requires additional fields not mentioned in the documentation: category_id, file_name, file_path, and mime_type. The POST /api/documents/upload endpoint returns 405 Method Not Allowed, and the GET /api/documents/patient/{patient_id} endpoint returns 404 Not Found. The system needs further development to fully support the required functionality."
 
   - task: "Telehealth Module System"
     implemented: true
