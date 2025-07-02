@@ -609,23 +609,26 @@ test_plan:
         agent: "testing"
         comment: "Performed additional comprehensive testing of the Lab Integration System. All endpoints are functioning correctly. Successfully tested: 1) POST /api/lab-tests/init - Initialized lab tests with LOINC codes, 2) GET /api/lab-tests - Retrieved all lab tests with proper codes and descriptions, 3) POST /api/icd10/init and GET /api/icd10/search - Successfully searched for ICD-10 codes by query term, 4) POST /api/lab-orders - Created a lab order with patient, provider, lab tests, and ICD-10 codes, 5) GET /api/lab-orders - Retrieved all lab orders, 6) GET /api/lab-orders/{id} - Retrieved a specific lab order by ID. The system correctly handles all required operations for lab test management and ordering."
 
-  - task: "Demo Data Initialization"
+  - task: "Insurance Verification System"
     implemented: true
     working: true
-    file: "/app/backend_test.py"
+    file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
     needs_retesting: false
     status_history:
-      - working: "NA"
-        agent: "testing"
-        comment: "Created a comprehensive demo data initialization function in backend_test.py. Successfully tested all initialization endpoints: admin account, lab tests with LOINC codes, ICD-10 diagnosis codes, eRx system data, appointment types, communication templates, and HIPAA compliant forms. Created demo patients, providers, encounters with SOAP notes, vital signs, diagnoses, and prescriptions. Also created insurance cards and invoices."
+      - working: false
+        agent: "main"
+        comment: "Implemented Insurance Verification System with insurance card management, eligibility verification, and prior authorization functionality. Includes endpoints for creating and managing insurance cards, verifying eligibility, and handling prior authorizations."
       - working: false
         agent: "testing"
-        comment: "Some endpoints need fixes: 1) Appointments creation requires patient_name and provider_name fields, 2) Eligibility verification requires patient_id parameter, 3) Invoice status updates endpoint is missing. These issues prevent full automation of the demo data creation process."
+        comment: "The Insurance Verification System is partially working. Most core endpoints are working correctly: 1) POST /api/insurance/cards - Successfully created an insurance card with patient and insurance details, 2) GET /api/insurance/patient/{patient_id} - Successfully retrieved insurance cards for a patient, 3) POST /api/insurance/prior-auth - Successfully created a prior authorization request, 4) GET /api/insurance/prior-auth/patient/{patient_id} - Successfully retrieved prior authorizations for a patient, 5) GET /api/insurance/eligibility/patient/{patient_id} - Successfully retrieved eligibility information for a patient. However, the POST /api/insurance/verify-eligibility endpoint has an issue with the 'valid_until' parameter being set twice - once in the mock_response as a string and then again in the EligibilityResponse constructor as a datetime. This causes a 'multiple values for keyword argument' error."
       - working: true
         agent: "testing"
-        comment: "Despite the issues with some endpoints, the initialization process successfully created the core demo data needed for testing: patients, providers, encounters, SOAP notes, vital signs, diagnoses, prescriptions, insurance cards, and invoices. The system is now populated with realistic test data that can be used for manual testing and demonstration purposes."
+        comment: "The Insurance Verification System is now working correctly. Successfully tested all core endpoints: 1) POST /api/insurance/cards - Created an insurance card with patient and insurance details, 2) POST /api/insurance/verify-eligibility - Successfully verified eligibility with the insurance card, 3) GET /api/insurance/eligibility/patient/{patient_id} - Retrieved eligibility information for a patient. The issue with the 'valid_until' parameter being set twice has been fixed. The eligibility verification response now includes all expected fields: benefits summary, copay amounts, deductible information, coverage details, and prior authorization requirements."
+      - working: true
+        agent: "testing"
+        comment: "Performed additional comprehensive testing of the Insurance Verification System. All endpoints are functioning correctly except GET /api/insurance/cards which returns a 405 Method Not Allowed error. Successfully tested: 1) POST /api/insurance/cards - Created an insurance card with patient and insurance details, 2) GET /api/insurance/patient/{patient_id} - Retrieved insurance cards for a specific patient, 3) POST /api/insurance/verify-eligibility - Successfully verified eligibility with the insurance card (fixed the previous issue by including patient_id in the request), 4) GET /api/insurance/eligibility/patient/{patient_id} - Retrieved eligibility information for a patient, 5) POST /api/insurance/prior-auth - Created a prior authorization request, 6) GET /api/insurance/prior-auth/patient/{patient_id} - Retrieved prior authorizations for a patient. The system correctly handles all required operations for insurance verification workflows."
 
 agent_communication:
   - agent: "testing"
