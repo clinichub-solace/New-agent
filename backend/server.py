@@ -50,6 +50,41 @@ class FormStatus(str, Enum):
     ACTIVE = "active"
     ARCHIVED = "archived"
 
+class ReferralStatus(str, Enum):
+    PENDING = "pending"
+    SCHEDULED = "scheduled"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    NO_SHOW = "no_show"
+
+class DocumentStatus(str, Enum):
+    PENDING = "pending"
+    UNDER_REVIEW = "under_review"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+    ARCHIVED = "archived"
+
+class QualityMeasureStatus(str, Enum):
+    MET = "met"
+    NOT_MET = "not_met"
+    PENDING = "pending"
+    EXCLUDED = "excluded"
+
+class TelehealthStatus(str, Enum):
+    SCHEDULED = "scheduled"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    NO_SHOW = "no_show"
+
+class TemplateType(str, Enum):
+    VISIT_TEMPLATE = "visit_template"
+    ASSESSMENT_TEMPLATE = "assessment_template"
+    PROCEDURE_TEMPLATE = "procedure_template"
+    PROTOCOL = "protocol"
+    CARE_PLAN = "care_plan"
+    ARCHIVED = "archived"
+
 class InvoiceStatus(str, Enum):
     DRAFT = "draft"
     SENT = "sent"  
