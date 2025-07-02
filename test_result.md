@@ -776,9 +776,9 @@ test_plan:
 
   - task: "Telehealth Module System"
     implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 0
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
@@ -794,6 +794,9 @@ test_plan:
       - working: true
         agent: "testing"
         comment: "Comprehensive testing completed. All endpoints are now working correctly: POST /api/telehealth successfully creates telehealth sessions with the required scheduled_start field, GET /api/telehealth retrieves all sessions, GET /api/telehealth/{id} retrieves a specific session, PUT /api/telehealth/{id} updates sessions, POST /api/telehealth/{id}/join successfully joins a session, and PUT /api/telehealth/{id}/status updates session status. The MongoDB ObjectId serialization issues have been resolved."
+      - working: false
+        agent: "testing"
+        comment: "The backend API for Telehealth is working correctly, but the frontend component cannot be tested due to syntax errors in App.js. The frontend application fails to load properly, preventing access to the Telehealth module. The login page loads but authentication does not proceed to the dashboard."
 
 agent_communication:
   - agent: "testing"
