@@ -6575,6 +6575,91 @@ async def get_clinical_templates(template_type: Optional[str] = None, specialty:
         logger.error(f"Error fetching templates: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching templates: {str(e)}")
 
+@api_router.get("/clinical-templates/{template_id}")
+async def get_clinical_template_by_id(template_id: str):
+    try:
+        template = await db.clinical_templates.find_one({"id": template_id})
+        if not template:
+            raise HTTPException(status_code=404, detail="Clinical template not found")
+        return template
+    except Exception as e:
+        logger.error(f"Error fetching template: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching template: {str(e)}")
+
+@api_router.put("/clinical-templates/{template_id}")
+async def update_clinical_template(template_id: str, update_data: Dict):
+    try:
+        update_data["updated_at"] = datetime.now()
+        
+        result = await db.clinical_templates.update_one(
+            {"id": template_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Clinical template not found")
+            
+        # Get updated template
+        updated_template = await db.clinical_templates.find_one({"id": template_id})
+        return updated_template
+    except Exception as e:
+        logger.error(f"Error updating template: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating template: {str(e)}")
+
+@api_router.post("/clinical-templates/init")
+async def init_clinical_templates():
+    try:
+        # Initialize some basic clinical templates
+        templates = [
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Diabetes Management Template",
+                "template_type": "care_plan",
+                "specialty": "Endocrinology",
+                "condition": "Diabetes Mellitus Type 2",
+                "age_group": "adult",
+                "sections": [
+                    {"name": "Assessment", "fields": ["HbA1c", "Blood Glucose", "Blood Pressure", "Weight"]},
+                    {"name": "Management", "fields": ["Medications", "Diet Plan", "Exercise Plan"]},
+                    {"name": "Monitoring", "fields": ["Follow-up Schedule", "Lab Tests"]}
+                ],
+                "protocols": [],
+                "guidelines": "ADA Guidelines for Diabetes Management",
+                "evidence_level": "A",
+                "is_active": True,
+                "created_by": "system",
+                "created_at": datetime.now(),
+                "updated_at": datetime.now()
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "name": "Hypertension Protocol",
+                "template_type": "protocol",
+                "specialty": "Cardiology",
+                "condition": "Hypertension",
+                "age_group": "adult",
+                "sections": [
+                    {"name": "Initial Assessment", "fields": ["Blood Pressure", "Risk Factors", "Target Organ Damage"]},
+                    {"name": "Treatment Plan", "fields": ["Lifestyle Modifications", "Medications", "Monitoring"]}
+                ],
+                "protocols": [],
+                "guidelines": "ACC/AHA Hypertension Guidelines",
+                "evidence_level": "A",
+                "is_active": True,
+                "created_by": "system",
+                "created_at": datetime.now(),
+                "updated_at": datetime.now()
+            }
+        ]
+        
+        for template in templates:
+            await db.clinical_templates.insert_one(template)
+        
+        return {"message": f"Initialized {len(templates)} clinical templates successfully"}
+    except Exception as e:
+        logger.error(f"Error initializing templates: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error initializing templates: {str(e)}")
+
 @api_router.post("/clinical-protocols")
 async def create_clinical_protocol(protocol: ClinicalProtocol):
     try:
