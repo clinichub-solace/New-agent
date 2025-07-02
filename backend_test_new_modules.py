@@ -587,6 +587,7 @@ def test_patient_portal(token, patient_id=None):
         try:
             url = f"{API_URL}/patient-portal/{portal_id}/schedule"
             data = {
+                "appointment_type": "consultation",
                 "provider_id": "provider-123",  # This would be a real provider ID in production
                 "provider_name": "Dr. Sarah Williams",
                 "appointment_date": (datetime.now() + timedelta(days=5)).isoformat(),
