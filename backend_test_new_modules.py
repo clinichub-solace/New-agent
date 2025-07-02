@@ -353,6 +353,7 @@ def test_quality_measures(token):
     try:
         url = f"{API_URL}/quality-measures"
         data = {
+            "measure_id": str(uuid.uuid4()),
             "name": "Diabetes: HbA1c Poor Control",
             "description": "Percentage of patients 18-75 years of age with diabetes who had hemoglobin A1c > 9.0% during the measurement period",
             "measure_type": "process",
