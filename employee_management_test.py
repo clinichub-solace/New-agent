@@ -411,8 +411,8 @@ def test_work_shifts(admin_token, employee_id):
         url = f"{API_URL}/work-shifts/employee/{employee_id}"
         headers = {"Authorization": f"Bearer {admin_token}"}
         params = {
-            "start_date": today.isoformat(),
-            "end_date": (today + timedelta(days=6)).isoformat()
+            "start_date": today.strftime("%Y-%m-%d"),
+            "end_date": (today + timedelta(days=6)).strftime("%Y-%m-%d")
         }
         
         response = requests.get(url, headers=headers, params=params)
