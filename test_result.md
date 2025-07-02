@@ -620,6 +620,9 @@ test_plan:
       - working: true
         agent: "testing"
         comment: "The Insurance Verification System is now working correctly. Successfully tested all core endpoints: 1) POST /api/insurance/cards - Created an insurance card with patient and insurance details, 2) POST /api/insurance/verify-eligibility - Successfully verified eligibility with the insurance card, 3) GET /api/insurance/eligibility/patient/{patient_id} - Retrieved eligibility information for a patient. The issue with the 'valid_until' parameter being set twice has been fixed. The eligibility verification response now includes all expected fields: benefits summary, copay amounts, deductible information, coverage details, and prior authorization requirements."
+      - working: true
+        agent: "testing"
+        comment: "Performed additional comprehensive testing of the Insurance Verification System. All endpoints are functioning correctly except GET /api/insurance/cards which returns a 405 Method Not Allowed error. Successfully tested: 1) POST /api/insurance/cards - Created an insurance card with patient and insurance details, 2) GET /api/insurance/patient/{patient_id} - Retrieved insurance cards for a specific patient, 3) POST /api/insurance/verify-eligibility - Successfully verified eligibility with the insurance card (fixed the previous issue by including patient_id in the request), 4) GET /api/insurance/eligibility/patient/{patient_id} - Retrieved eligibility information for a patient, 5) POST /api/insurance/prior-auth - Created a prior authorization request, 6) GET /api/insurance/prior-auth/patient/{patient_id} - Retrieved prior authorizations for a patient. The system correctly handles all required operations for insurance verification workflows."
 
 agent_communication:
   - agent: "testing"
