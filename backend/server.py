@@ -6489,13 +6489,13 @@ async def add_referral_report(referral_id: str, report_data: Dict):
 @api_router.get("/referrals/{referral_id}")
 async def get_referral_by_id(referral_id: str):
     try:
-        referral = await db.referrals.find_one({"id": referral_id})
+        referral = await db.referrals.find_one({"id": referral_id}, {"_id": 0})
         if not referral:
             raise HTTPException(status_code=404, detail="Referral not found")
         
         # Get patient and provider names
-        patient = await db.patients.find_one({"id": referral["patient_id"]})
-        provider = await db.providers.find_one({"id": referral.get("referring_provider_id")})
+        patient = await db.patients.find_one({"id": referral["patient_id"]}, {"_id": 0})
+        provider = await db.providers.find_one({"id": referral.get("referring_provider_id")}, {"_id": 0})
         
         referral["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
         referral["referring_provider_name"] = f"{provider['first_name']} {provider['last_name']}" if provider else "Unknown"
