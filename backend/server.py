@@ -6029,7 +6029,6 @@ async def verify_eligibility(verification_data: dict, current_user: User = Depen
             "prior_auth_required": [
                 "MRI", "CT Scan", "Specialist referrals", "Durable medical equipment"
             ],
-            "valid_until": (datetime.utcnow() + timedelta(hours=24)).isoformat(),
             "raw_response": {
                 "mock_payer_response": "Eligibility verified successfully",
                 "transaction_id": str(uuid.uuid4()),
@@ -6040,6 +6039,7 @@ async def verify_eligibility(verification_data: dict, current_user: User = Depen
         # Create eligibility response record
         eligibility = EligibilityResponse(
             **mock_response,
+            checked_at=datetime.utcnow(),
             valid_until=datetime.utcnow() + timedelta(hours=24)
         )
         
