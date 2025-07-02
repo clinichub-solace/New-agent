@@ -7525,8 +7525,8 @@ const InsuranceVerificationModule = ({ setActiveModule }) => {
   );
 };
 
-// Lab Integration Module
-const LabIntegrationModule = ({ setActiveModule }) => {
+// Main App Component with Authentication
+function App() {
   const [activeTab, setActiveTab] = useState('orders');
   const [labOrders, setLabOrders] = useState([]);
   const [labResults, setLabResults] = useState([]);
