@@ -548,12 +548,10 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Patient Portal Access"
-    - "Add Patient Functionality in EHR"
-    - "eRx Functionality"
+    - "Lab Integration Frontend Module"
+    - "Insurance Verification Frontend Module"
     - "General System Health Check"
-  stuck_tasks:
-    - "Add Patient Functionality in EHR"
+  stuck_tasks: []
   test_all: false
   test_priority: "high_first"
       - working: false
