@@ -656,15 +656,18 @@ test_plan:
 
   - task: "Referrals Management System"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Recently implemented Referral model and API endpoints for managing patient referrals to specialists, tracking status, and handling reports. Includes CRUD operations for referrals: POST/GET /api/referrals, GET/PUT /api/referrals/{id}, GET /api/referrals/patient/{patient_id}. Ready for backend testing."
+      - working: false
+        agent: "testing"
+        comment: "The Referrals Management System is partially implemented but has validation issues. The POST /api/referrals endpoint exists but requires additional fields not mentioned in the documentation: referring_provider_id, referred_to_provider_name, referred_to_specialty, and reason_for_referral. The GET /api/referrals endpoint works correctly. The other endpoints were not tested due to the failure to create a referral."
 
   - task: "Clinical Templates & Protocols System"
     implemented: true
