@@ -7344,6 +7344,168 @@ async def get_document_categories():
         raise HTTPException(status_code=500, detail=f"Error fetching categories: {str(e)}")
 
 # 6. TELEHEALTH ENDPOINTS
+# Add endpoints with correct URL structure expected by testing
+@api_router.post("/telehealth")
+async def create_telehealth_session_v2(session: TelehealthSession):
+    try:
+        # Generate meeting URL and credentials (using Jitsi as default)
+        meeting_id = f"clinichub-{session.patient_id}-{int(datetime.now().timestamp())}"
+        meeting_url = f"https://meet.jit.si/{meeting_id}"
+        
+        session_dict = session.dict()
+        session_dict["meeting_id"] = meeting_id
+        session_dict["meeting_url"] = meeting_url
+        session_dict["patient_join_url"] = f"{meeting_url}#config.prejoinPageEnabled=false"
+        session_dict["provider_join_url"] = f"{meeting_url}#config.moderator=true"
+        
+        result = await db.telehealth_sessions.insert_one(session_dict)
+        if result.inserted_id:
+            return {
+                "id": session.id, 
+                "message": "Telehealth session created successfully",
+                "meeting_url": meeting_url,
+                "patient_join_url": session_dict["patient_join_url"],
+                "provider_join_url": session_dict["provider_join_url"]
+            }
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create session")
+    except Exception as e:
+        logger.error(f"Error creating telehealth session: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating session: {str(e)}")
+
+@api_router.get("/telehealth")
+async def get_telehealth_sessions_v2(patient_id: Optional[str] = None, provider_id: Optional[str] = None, status: Optional[str] = None):
+    try:
+        query = {}
+        if patient_id:
+            query["patient_id"] = patient_id
+        if provider_id:
+            query["provider_id"] = provider_id
+        if status:
+            query["status"] = status
+            
+        sessions = []
+        async for session in db.telehealth_sessions.find(query).sort("scheduled_start", -1):
+            # Get patient and provider names
+            patient = await db.patients.find_one({"id": session["patient_id"]})
+            provider = await db.providers.find_one({"id": session["provider_id"]})
+            
+            session["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
+            session["provider_name"] = f"{provider['first_name']} {provider['last_name']}" if provider else "Unknown"
+            
+            sessions.append(session)
+            
+        return sessions
+    except Exception as e:
+        logger.error(f"Error fetching telehealth sessions: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching sessions: {str(e)}")
+
+@api_router.get("/telehealth/{session_id}")
+async def get_telehealth_session_by_id(session_id: str):
+    try:
+        session = await db.telehealth_sessions.find_one({"id": session_id})
+        if not session:
+            raise HTTPException(status_code=404, detail="Telehealth session not found")
+        
+        # Get patient and provider names
+        patient = await db.patients.find_one({"id": session["patient_id"]})
+        provider = await db.providers.find_one({"id": session["provider_id"]})
+        
+        session["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
+        session["provider_name"] = f"{provider['first_name']} {provider['last_name']}" if provider else "Unknown"
+        
+        return session
+    except Exception as e:
+        logger.error(f"Error fetching telehealth session: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching session: {str(e)}")
+
+@api_router.put("/telehealth/{session_id}")
+async def update_telehealth_session(session_id: str, update_data: Dict):
+    try:
+        update_data["updated_at"] = datetime.now()
+        
+        result = await db.telehealth_sessions.update_one(
+            {"id": session_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Telehealth session not found")
+            
+        # Get updated session
+        updated_session = await db.telehealth_sessions.find_one({"id": session_id})
+        return updated_session
+    except Exception as e:
+        logger.error(f"Error updating telehealth session: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating session: {str(e)}")
+
+@api_router.post("/telehealth/{session_id}/join")
+async def join_telehealth_session(session_id: str, join_data: Dict):
+    try:
+        session = await db.telehealth_sessions.find_one({"id": session_id})
+        if not session:
+            raise HTTPException(status_code=404, detail="Telehealth session not found")
+        
+        user_type = join_data.get("user_type", "patient")  # patient or provider
+        
+        # Update session status to active if joining
+        if session["status"] == "scheduled":
+            await db.telehealth_sessions.update_one(
+                {"id": session_id},
+                {"$set": {"status": "active", "actual_start": datetime.now()}}
+            )
+        
+        # Return appropriate join URL
+        if user_type == "provider":
+            return {
+                "join_url": session.get("provider_join_url", session["meeting_url"]),
+                "meeting_id": session["meeting_id"],
+                "session_id": session_id,
+                "role": "moderator"
+            }
+        else:
+            return {
+                "join_url": session.get("patient_join_url", session["meeting_url"]),
+                "meeting_id": session["meeting_id"],
+                "session_id": session_id,
+                "role": "participant"
+            }
+    except Exception as e:
+        logger.error(f"Error joining telehealth session: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error joining session: {str(e)}")
+
+@api_router.put("/telehealth/{session_id}/status")
+async def update_telehealth_session_status(session_id: str, status_data: Dict):
+    try:
+        status = status_data.get("status")
+        if not status:
+            raise HTTPException(status_code=400, detail="Status is required")
+        
+        update_data = {
+            "status": status,
+            "updated_at": datetime.now()
+        }
+        
+        # Add timestamps based on status
+        if status == "active" and not await db.telehealth_sessions.find_one({"id": session_id, "actual_start": {"$exists": True}}):
+            update_data["actual_start"] = datetime.now()
+        elif status == "completed":
+            update_data["actual_end"] = datetime.now()
+        
+        result = await db.telehealth_sessions.update_one(
+            {"id": session_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Telehealth session not found")
+            
+        return {"message": f"Telehealth session status updated to {status}"}
+    except Exception as e:
+        logger.error(f"Error updating session status: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating session status: {str(e)}")
+
+# Original endpoints with /telehealth/sessions structure (kept for backwards compatibility)
 @api_router.post("/telehealth/sessions")
 async def create_telehealth_session(session: TelehealthSession):
     try:
