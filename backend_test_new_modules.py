@@ -764,7 +764,10 @@ def test_document_management(token, patient_id=None):
             "file_data": "base64encodeddata",  # In a real test, this would be actual base64 data
             "file_name": "surgical_consent.pdf",
             "mime_type": "application/pdf",
-            "uploaded_by": "Dr. John Smith"
+            "uploaded_by": "Dr. John Smith",
+            "category_id": "consent_forms",
+            "file_size": 512000,  # 500KB
+            "created_by": "admin"
         }
         
         response = requests.post(url, json=data, headers=headers)
