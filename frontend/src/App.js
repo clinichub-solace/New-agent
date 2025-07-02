@@ -7862,7 +7862,8 @@ const PendingPaymentsView = ({ setActiveModule }) => {
   );
 };
 
-// Daily Log View Component
+// Main App Component
+function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
 
   const renderModule = () => {
