@@ -261,8 +261,7 @@ def test_lab_integration(admin_token, patient_id, provider_id=None):
                 "icd10_codes": icd10_codes,
                 "status": "ordered",
                 "priority": "routine",
-                "notes": "Patient fasting for 12 hours",
-                "ordered_by": "Dr. Robert Wilson"
+                "notes": "Patient fasting for 12 hours"
             }
             
             response = requests.post(url, headers=headers, json=data)
