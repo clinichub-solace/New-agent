@@ -1874,7 +1874,7 @@ async def get_current_patient(credentials: HTTPAuthorizationCredentials = Depend
     except jwt.PyJWTError:
         raise credentials_exception
     
-    patient_user = await db.patient_users.find_one({"id": patient_user_id})
+    patient_user = await db.patient_users.find_one({"id": patient_user_id}, {"_id": 0})
     if patient_user is None:
         raise credentials_exception
     
@@ -2005,7 +2005,7 @@ async def get_user(
     user_id: str,
     current_user: User = Depends(require_permission("users:read"))
 ):
-    user = await db.users.find_one({"id": user_id})
+    user = await db.users.find_one({"id": user_id}, {"_id": 0})
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user.pop("password_hash", None)
@@ -2134,7 +2134,7 @@ async def get_patients():
 
 @api_router.get("/patients/{patient_id}", response_model=Patient)
 async def get_patient(patient_id: str):
-    patient = await db.patients.find_one({"id": patient_id})
+    patient = await db.patients.find_one({"id": patient_id}, {"_id": 0})
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     return Patient(**patient)
@@ -2164,7 +2164,7 @@ async def get_forms(
 
 @api_router.get("/forms/{form_id}", response_model=SmartForm)
 async def get_form(form_id: str, current_user: User = Depends(get_current_active_user)):
-    form = await db.forms.find_one({"id": form_id})
+    form = await db.forms.find_one({"id": form_id}, {"_id": 0})
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
     return SmartForm(**form)
@@ -2204,12 +2204,12 @@ async def submit_form(
     current_user: User = Depends(get_current_active_user)
 ):
     # Get form details
-    form = await db.forms.find_one({"id": form_id})
+    form = await db.forms.find_one({"id": form_id}, {"_id": 0})
     if not form:
         raise HTTPException(status_code=404, detail="Form not found")
     
     # Get patient details for smart tag processing
-    patient = await db.patients.find_one({"id": patient_id})
+    patient = await db.patients.find_one({"id": patient_id}, {"_id": 0})
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     
@@ -2253,7 +2253,7 @@ async def get_form_submissions(
     if patient_id:
         query["patient_id"] = patient_id
     
-    submissions = await db.form_submissions.find(query).sort("submitted_at", -1).to_list(1000)
+    submissions = await db.form_submissions.find(query, {"_id": 0}).sort("submitted_at", -1).to_list(1000)
     return [FormSubmission(**submission) for submission in submissions]
 
 @api_router.get("/patients/{patient_id}/form-submissions", response_model=List[FormSubmission])
@@ -2261,7 +2261,7 @@ async def get_patient_form_submissions(
     patient_id: str,
     current_user: User = Depends(get_current_active_user)
 ):
-    submissions = await db.form_submissions.find({"patient_id": patient_id}).sort("submitted_at", -1).to_list(1000)
+    submissions = await db.form_submissions.find({"patient_id": patient_id}, {"_id": 0}).sort("submitted_at", -1).to_list(1000)
     return [FormSubmission(**submission) for submission in submissions]
 
 @api_router.get("/form-submissions/{submission_id}", response_model=FormSubmission)
@@ -2269,7 +2269,7 @@ async def get_form_submission(
     submission_id: str,
     current_user: User = Depends(get_current_active_user)
 ):
-    submission = await db.form_submissions.find_one({"id": submission_id})
+    submission = await db.form_submissions.find_one({"id": submission_id}, {"_id": 0})
     if not submission:
         raise HTTPException(status_code=404, detail="Form submission not found")
     return FormSubmission(**submission)
@@ -2325,7 +2325,7 @@ async def create_form_from_template(
     current_user: User = Depends(get_current_active_user)
 ):
     """Create a new form from a template"""
-    template = await db.forms.find_one({"id": template_id, "is_template": True})
+    template = await db.forms.find_one({"id": template_id, "is_template": True}, {"_id": 0})
     if not template:
         raise HTTPException(status_code=404, detail="Template not found")
     
@@ -2354,7 +2354,7 @@ async def process_smart_tags(data: Dict[str, Any], patient: Dict[str, Any], enco
     # Get encounter if provided
     encounter = None
     if encounter_id:
-        encounter = await db.encounters.find_one({"id": encounter_id})
+        encounter = await db.encounters.find_one({"id": encounter_id}, {"_id": 0})
     
     # Smart tag mappings
     smart_tag_values = {
@@ -2935,7 +2935,7 @@ async def get_invoices():
 
 @api_router.get("/invoices/{invoice_id}", response_model=Invoice)
 async def get_invoice(invoice_id: str):
-    invoice = await db.invoices.find_one({"id": invoice_id})
+    invoice = await db.invoices.find_one({"id": invoice_id}, {"_id": 0})
     if not invoice:
         raise HTTPException(status_code=404, detail="Invoice not found")
     return Invoice(**invoice)
@@ -2956,7 +2956,7 @@ async def get_inventory():
 async def create_inventory_transaction(item_id: str, transaction: InventoryTransaction):
     try:
         # Update inventory stock
-        item = await db.inventory.find_one({"id": item_id})
+        item = await db.inventory.find_one({"id": item_id}, {"_id": 0})
         if not item:
             raise HTTPException(status_code=404, detail="Inventory item not found")
         
@@ -3012,7 +3012,7 @@ async def get_enhanced_employees():
 
 @api_router.get("/enhanced-employees/{employee_id}", response_model=EnhancedEmployee)
 async def get_enhanced_employee(employee_id: str):
-    employee = await db.enhanced_employees.find_one({"id": employee_id})
+    employee = await db.enhanced_employees.find_one({"id": employee_id}, {"_id": 0})
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
     return EnhancedEmployee(**employee)
@@ -3048,7 +3048,7 @@ async def create_employee_document(document_data: EmployeeDocumentCreate):
 
 @api_router.get("/employee-documents/employee/{employee_id}", response_model=List[EmployeeDocument])
 async def get_employee_documents(employee_id: str):
-    documents = await db.employee_documents.find({"employee_id": employee_id}).sort("created_at", -1).to_list(1000)
+    documents = await db.employee_documents.find({"employee_id": employee_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [EmployeeDocument(**doc) for doc in documents]
 
 @api_router.put("/employee-documents/{document_id}/sign")
@@ -3120,7 +3120,7 @@ async def get_employee_time_entries(employee_id: str, start_date: Optional[date]
                 "$lte": datetime.combine(end_date, datetime.max.time())
             }
         
-        entries = await db.time_entries.find(query).sort("timestamp", -1).to_list(1000)
+        entries = await db.time_entries.find(query, {"_id": 0}).sort("timestamp", -1).to_list(1000)
         return [TimeEntry(**entry) for entry in entries]
     except Exception as e:
         logger.error(f"Error getting time entries: {str(e)}")
@@ -3182,7 +3182,7 @@ async def get_employee_shifts(employee_id: str, start_date: Optional[date] = Non
         if start_date and end_date:
             query["shift_date"] = {"$gte": start_date, "$lte": end_date}
         
-        shifts = await db.work_shifts.find(query).sort("shift_date", 1).to_list(1000)
+        shifts = await db.work_shifts.find(query, {"_id": 0}).sort("shift_date", 1).to_list(1000)
         return [WorkShift(**shift) for shift in shifts]
     except Exception as e:
         logger.error(f"Error getting employee shifts: {str(e)}")
@@ -3191,7 +3191,7 @@ async def get_employee_shifts(employee_id: str, start_date: Optional[date] = Non
 @api_router.get("/work-shifts/date/{shift_date}", response_model=List[WorkShift])
 async def get_shifts_by_date(shift_date: date):
     try:
-        shifts = await db.work_shifts.find({"shift_date": shift_date}).sort("start_time", 1).to_list(1000)
+        shifts = await db.work_shifts.find({"shift_date": shift_date}, {"_id": 0}).sort("start_time", 1).to_list(1000)
         return [WorkShift(**shift) for shift in shifts]
     except Exception as e:
         logger.error(f"Error getting shifts by date: {str(e)}")
@@ -3284,12 +3284,12 @@ async def create_vendor(vendor_data: VendorCreate):
 
 @api_router.get("/vendors", response_model=List[Vendor])
 async def get_vendors():
-    vendors = await db.vendors.find({"status": {"$ne": "inactive"}}).sort("company_name", 1).to_list(1000)
+    vendors = await db.vendors.find({"status": {"$ne": "inactive"}}, {"_id": 0}).sort("company_name", 1).to_list(1000)
     return [Vendor(**vendor) for vendor in vendors]
 
 @api_router.get("/vendors/{vendor_id}", response_model=Vendor)
 async def get_vendor(vendor_id: str):
-    vendor = await db.vendors.find_one({"id": vendor_id})
+    vendor = await db.vendors.find_one({"id": vendor_id}, {"_id": 0})
     if not vendor:
         raise HTTPException(status_code=404, detail="Vendor not found")
     return Vendor(**vendor)
@@ -3391,7 +3391,7 @@ async def update_check_status(check_id: str, status: CheckStatus):
 @api_router.get("/checks/{check_id}/print-data")
 async def get_check_print_data(check_id: str):
     try:
-        check = await db.checks.find_one({"id": check_id})
+        check = await db.checks.find_one({"id": check_id}, {"_id": 0})
         if not check:
             raise HTTPException(status_code=404, detail="Check not found")
         
@@ -3400,7 +3400,7 @@ async def get_check_print_data(check_id: str):
         # Get payee details if vendor
         payee_details = None
         if check_obj.payee_type == "vendor" and check_obj.payee_id:
-            vendor = await db.vendors.find_one({"id": check_obj.payee_id})
+            vendor = await db.vendors.find_one({"id": check_obj.payee_id}, {"_id": 0})
             if vendor:
                 payee_details = Vendor(**vendor)
         
@@ -3464,7 +3464,7 @@ async def get_financial_transactions(
         if transaction_type:
             query["transaction_type"] = transaction_type
         
-        transactions = await db.financial_transactions.find(query).sort("transaction_date", -1).to_list(1000)
+        transactions = await db.financial_transactions.find(query, {"_id": 0}).sort("transaction_date", -1).to_list(1000)
         return [FinancialTransaction(**trans) for trans in transactions]
     except Exception as e:
         logger.error(f"Error getting transactions: {str(e)}")
@@ -3496,15 +3496,15 @@ async def get_vendor_invoices():
 
 @api_router.get("/vendor-invoices/unpaid", response_model=List[VendorInvoice])
 async def get_unpaid_vendor_invoices():
-    invoices = await db.vendor_invoices.find({"payment_status": "unpaid"}).sort("due_date", 1).to_list(1000)
+    invoices = await db.vendor_invoices.find({"payment_status": "unpaid"}, {"_id": 0}).sort("due_date", 1).to_list(1000)
     return [VendorInvoice(**inv) for inv in invoices]
 
 @api_router.put("/vendor-invoices/{invoice_id}/pay")
 async def pay_vendor_invoice(invoice_id: str, check_id: str):
     try:
         # Get invoice and check
-        invoice = await db.vendor_invoices.find_one({"id": invoice_id})
-        check = await db.checks.find_one({"id": check_id})
+        invoice = await db.vendor_invoices.find_one({"id": invoice_id}, {"_id": 0})
+        check = await db.checks.find_one({"id": check_id}, {"_id": 0})
         
         if not invoice or not check:
             raise HTTPException(status_code=404, detail="Invoice or check not found")
@@ -3737,7 +3737,7 @@ async def get_erx_patients(current_user: User = Depends(get_current_active_user)
         # Get patient details for each encounter
         erx_patients = []
         for encounter in todays_encounters:
-            patient = await db.patients.find_one({"id": encounter["patient_id"]})
+            patient = await db.patients.find_one({"id": encounter["patient_id"]}, {"_id": 0})
             if patient:
                 # Get active prescriptions count
                 active_prescriptions = await db.prescriptions.count_documents({
@@ -3788,7 +3788,7 @@ async def get_daily_log(current_user: User = Depends(get_current_active_user)):
         total_paid = 0
         
         for encounter in completed_encounters:
-            patient = await db.patients.find_one({"id": encounter["patient_id"]})
+            patient = await db.patients.find_one({"id": encounter["patient_id"]}, {"_id": 0})
             if patient:
                 # Get related invoices
                 invoices = await db.invoices.find({"encounter_id": encounter["id"]}).to_list(100)
@@ -3874,7 +3874,7 @@ async def get_patient_queue(current_user: User = Depends(get_current_active_user
         queue_data = []
         
         for encounter in active_encounters:
-            patient = await db.patients.find_one({"id": encounter["patient_id"]})
+            patient = await db.patients.find_one({"id": encounter["patient_id"]}, {"_id": 0})
             if patient:
                 # Determine location based on encounter status and time
                 location = "lobby"  # default
@@ -3952,7 +3952,7 @@ async def get_pending_payments(current_user: User = Depends(get_current_active_u
         
         # Process regular invoices
         for invoice in unpaid_invoices:
-            patient = await db.patients.find_one({"id": invoice["patient_id"]})
+            patient = await db.patients.find_one({"id": invoice["patient_id"]}, {"_id": 0})
             if patient:
                 outstanding_amount = invoice.get("total_amount", 0)
                 total_outstanding += outstanding_amount
@@ -3960,7 +3960,7 @@ async def get_pending_payments(current_user: User = Depends(get_current_active_u
                 # Get encounter details if available
                 encounter = None
                 if "encounter_id" in invoice:
-                    encounter = await db.encounters.find_one({"id": invoice["encounter_id"]})
+                    encounter = await db.encounters.find_one({"id": invoice["encounter_id"]}, {"_id": 0})
                 
                 # Handle due date calculation safely
                 due_date = invoice.get("due_date")
@@ -3993,7 +3993,7 @@ async def get_pending_payments(current_user: User = Depends(get_current_active_u
         
         # Process enhanced invoices
         for invoice in unpaid_enhanced_invoices:
-            patient = await db.patients.find_one({"id": invoice["patient_id"]})
+            patient = await db.patients.find_one({"id": invoice["patient_id"]}, {"_id": 0})
             if patient:
                 outstanding_amount = invoice.get("total_amount", 0) - invoice.get("amount_paid", 0)
                 total_outstanding += outstanding_amount
@@ -4001,7 +4001,7 @@ async def get_pending_payments(current_user: User = Depends(get_current_active_u
                 # Get encounter details if available
                 encounter = None
                 if "encounter_id" in invoice:
-                    encounter = await db.encounters.find_one({"id": invoice["encounter_id"]})
+                    encounter = await db.encounters.find_one({"id": invoice["encounter_id"]}, {"_id": 0})
                 
                 # Handle due date calculation safely
                 due_date = invoice.get("due_date")
@@ -4153,7 +4153,7 @@ async def get_encounters():
 
 @api_router.get("/encounters/patient/{patient_id}", response_model=List[Encounter])
 async def get_patient_encounters(patient_id: str):
-    encounters = await db.encounters.find({"patient_id": patient_id}).sort("scheduled_date", -1).to_list(1000)
+    encounters = await db.encounters.find({"patient_id": patient_id}, {"_id": 0}).sort("scheduled_date", -1).to_list(1000)
     return [Encounter(**encounter) for encounter in encounters]
 
 @api_router.put("/encounters/{encounter_id}/status")
@@ -4186,7 +4186,7 @@ async def get_encounter_soap_notes(encounter_id: str):
 
 @api_router.get("/soap-notes/patient/{patient_id}", response_model=List[SOAPNote])
 async def get_patient_soap_notes(patient_id: str):
-    notes = await db.soap_notes.find({"patient_id": patient_id}).sort("created_at", -1).to_list(1000)
+    notes = await db.soap_notes.find({"patient_id": patient_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [SOAPNote(**note) for note in notes]
 
 # Vital Signs
@@ -4209,7 +4209,7 @@ async def get_all_vital_signs(current_user: User = Depends(get_current_active_us
 
 @api_router.get("/vital-signs/patient/{patient_id}", response_model=List[VitalSigns])
 async def get_patient_vital_signs(patient_id: str):
-    vitals = await db.vital_signs.find({"patient_id": patient_id}).sort("recorded_at", -1).to_list(1000)
+    vitals = await db.vital_signs.find({"patient_id": patient_id}, {"_id": 0}).sort("recorded_at", -1).to_list(1000)
     return [VitalSigns(**vital) for vital in vitals]
 
 # Allergies
@@ -4274,7 +4274,7 @@ async def get_encounter_diagnoses(encounter_id: str):
 
 @api_router.get("/diagnoses/patient/{patient_id}", response_model=List[Diagnosis])
 async def get_patient_diagnoses(patient_id: str):
-    diagnoses = await db.diagnoses.find({"patient_id": patient_id}).sort("created_at", -1).to_list(1000)
+    diagnoses = await db.diagnoses.find({"patient_id": patient_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [Diagnosis(**diagnosis) for diagnosis in diagnoses]
 
 # Procedures
@@ -4292,25 +4292,25 @@ async def get_encounter_procedures(encounter_id: str):
 
 @api_router.get("/procedures/patient/{patient_id}", response_model=List[Procedure])
 async def get_patient_procedures(patient_id: str):
-    procedures = await db.procedures.find({"patient_id": patient_id}).sort("created_at", -1).to_list(1000)
+    procedures = await db.procedures.find({"patient_id": patient_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [Procedure(**procedure) for procedure in procedures]
 
 # Comprehensive Patient Summary
 @api_router.get("/patients/{patient_id}/summary")
 async def get_patient_summary(patient_id: str):
     # Get patient basic info
-    patient = await db.patients.find_one({"id": patient_id})
+    patient = await db.patients.find_one({"id": patient_id}, {"_id": 0})
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     
     # Get all related medical data
-    encounters = await db.encounters.find({"patient_id": patient_id}).sort("scheduled_date", -1).limit(10).to_list(10)
+    encounters = await db.encounters.find({"patient_id": patient_id}, {"_id": 0}).sort("scheduled_date", -1).limit(10).to_list(10)
     allergies = await db.allergies.find({"patient_id": patient_id}).to_list(100)
     medications = await db.medications.find({"patient_id": patient_id, "status": "active"}).to_list(100)
     medical_history = await db.medical_history.find({"patient_id": patient_id}).to_list(100)
-    recent_vitals = await db.vital_signs.find({"patient_id": patient_id}).sort("recorded_at", -1).limit(1).to_list(1)
-    recent_soap_notes = await db.soap_notes.find({"patient_id": patient_id}).sort("created_at", -1).limit(5).to_list(5)
-    documents = await db.patient_documents.find({"patient_id": patient_id}).sort("upload_date", -1).to_list(100)
+    recent_vitals = await db.vital_signs.find({"patient_id": patient_id}, {"_id": 0}).sort("recorded_at", -1).limit(1).to_list(1)
+    recent_soap_notes = await db.soap_notes.find({"patient_id": patient_id}, {"_id": 0}).sort("created_at", -1).limit(5).to_list(5)
+    documents = await db.patient_documents.find({"patient_id": patient_id}, {"_id": 0}).sort("upload_date", -1).to_list(100)
     
     return {
         "patient": Patient(**patient),
@@ -4328,7 +4328,7 @@ async def get_patient_summary(patient_id: str):
 async def upload_patient_document(patient_id: str, document: PatientDocumentCreate):
     try:
         # Verify patient exists
-        patient = await db.patients.find_one({"id": patient_id})
+        patient = await db.patients.find_one({"id": patient_id}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
@@ -4345,7 +4345,7 @@ async def upload_patient_document(patient_id: str, document: PatientDocumentCrea
 
 @api_router.get("/patients/{patient_id}/documents", response_model=List[PatientDocument])
 async def get_patient_documents(patient_id: str):
-    documents = await db.patient_documents.find({"patient_id": patient_id}).sort("upload_date", -1).to_list(1000)
+    documents = await db.patient_documents.find({"patient_id": patient_id}, {"_id": 0}).sort("upload_date", -1).to_list(1000)
     return [PatientDocument(**doc) for doc in documents]
 
 @api_router.delete("/documents/{document_id}")
@@ -4422,7 +4422,7 @@ async def create_enhanced_invoice(invoice_data: EnhancedInvoiceCreate):
 async def update_enhanced_invoice_status(invoice_id: str, status: InvoiceStatus):
     try:
         # Get the invoice
-        invoice = await db.enhanced_invoices.find_one({"id": invoice_id})
+        invoice = await db.enhanced_invoices.find_one({"id": invoice_id}, {"_id": 0})
         if not invoice:
             raise HTTPException(status_code=404, detail="Invoice not found")
         
@@ -4452,7 +4452,7 @@ async def get_enhanced_invoices():
 
 @api_router.get("/enhanced-invoices/patient/{patient_id}", response_model=List[EnhancedInvoice])
 async def get_patient_enhanced_invoices(patient_id: str):
-    invoices = await db.enhanced_invoices.find({"patient_id": patient_id}).sort("created_at", -1).to_list(1000)
+    invoices = await db.enhanced_invoices.find({"patient_id": patient_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [EnhancedInvoice(**invoice) for invoice in invoices]
 
 # Helper Functions for Enhanced Features
@@ -4492,7 +4492,7 @@ async def process_inventory_deductions(invoice_items: List[dict]):
         for item in invoice_items:
             if item.get("inventory_item_id") and item.get("service_type") in ["product", "injectable"]:
                 # Find inventory item
-                inventory_item = await db.inventory.find_one({"id": item["inventory_item_id"]})
+                inventory_item = await db.inventory.find_one({"id": item["inventory_item_id"]}, {"_id": 0})
                 if inventory_item:
                     # Create inventory transaction (deduction)
                     transaction = InventoryTransaction(
@@ -4561,7 +4561,7 @@ async def get_medication(
 ):
     """Get specific medication details"""
     try:
-        medication = await db.fhir_medications.find_one({"id": medication_id})
+        medication = await db.fhir_medications.find_one({"id": medication_id}, {"_id": 0})
         if not medication:
             raise HTTPException(status_code=404, detail="Medication not found")
         return medication
@@ -4572,7 +4572,7 @@ async def get_medication(
 async def create_prescription(prescription_data: dict, current_user: User = Depends(get_current_active_user)):
     try:
         # Validate patient exists
-        patient = await db.patients.find_one({"id": prescription_data["patient_id"]})
+        patient = await db.patients.find_one({"id": prescription_data["patient_id"]}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
@@ -4613,7 +4613,7 @@ async def get_patient_prescriptions(
         if status:
             query["status"] = status
         
-        prescriptions = await db.prescriptions.find(query).sort("created_at", -1).to_list(100)
+        prescriptions = await db.prescriptions.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
         
         # Log access for HIPAA compliance
         await create_prescription_audit_log(
@@ -4637,7 +4637,7 @@ async def update_prescription_status(
 ):
     """Update prescription status"""
     try:
-        prescription = await db.prescriptions.find_one({"id": prescription_id})
+        prescription = await db.prescriptions.find_one({"id": prescription_id}, {"_id": 0})
         if not prescription:
             raise HTTPException(status_code=404, detail="Prescription not found")
         
@@ -4684,7 +4684,7 @@ async def check_prescription_interactions(
 ):
     """Check for drug interactions for a specific prescription"""
     try:
-        prescription = await db.prescriptions.find_one({"id": prescription_id})
+        prescription = await db.prescriptions.find_one({"id": prescription_id}, {"_id": 0})
         if not prescription:
             raise HTTPException(status_code=404, detail="Prescription not found")
         
@@ -4727,7 +4727,7 @@ async def check_drug_allergies(patient_id: str, medication_id: str) -> List[Dict
         allergies = await db.allergies.find({"patient_id": patient_id}).to_list(100)
         
         # Get medication details
-        medication = await db.fhir_medications.find_one({"id": medication_id})
+        medication = await db.fhir_medications.find_one({"id": medication_id}, {"_id": 0})
         
         alerts = []
         for allergy in allergies:
@@ -5053,12 +5053,12 @@ async def create_provider(provider_data: dict):
 
 @api_router.get("/providers", response_model=List[Provider])
 async def get_providers():
-    providers = await db.providers.find({"status": {"$ne": "inactive"}}).sort("name", 1).to_list(1000)
+    providers = await db.providers.find({"status": {"$ne": "inactive"}}, {"_id": 0}).sort("name", 1).to_list(1000)
     return [Provider(**provider) for provider in providers]
 
 @api_router.get("/providers/{provider_id}", response_model=Provider)
 async def get_provider(provider_id: str):
-    provider = await db.providers.find_one({"id": provider_id})
+    provider = await db.providers.find_one({"id": provider_id}, {"_id": 0})
     if not provider:
         raise HTTPException(status_code=404, detail="Provider not found")
     return Provider(**provider)
@@ -5082,7 +5082,7 @@ async def update_provider(provider_id: str, provider_data: dict):
 async def create_provider_schedule(provider_id: str, schedule_data: dict):
     try:
         # Verify provider exists
-        provider = await db.providers.find_one({"id": provider_id})
+        provider = await db.providers.find_one({"id": provider_id}, {"_id": 0})
         if not provider:
             raise HTTPException(status_code=404, detail="Provider not found")
         
@@ -5107,7 +5107,7 @@ async def get_provider_schedule(provider_id: str, date: str = None):
         if date:
             query["date"] = date
         
-        schedules = await db.provider_schedules.find(query).sort("date", 1).to_list(1000)
+        schedules = await db.provider_schedules.find(query, {"_id": 0}).sort("date", 1).to_list(1000)
         return [ProviderSchedule(**schedule) for schedule in schedules]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching schedule: {str(e)}")
@@ -5117,12 +5117,12 @@ async def get_provider_schedule(provider_id: str, date: str = None):
 async def create_appointment(appointment_data: dict):
     try:
         # Verify patient exists
-        patient = await db.patients.find_one({"id": appointment_data["patient_id"]})
+        patient = await db.patients.find_one({"id": appointment_data["patient_id"]}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
         # Verify provider exists
-        provider = await db.providers.find_one({"id": appointment_data["provider_id"]})
+        provider = await db.providers.find_one({"id": appointment_data["provider_id"]}, {"_id": 0})
         if not provider:
             raise HTTPException(status_code=404, detail="Provider not found")
         
@@ -5157,7 +5157,7 @@ async def get_appointments(
         if status:
             query["status"] = status
         
-        appointments = await db.appointments.find(query).sort("appointment_date", 1).to_list(1000)
+        appointments = await db.appointments.find(query, {"_id": 0}).sort("appointment_date", 1).to_list(1000)
         return [Appointment(**appointment) for appointment in appointments]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching appointments: {str(e)}")
@@ -5210,7 +5210,7 @@ async def get_calendar_view(date: str, view: str = "week"):
 
 @api_router.get("/appointments/{appointment_id}", response_model=Appointment)
 async def get_appointment(appointment_id: str):
-    appointment = await db.appointments.find_one({"id": appointment_id})
+    appointment = await db.appointments.find_one({"id": appointment_id}, {"_id": 0})
     if not appointment:
         raise HTTPException(status_code=404, detail="Appointment not found")
     return Appointment(**appointment)
@@ -5318,7 +5318,7 @@ async def get_message_templates(template_type: str = None):
         if template_type:
             query["message_type"] = template_type
         
-        templates = await db.communication_templates.find(query).sort("name", 1).to_list(1000)
+        templates = await db.communication_templates.find(query, {"_id": 0}).sort("name", 1).to_list(1000)
         return templates
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching templates: {str(e)}")
@@ -5339,13 +5339,13 @@ async def create_message_template(template_data: dict):
 async def send_message(message_data: dict):
     try:
         # Verify patient exists
-        patient = await db.patients.find_one({"id": message_data["patient_id"]})
+        patient = await db.patients.find_one({"id": message_data["patient_id"]}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
         # Process template variables if template_id provided
         if "template_id" in message_data:
-            template = await db.communication_templates.find_one({"id": message_data["template_id"]})
+            template = await db.communication_templates.find_one({"id": message_data["template_id"]}, {"_id": 0})
             if template:
                 content = template["content_template"]
                 subject = template.get("subject_template", "")
@@ -5410,7 +5410,7 @@ async def get_messages(
         if status:
             query["status"] = status
         
-        messages = await db.patient_messages.find(query).sort("sent_at", -1).limit(limit).to_list(limit)
+        messages = await db.patient_messages.find(query, {"_id": 0}).sort("sent_at", -1).limit(limit).to_list(limit)
         return [PatientMessage(**msg) for msg in messages]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching messages: {str(e)}")
@@ -5419,11 +5419,11 @@ async def get_messages(
 async def get_patient_messages(patient_id: str):
     try:
         # Verify patient exists
-        patient = await db.patients.find_one({"id": patient_id})
+        patient = await db.patients.find_one({"id": patient_id}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
-        messages = await db.patient_messages.find({"patient_id": patient_id}).sort("sent_at", -1).to_list(1000)
+        messages = await db.patient_messages.find({"patient_id": patient_id}, {"_id": 0}).sort("sent_at", -1).to_list(1000)
         return [PatientMessage(**msg) for msg in messages]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching patient messages: {str(e)}")
@@ -5779,7 +5779,7 @@ async def initialize_lab_tests(current_user: User = Depends(get_current_active_u
 async def get_lab_tests(current_user: User = Depends(get_current_active_user)):
     """Get all available lab tests"""
     try:
-        tests = await db.lab_tests.find({"is_active": True}).sort("name", 1).to_list(1000)
+        tests = await db.lab_tests.find({"is_active": True}, {"_id": 0}).sort("name", 1).to_list(1000)
         # Remove MongoDB ObjectId
         for test in tests:
             if "_id" in test:
@@ -5794,7 +5794,7 @@ async def create_lab_order(order_data: dict, current_user: User = Depends(get_cu
     """Create a new lab order"""
     try:
         # Verify patient exists
-        patient = await db.patients.find_one({"id": order_data["patient_id"]})
+        patient = await db.patients.find_one({"id": order_data["patient_id"]}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
@@ -5832,7 +5832,7 @@ async def get_lab_orders(
         if status:
             query["status"] = status
         
-        orders = await db.lab_orders.find(query).sort("ordered_at", -1).to_list(100)
+        orders = await db.lab_orders.find(query, {"_id": 0}).sort("ordered_at", -1).to_list(100)
         return [LabOrder(**order) for order in orders]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving lab orders: {str(e)}")
@@ -5841,7 +5841,7 @@ async def get_lab_orders(
 async def get_lab_order(order_id: str, current_user: User = Depends(get_current_active_user)):
     """Get specific lab order details"""
     try:
-        order = await db.lab_orders.find_one({"id": order_id})
+        order = await db.lab_orders.find_one({"id": order_id}, {"_id": 0})
         if not order:
             raise HTTPException(status_code=404, detail="Lab order not found")
         return LabOrder(**order)
@@ -5854,7 +5854,7 @@ async def create_lab_result(result_data: dict, current_user: User = Depends(get_
     """Create/receive lab results"""
     try:
         # Verify lab order exists
-        order = await db.lab_orders.find_one({"id": result_data["lab_order_id"]})
+        order = await db.lab_orders.find_one({"id": result_data["lab_order_id"]}, {"_id": 0})
         if not order:
             raise HTTPException(status_code=404, detail="Lab order not found")
         
@@ -5910,7 +5910,7 @@ async def get_patient_lab_results(
         if test_code:
             query["test_code"] = test_code
         
-        results = await db.lab_results.find(query).sort("result_date", -1).to_list(100)
+        results = await db.lab_results.find(query, {"_id": 0}).sort("result_date", -1).to_list(100)
         return [LabResult(**result) for result in results]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving lab results: {str(e)}")
@@ -5954,7 +5954,7 @@ async def send_critical_value_alert(lab_result: LabResult):
     """Send alert for critical lab values"""
     try:
         # Get patient info
-        patient = await db.patients.find_one({"id": lab_result.patient_id})
+        patient = await db.patients.find_one({"id": lab_result.patient_id}, {"_id": 0})
         patient_name = "Unknown"
         if patient and patient.get("name"):
             name_obj = patient["name"][0] if isinstance(patient["name"], list) else patient["name"]
@@ -5994,7 +5994,7 @@ async def create_insurance_card(card_data: dict, current_user: User = Depends(ge
     """Add insurance card information for a patient"""
     try:
         # Verify patient exists
-        patient = await db.patients.find_one({"id": card_data["patient_id"]})
+        patient = await db.patients.find_one({"id": card_data["patient_id"]}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
@@ -6029,7 +6029,7 @@ async def verify_eligibility(verification_data: dict, current_user: User = Depen
         insurance_card_id = verification_data["insurance_card_id"]
         
         # Get insurance card
-        card = await db.insurance_cards.find_one({"id": insurance_card_id})
+        card = await db.insurance_cards.find_one({"id": insurance_card_id}, {"_id": 0})
         if not card:
             raise HTTPException(status_code=404, detail="Insurance card not found")
         
@@ -6681,7 +6681,7 @@ async def get_clinical_protocols(condition: Optional[str] = None):
             query["condition"] = {"$regex": condition, "$options": "i"}
             
         protocols = []
-        async for protocol in db.clinical_protocols.find(query).sort("name", 1):
+        async for protocol in db.clinical_protocols.find(query, {"_id": 0}).sort("name", 1):
             protocols.append(protocol)
             
         return protocols
@@ -6841,8 +6841,8 @@ async def get_quality_dashboard():
         # Get recent quality assessments
         recent_assessments = []
         async for assessment in db.patient_quality_measures.find().sort("last_evaluated", -1).limit(10):
-            patient = await db.patients.find_one({"id": assessment["patient_id"]})
-            measure = await db.quality_measures.find_one({"id": assessment["measure_id"]})
+            patient = await db.patients.find_one({"id": assessment["patient_id"]}, {"_id": 0})
+            measure = await db.quality_measures.find_one({"id": assessment["measure_id"]}, {"_id": 0})
             
             assessment["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
             assessment["measure_name"] = measure["name"] if measure else "Unknown"
@@ -6863,12 +6863,12 @@ async def get_quality_dashboard():
 async def register_portal_user(user_data: Dict):
     try:
         # Verify patient exists
-        patient = await db.patients.find_one({"id": user_data["patient_id"]})
+        patient = await db.patients.find_one({"id": user_data["patient_id"]}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
         # Check if portal user already exists
-        existing_user = await db.portal_users.find_one({"patient_id": user_data["patient_id"]})
+        existing_user = await db.portal_users.find_one({"patient_id": user_data["patient_id"]}, {"_id": 0})
         if existing_user:
             raise HTTPException(status_code=400, detail="Portal account already exists")
         
@@ -6929,13 +6929,13 @@ async def portal_login(login_data: Dict):
 async def get_patient_portal_summary(patient_id: str):
     try:
         # Get patient basic info
-        patient = await db.patients.find_one({"id": patient_id})
+        patient = await db.patients.find_one({"id": patient_id}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
         # Get recent encounters
         recent_encounters = []
-        async for encounter in db.encounters.find({"patient_id": patient_id}).sort("date", -1).limit(5):
+        async for encounter in db.encounters.find({"patient_id": patient_id}, {"_id": 0}).sort("date", -1).limit(5):
             recent_encounters.append({
                 "id": encounter["id"],
                 "date": encounter["date"],
@@ -6954,7 +6954,7 @@ async def get_patient_portal_summary(patient_id: str):
         
         # Get recent lab results
         recent_labs = []
-        async for lab_order in db.lab_orders.find({"patient_id": patient_id}).sort("created_at", -1).limit(5):
+        async for lab_order in db.lab_orders.find({"patient_id": patient_id}, {"_id": 0}).sort("created_at", -1).limit(5):
             recent_labs.append({
                 "id": lab_order["id"],
                 "order_date": lab_order["created_at"],
@@ -6996,7 +6996,7 @@ async def send_patient_message(message: PatientMessage):
 async def get_patient_messages(patient_id: str):
     try:
         messages = []
-        async for message in db.patient_messages.find({"patient_id": patient_id}).sort("created_at", -1):
+        async for message in db.patient_messages.find({"patient_id": patient_id}, {"_id": 0}).sort("created_at", -1):
             messages.append(message)
         return messages
     except Exception as e:
@@ -7008,7 +7008,7 @@ async def get_patient_messages(patient_id: str):
 async def create_patient_portal_access(portal_data: Dict):
     try:
         # Verify patient exists
-        patient = await db.patients.find_one({"id": portal_data["patient_id"]})
+        patient = await db.patients.find_one({"id": portal_data["patient_id"]}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
@@ -7036,9 +7036,9 @@ async def create_patient_portal_access(portal_data: Dict):
 async def get_patient_portal_access():
     try:
         portal_access_list = []
-        async for access in db.patient_portal_access.find({"is_active": True}).sort("created_at", -1):
+        async for access in db.patient_portal_access.find({"is_active": True}, {"_id": 0}).sort("created_at", -1):
             # Get patient name
-            patient = await db.patients.find_one({"id": access["patient_id"]})
+            patient = await db.patients.find_one({"id": access["patient_id"]}, {"_id": 0})
             if patient:
                 access["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}"
             else:
@@ -7055,12 +7055,12 @@ async def get_patient_portal_access():
 async def get_patient_portal_for_patient(patient_id: str):
     try:
         # Get patient portal access
-        portal_access = await db.patient_portal_access.find_one({"patient_id": patient_id, "is_active": True})
+        portal_access = await db.patient_portal_access.find_one({"patient_id": patient_id, "is_active": True}, {"_id": 0})
         if not portal_access:
             raise HTTPException(status_code=404, detail="Patient portal access not found")
         
         # Get patient basic info
-        patient = await db.patients.find_one({"id": patient_id})
+        patient = await db.patients.find_one({"id": patient_id}, {"_id": 0})
         if patient:
             portal_access["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}"
         
@@ -7073,7 +7073,7 @@ async def get_patient_portal_for_patient(patient_id: str):
 async def schedule_via_patient_portal(portal_id: str, appointment_data: Dict):
     try:
         # Verify portal access exists
-        portal_access = await db.patient_portal_access.find_one({"id": portal_id})
+        portal_access = await db.patient_portal_access.find_one({"id": portal_id}, {"_id": 0})
         if not portal_access:
             raise HTTPException(status_code=404, detail="Portal access not found")
         
@@ -7104,7 +7104,7 @@ async def schedule_via_patient_portal(portal_id: str, appointment_data: Dict):
 async def get_patient_records_via_portal(portal_id: str):
     try:
         # Verify portal access exists
-        portal_access = await db.patient_portal_access.find_one({"id": portal_id})
+        portal_access = await db.patient_portal_access.find_one({"id": portal_id}, {"_id": 0})
         if not portal_access:
             raise HTTPException(status_code=404, detail="Portal access not found")
         
@@ -7114,13 +7114,13 @@ async def get_patient_records_via_portal(portal_id: str):
         patient_id = portal_access["patient_id"]
         
         # Get patient summary data
-        patient = await db.patients.find_one({"id": patient_id})
+        patient = await db.patients.find_one({"id": patient_id}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
         # Get recent encounters
         encounters = []
-        async for encounter in db.encounters.find({"patient_id": patient_id}).sort("encounter_date", -1).limit(10):
+        async for encounter in db.encounters.find({"patient_id": patient_id}, {"_id": 0}).sort("encounter_date", -1).limit(10):
             encounters.append(encounter)
         
         # Get medications
@@ -7180,14 +7180,14 @@ async def get_documents(patient_id: Optional[str] = None, category_id: Optional[
             query["status"] = status
             
         documents = []
-        async for document in db.clinical_documents.find(query).sort("created_at", -1):
+        async for document in db.clinical_documents.find(query, {"_id": 0}).sort("created_at", -1):
             # Get category name
-            category = await db.document_categories.find_one({"id": document.get("category_id")})
+            category = await db.document_categories.find_one({"id": document.get("category_id")}, {"_id": 0})
             document["category_name"] = category["name"] if category else "Uncategorized"
             
             # Get patient name if applicable
             if document.get("patient_id"):
-                patient = await db.patients.find_one({"id": document["patient_id"]})
+                patient = await db.patients.find_one({"id": document["patient_id"]}, {"_id": 0})
                 document["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
             
             documents.append(document)
@@ -7200,17 +7200,17 @@ async def get_documents(patient_id: Optional[str] = None, category_id: Optional[
 @api_router.get("/documents/{document_id}")
 async def get_document_by_id(document_id: str):
     try:
-        document = await db.clinical_documents.find_one({"id": document_id})
+        document = await db.clinical_documents.find_one({"id": document_id}, {"_id": 0})
         if not document:
             raise HTTPException(status_code=404, detail="Document not found")
         
         # Get category name
-        category = await db.document_categories.find_one({"id": document.get("category_id")})
+        category = await db.document_categories.find_one({"id": document.get("category_id")}, {"_id": 0})
         document["category_name"] = category["name"] if category else "Uncategorized"
         
         # Get patient name if applicable
         if document.get("patient_id"):
-            patient = await db.patients.find_one({"id": document["patient_id"]})
+            patient = await db.patients.find_one({"id": document["patient_id"]}, {"_id": 0})
             document["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
         
         return document
@@ -7232,7 +7232,7 @@ async def update_document(document_id: str, update_data: Dict):
             raise HTTPException(status_code=404, detail="Document not found")
             
         # Get updated document
-        updated_document = await db.clinical_documents.find_one({"id": document_id})
+        updated_document = await db.clinical_documents.find_one({"id": document_id}, {"_id": 0})
         return updated_document
     except Exception as e:
         logger.error(f"Error updating document: {str(e)}")
@@ -7272,9 +7272,9 @@ async def upload_document_file(file_data: Dict):
 async def get_documents_by_patient(patient_id: str):
     try:
         documents = []
-        async for document in db.clinical_documents.find({"patient_id": patient_id}).sort("created_at", -1):
+        async for document in db.clinical_documents.find({"patient_id": patient_id}, {"_id": 0}).sort("created_at", -1):
             # Get category name
-            category = await db.document_categories.find_one({"id": document.get("category_id")})
+            category = await db.document_categories.find_one({"id": document.get("category_id")}, {"_id": 0})
             document["category_name"] = category["name"] if category else "Uncategorized"
             
             documents.append(document)
@@ -7336,7 +7336,7 @@ async def update_document_status(document_id: str, status: str, notes: Optional[
 async def get_document_categories():
     try:
         categories = []
-        async for category in db.document_categories.find({"is_active": True}).sort("name", 1):
+        async for category in db.document_categories.find({"is_active": True}, {"_id": 0}).sort("name", 1):
             categories.append(category)
         return categories
     except Exception as e:
@@ -7385,10 +7385,10 @@ async def get_telehealth_sessions_v2(patient_id: Optional[str] = None, provider_
             query["status"] = status
             
         sessions = []
-        async for session in db.telehealth_sessions.find(query).sort("scheduled_start", -1):
+        async for session in db.telehealth_sessions.find(query, {"_id": 0}).sort("scheduled_start", -1):
             # Get patient and provider names
-            patient = await db.patients.find_one({"id": session["patient_id"]})
-            provider = await db.providers.find_one({"id": session["provider_id"]})
+            patient = await db.patients.find_one({"id": session["patient_id"]}, {"_id": 0})
+            provider = await db.providers.find_one({"id": session["provider_id"]}, {"_id": 0})
             
             session["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
             session["provider_name"] = f"{provider['first_name']} {provider['last_name']}" if provider else "Unknown"
@@ -7403,13 +7403,13 @@ async def get_telehealth_sessions_v2(patient_id: Optional[str] = None, provider_
 @api_router.get("/telehealth/{session_id}")
 async def get_telehealth_session_by_id(session_id: str):
     try:
-        session = await db.telehealth_sessions.find_one({"id": session_id})
+        session = await db.telehealth_sessions.find_one({"id": session_id}, {"_id": 0})
         if not session:
             raise HTTPException(status_code=404, detail="Telehealth session not found")
         
         # Get patient and provider names
-        patient = await db.patients.find_one({"id": session["patient_id"]})
-        provider = await db.providers.find_one({"id": session["provider_id"]})
+        patient = await db.patients.find_one({"id": session["patient_id"]}, {"_id": 0})
+        provider = await db.providers.find_one({"id": session["provider_id"]}, {"_id": 0})
         
         session["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
         session["provider_name"] = f"{provider['first_name']} {provider['last_name']}" if provider else "Unknown"
@@ -7433,7 +7433,7 @@ async def update_telehealth_session(session_id: str, update_data: Dict):
             raise HTTPException(status_code=404, detail="Telehealth session not found")
             
         # Get updated session
-        updated_session = await db.telehealth_sessions.find_one({"id": session_id})
+        updated_session = await db.telehealth_sessions.find_one({"id": session_id}, {"_id": 0})
         return updated_session
     except Exception as e:
         logger.error(f"Error updating telehealth session: {str(e)}")
@@ -7442,7 +7442,7 @@ async def update_telehealth_session(session_id: str, update_data: Dict):
 @api_router.post("/telehealth/{session_id}/join")
 async def join_telehealth_session(session_id: str, join_data: Dict):
     try:
-        session = await db.telehealth_sessions.find_one({"id": session_id})
+        session = await db.telehealth_sessions.find_one({"id": session_id}, {"_id": 0})
         if not session:
             raise HTTPException(status_code=404, detail="Telehealth session not found")
         
@@ -7546,10 +7546,10 @@ async def get_telehealth_sessions(patient_id: Optional[str] = None, provider_id:
             query["status"] = status
             
         sessions = []
-        async for session in db.telehealth_sessions.find(query).sort("scheduled_start", -1):
+        async for session in db.telehealth_sessions.find(query, {"_id": 0}).sort("scheduled_start", -1):
             # Get patient and provider names
-            patient = await db.patients.find_one({"id": session["patient_id"]})
-            provider = await db.providers.find_one({"id": session["provider_id"]})
+            patient = await db.patients.find_one({"id": session["patient_id"]}, {"_id": 0})
+            provider = await db.providers.find_one({"id": session["provider_id"]}, {"_id": 0})
             
             session["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
             session["provider_name"] = f"{provider['first_name']} {provider['last_name']}" if provider else "Unknown"
