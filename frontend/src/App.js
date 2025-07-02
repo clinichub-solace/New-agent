@@ -9776,33 +9776,33 @@ const ReferralsModule = ({ setActiveModule }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-3 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
+        {/* Enhanced Mobile-Responsive Header */}
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 sm:mb-8 space-y-4 sm:space-y-0">
+          <div className="w-full sm:w-auto">
             <button
               onClick={() => setActiveModule('dashboard')}
-              className="text-blue-400 hover:text-blue-300 mb-2 flex items-center"
+              className="text-blue-400 hover:text-blue-300 mb-2 flex items-center text-sm sm:text-base"
             >
               ← Back to Dashboard
             </button>
-            <h1 className="text-3xl font-bold text-white">Referrals Management</h1>
-            <p className="text-blue-200">Manage patient referrals to specialists</p>
+            <h1 className="text-2xl sm:text-3xl font-bold text-white">Referrals Management</h1>
+            <p className="text-blue-200 text-sm sm:text-base">Manage patient referrals to specialists</p>
           </div>
           <button
             onClick={() => setShowCreateForm(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+            className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 sm:px-6 py-2 rounded-lg text-sm sm:text-base"
           >
             New Referral
           </button>
         </div>
 
-        {/* Create Referral Modal */}
+        {/* Create Referral Modal - Enhanced for Mobile */}
         {showCreateForm && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 w-full max-w-2xl border border-white/20">
-              <h2 className="text-xl font-bold text-white mb-4">Create New Referral</h2>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 sm:p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto border border-white/20">
+              <h2 className="text-lg sm:text-xl font-bold text-white mb-4">Create New Referral</h2>
               <ReferralForm
                 patients={patients}
                 providers={providers}
@@ -9813,10 +9813,10 @@ const ReferralsModule = ({ setActiveModule }) => {
           </div>
         )}
 
-        {/* Referrals List */}
+        {/* Enhanced Mobile-Responsive Referrals List */}
         <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
-          <div className="p-6">
-            <h2 className="text-xl font-bold text-white mb-4">Active Referrals</h2>
+          <div className="p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-bold text-white mb-4">Active Referrals</h2>
             {loading ? (
               <div className="text-center text-white py-8">Loading referrals...</div>
             ) : referrals.length === 0 ? (
@@ -9824,16 +9824,17 @@ const ReferralsModule = ({ setActiveModule }) => {
             ) : (
               <div className="space-y-4">
                 {referrals.map((referral) => (
-                  <div key={referral.id} className="bg-white/5 rounded-lg p-4 border border-white/10">
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <h3 className="text-white font-semibold">{referral.patient_name}</h3>
-                        <p className="text-blue-200">To: {referral.referred_to_provider_name}</p>
-                        <p className="text-blue-300 text-sm">Specialty: {referral.referred_to_specialty}</p>
-                        <p className="text-blue-300 text-sm">Reason: {referral.reason_for_referral}</p>
+                  <div key={referral.id} className="bg-white/5 rounded-lg p-3 sm:p-4 border border-white/10">
+                    {/* Mobile: Stack layout, Desktop: Flex layout */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between space-y-3 sm:space-y-0">
+                      <div className="flex-1 space-y-1 sm:space-y-0">
+                        <h3 className="text-white font-semibold text-sm sm:text-base">{referral.patient_name}</h3>
+                        <p className="text-blue-200 text-xs sm:text-sm">To: {referral.referred_to_provider_name}</p>
+                        <p className="text-blue-300 text-xs">Specialty: {referral.referred_to_specialty}</p>
+                        <p className="text-blue-300 text-xs">Reason: {referral.reason_for_referral}</p>
                       </div>
-                      <div className="text-right">
-                        <span className={`px-3 py-1 rounded-full text-sm ${
+                      <div className="flex flex-row sm:flex-col items-center sm:items-end justify-between sm:justify-start space-x-3 sm:space-x-0 sm:space-y-2">
+                        <span className={`px-2 sm:px-3 py-1 rounded-full text-xs ${
                           referral.status === 'pending' ? 'bg-yellow-500/20 text-yellow-300' :
                           referral.status === 'scheduled' ? 'bg-blue-500/20 text-blue-300' :
                           referral.status === 'completed' ? 'bg-green-500/20 text-green-300' :
@@ -9841,18 +9842,16 @@ const ReferralsModule = ({ setActiveModule }) => {
                         }`}>
                           {referral.status.charAt(0).toUpperCase() + referral.status.slice(1)}
                         </span>
-                        <div className="mt-2">
-                          <select
-                            value={referral.status}
-                            onChange={(e) => updateReferralStatus(referral.id, e.target.value)}
-                            className="bg-white/10 text-white rounded px-2 py-1 text-sm"
-                          >
-                            <option value="pending">Pending</option>
-                            <option value="scheduled">Scheduled</option>
-                            <option value="completed">Completed</option>
-                            <option value="cancelled">Cancelled</option>
-                          </select>
-                        </div>
+                        <select
+                          value={referral.status}
+                          onChange={(e) => updateReferralStatus(referral.id, e.target.value)}
+                          className="bg-white/10 text-white rounded px-2 py-1 text-xs sm:text-sm"
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="scheduled">Scheduled</option>
+                          <option value="completed">Completed</option>
+                          <option value="cancelled">Cancelled</option>
+                        </select>
                       </div>
                     </div>
                   </div>
