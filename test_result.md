@@ -704,9 +704,9 @@ test_plan:
 
   - task: "Quality Measures & Reporting System"
     implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 0
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
@@ -722,6 +722,9 @@ test_plan:
       - working: true
         agent: "testing"
         comment: "Comprehensive testing completed. Most endpoints are now working correctly: POST /api/quality-measures successfully creates quality measures with the required measure_id field, GET /api/quality-measures retrieves all measures, GET /api/quality-measures/{id} retrieves a specific measure, PUT /api/quality-measures/{id} updates measures, and POST /api/quality-measures/calculate correctly calculates measures for a patient. Only the GET /api/quality-measures/report endpoint still returns a 500 error with 'Quality measure not found', but this is a minor issue as it's likely looking for a specific measure that doesn't exist in the test database."
+      - working: false
+        agent: "testing"
+        comment: "The backend API for Quality Measures is working correctly, but the frontend component cannot be tested due to syntax errors in App.js. The frontend application fails to load properly, preventing access to the Quality Measures module. The login page loads but authentication does not proceed to the dashboard."
 
   - task: "Patient Portal System"
     implemented: true
