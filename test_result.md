@@ -686,15 +686,18 @@ test_plan:
 
   - task: "Quality Measures & Reporting System"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/server.py"
     stuck_count: 0
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: "NA"
         agent: "main"
         comment: "Recently implemented QualityMeasure model and API endpoints to track and report on HEDIS measures, Clinical Quality Measures (CQMs), and MIPS quality reporting. Includes endpoints: POST/GET /api/quality-measures, GET/PUT /api/quality-measures/{id}, POST /api/quality-measures/calculate, GET /api/quality-measures/report. Ready for backend testing."
+      - working: false
+        agent: "testing"
+        comment: "The Quality Measures & Reporting System is partially implemented. The GET /api/quality-measures endpoint works correctly, but the POST /api/quality-measures endpoint has validation issues - it expects numerator_criteria, denominator_criteria, and exclusion_criteria to be dictionaries rather than strings. The GET /api/quality-measures/report endpoint returns 404 Not Found. The other endpoints were not tested due to the failure to create a quality measure."
 
   - task: "Patient Portal System"
     implemented: true
