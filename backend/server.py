@@ -6486,6 +6486,63 @@ async def add_referral_report(referral_id: str, report_data: Dict):
         logger.error(f"Error adding referral report: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error adding report: {str(e)}")
 
+@api_router.get("/referrals/{referral_id}")
+async def get_referral_by_id(referral_id: str):
+    try:
+        referral = await db.referrals.find_one({"id": referral_id})
+        if not referral:
+            raise HTTPException(status_code=404, detail="Referral not found")
+        
+        # Get patient and provider names
+        patient = await db.patients.find_one({"id": referral["patient_id"]})
+        provider = await db.providers.find_one({"id": referral.get("referring_provider_id")})
+        
+        referral["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
+        referral["referring_provider_name"] = f"{provider['first_name']} {provider['last_name']}" if provider else "Unknown"
+        
+        return referral
+    except Exception as e:
+        logger.error(f"Error fetching referral: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching referral: {str(e)}")
+
+@api_router.put("/referrals/{referral_id}")
+async def update_referral(referral_id: str, update_data: Dict):
+    try:
+        update_data["updated_at"] = datetime.now()
+        
+        result = await db.referrals.update_one(
+            {"id": referral_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Referral not found")
+            
+        # Get updated referral
+        updated_referral = await db.referrals.find_one({"id": referral_id})
+        return updated_referral
+    except Exception as e:
+        logger.error(f"Error updating referral: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating referral: {str(e)}")
+
+@api_router.get("/referrals/patient/{patient_id}")
+async def get_referrals_by_patient(patient_id: str):
+    try:
+        referrals = []
+        async for referral in db.referrals.find({"patient_id": patient_id}).sort("created_at", -1):
+            # Get patient and provider names
+            patient = await db.patients.find_one({"id": referral["patient_id"]})
+            provider = await db.providers.find_one({"id": referral.get("referring_provider_id")})
+            
+            referral["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
+            referral["referring_provider_name"] = f"{provider['first_name']} {provider['last_name']}" if provider else "Unknown"
+            referrals.append(referral)
+            
+        return referrals
+    except Exception as e:
+        logger.error(f"Error fetching patient referrals: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching patient referrals: {str(e)}")
+
 # 2. CLINICAL TEMPLATES & PROTOCOLS ENDPOINTS
 @api_router.post("/clinical-templates")
 async def create_clinical_template(template: ClinicalTemplate):
