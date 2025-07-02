@@ -171,6 +171,30 @@ frontend:
         agent: "testing"
         comment: "The duplicate formData state variable issue has been fixed. The code now compiles successfully without any linting errors. Authentication is working correctly, the Patient Portal button is visible in the header, and the eRx card correctly redirects to the Patients module. The system is now in a healthy state."
 
+  - task: "Lab Integration Frontend Module"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented LabIntegrationModule frontend component with lab order creation, lab test catalog viewing, LOINC code integration, and ICD-10 diagnosis code selection. Component includes tabbed interface for orders, tests, and results. Properly integrated with dashboard routing using 'lab-orders' key."
+
+  - task: "Insurance Verification Frontend Module"
+    implemented: true
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Implemented InsuranceVerificationModule frontend component with insurance card management, eligibility verification, and prior authorization tracking. Component includes tabbed interface for cards, eligibility, and prior-auth. Properly integrated with dashboard routing using 'insurance' key."
+
 backend:
   - task: "Dashboard Views for Clinic Operations"
     implemented: true
