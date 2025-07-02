@@ -704,6 +704,9 @@ test_plan:
       - working: false
         agent: "testing"
         comment: "The Quality Measures & Reporting System is partially implemented. The GET /api/quality-measures endpoint works correctly, but the POST /api/quality-measures endpoint has validation issues - it expects numerator_criteria, denominator_criteria, and exclusion_criteria to be dictionaries rather than strings. The GET /api/quality-measures/report endpoint returns 404 Not Found. The other endpoints were not tested due to the failure to create a quality measure."
+      - working: false
+        agent: "testing"
+        comment: "Retested with fixed validation parameters. POST /api/quality-measures endpoint now works correctly and successfully creates a quality measure. However, GET /api/quality-measures, GET /api/quality-measures/{id}, and PUT /api/quality-measures/{id} endpoints return 500 Internal Server Error. POST /api/quality-measures/calculate has validation issues requiring patient_id and expecting a list in the body. GET /api/quality-measures/report returns a 500 error with 'Quality measure not found'. The system needs further development to fully support the required functionality."
 
   - task: "Patient Portal System"
     implemented: true
