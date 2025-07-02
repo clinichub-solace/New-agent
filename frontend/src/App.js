@@ -8910,6 +8910,54 @@ function App() {
             <InsuranceVerificationModule setActiveModule={setActiveModule} />
           </ProtectedRoute>
         );
+      case 'referrals':
+        return (
+          <ProtectedRoute permission="referrals:read">
+            <AppHeader>
+              <ReferralsModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
+      case 'clinical-templates':
+        return (
+          <ProtectedRoute permission="templates:read">
+            <AppHeader>
+              <ClinicalTemplatesModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
+      case 'quality-measures':
+        return (
+          <ProtectedRoute permission="quality:read">
+            <AppHeader>
+              <QualityMeasuresModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
+      case 'patient-portal-mgmt':
+        return (
+          <ProtectedRoute permission="portal:read">
+            <AppHeader>
+              <PatientPortalMgmtModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
+      case 'documents':
+        return (
+          <ProtectedRoute permission="documents:read">
+            <AppHeader>
+              <DocumentsModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
+      case 'telehealth':
+        return (
+          <ProtectedRoute permission="telehealth:read">
+            <AppHeader>
+              <TelehealthModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
       default:
         return (
           <ProtectedRoute>
