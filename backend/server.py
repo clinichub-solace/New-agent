@@ -6519,7 +6519,7 @@ async def update_referral(referral_id: str, update_data: Dict):
             raise HTTPException(status_code=404, detail="Referral not found")
             
         # Get updated referral
-        updated_referral = await db.referrals.find_one({"id": referral_id})
+        updated_referral = await db.referrals.find_one({"id": referral_id}, {"_id": 0})
         return updated_referral
     except Exception as e:
         logger.error(f"Error updating referral: {str(e)}")
