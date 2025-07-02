@@ -7197,6 +7197,118 @@ async def get_documents(patient_id: Optional[str] = None, category_id: Optional[
         logger.error(f"Error fetching documents: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching documents: {str(e)}")
 
+@api_router.get("/documents/{document_id}")
+async def get_document_by_id(document_id: str):
+    try:
+        document = await db.clinical_documents.find_one({"id": document_id})
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found")
+        
+        # Get category name
+        category = await db.document_categories.find_one({"id": document.get("category_id")})
+        document["category_name"] = category["name"] if category else "Uncategorized"
+        
+        # Get patient name if applicable
+        if document.get("patient_id"):
+            patient = await db.patients.find_one({"id": document["patient_id"]})
+            document["patient_name"] = f"{patient['name'][0]['given']} {patient['name'][0]['family']}" if patient else "Unknown"
+        
+        return document
+    except Exception as e:
+        logger.error(f"Error fetching document: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching document: {str(e)}")
+
+@api_router.put("/documents/{document_id}")
+async def update_document(document_id: str, update_data: Dict):
+    try:
+        update_data["updated_at"] = datetime.now()
+        
+        result = await db.clinical_documents.update_one(
+            {"id": document_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Document not found")
+            
+        # Get updated document
+        updated_document = await db.clinical_documents.find_one({"id": document_id})
+        return updated_document
+    except Exception as e:
+        logger.error(f"Error updating document: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating document: {str(e)}")
+
+@api_router.post("/documents/upload")
+async def upload_document_file(file_data: Dict):
+    try:
+        # This would handle actual file upload logic
+        # For now, creating a document record with file metadata
+        document = ClinicalDocument(
+            title=file_data["title"],
+            document_type=file_data.get("document_type", "general"),
+            patient_id=file_data.get("patient_id"),
+            provider_id=file_data.get("provider_id"),
+            category_id=file_data.get("category_id"),
+            content=file_data.get("content", ""),
+            file_name=file_data.get("file_name"),
+            file_size=file_data.get("file_size", 0),
+            mime_type=file_data.get("mime_type"),
+            file_path="/uploads/documents/" + file_data.get("file_name", "unknown"),
+            tags=file_data.get("tags", []),
+            is_confidential=file_data.get("is_confidential", False)
+        )
+        
+        document_dict = document.dict()
+        result = await db.clinical_documents.insert_one(document_dict)
+        if result.inserted_id:
+            return {"id": document.id, "message": "Document uploaded successfully", "file_path": document.file_path}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to upload document")
+    except Exception as e:
+        logger.error(f"Error uploading document: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error uploading document: {str(e)}")
+
+@api_router.get("/documents/patient/{patient_id}")
+async def get_documents_by_patient(patient_id: str):
+    try:
+        documents = []
+        async for document in db.clinical_documents.find({"patient_id": patient_id}).sort("created_at", -1):
+            # Get category name
+            category = await db.document_categories.find_one({"id": document.get("category_id")})
+            document["category_name"] = category["name"] if category else "Uncategorized"
+            
+            documents.append(document)
+            
+        return documents
+    except Exception as e:
+        logger.error(f"Error fetching patient documents: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching patient documents: {str(e)}")
+
+@api_router.put("/documents/{document_id}/workflow")
+async def update_document_workflow(document_id: str, workflow_data: Dict):
+    try:
+        # Update document workflow status
+        update_data = {
+            "workflow_status": workflow_data.get("workflow_status", "pending"),
+            "workflow_stage": workflow_data.get("workflow_stage", "review"),
+            "assigned_to": workflow_data.get("assigned_to"),
+            "workflow_notes": workflow_data.get("workflow_notes", ""),
+            "updated_at": datetime.now()
+        }
+        
+        result = await db.clinical_documents.update_one(
+            {"id": document_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Document not found")
+            
+        return {"message": "Document workflow updated successfully"}
+    except Exception as e:
+        logger.error(f"Error updating document workflow: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating document workflow: {str(e)}")
+
 @api_router.put("/documents/{document_id}/status")
 async def update_document_status(document_id: str, status: str, notes: Optional[str] = None):
     try:
