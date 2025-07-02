@@ -8804,6 +8804,525 @@ const PendingPaymentsView = ({ setActiveModule }) => {
   );
 };
 
+// ===== NEW MODULES COMPONENTS =====
+
+// 1. Referrals Management Module
+const ReferralsModule = ({ setActiveModule }) => {
+  const [referrals, setReferrals] = useState([]);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [selectedReferral, setSelectedReferral] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [patients, setPatients] = useState([]);
+  const [providers, setProviders] = useState([]);
+
+  useEffect(() => {
+    fetchReferrals();
+    fetchPatientsAndProviders();
+  }, []);
+
+  const fetchReferrals = async () => {
+    try {
+      const response = await axios.get(`${API}/referrals`);
+      setReferrals(response.data);
+    } catch (error) {
+      console.error('Error fetching referrals:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPatientsAndProviders = async () => {
+    try {
+      const [patientsRes, providersRes] = await Promise.all([
+        axios.get(`${API}/patients`),
+        axios.get(`${API}/providers`)
+      ]);
+      setPatients(patientsRes.data);
+      setProviders(providersRes.data);
+    } catch (error) {
+      console.error('Error fetching patients/providers:', error);
+    }
+  };
+
+  const handleCreateReferral = async (formData) => {
+    try {
+      await axios.post(`${API}/referrals`, formData);
+      fetchReferrals();
+      setShowCreateForm(false);
+    } catch (error) {
+      console.error('Error creating referral:', error);
+      alert('Error creating referral');
+    }
+  };
+
+  const updateReferralStatus = async (referralId, status) => {
+    try {
+      await axios.put(`${API}/referrals/${referralId}`, { status });
+      fetchReferrals();
+    } catch (error) {
+      console.error('Error updating referral status:', error);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <button
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-400 hover:text-blue-300 mb-2 flex items-center"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-white">Referrals Management</h1>
+            <p className="text-blue-200">Manage patient referrals to specialists</p>
+          </div>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+          >
+            New Referral
+          </button>
+        </div>
+
+        {/* Create Referral Modal */}
+        {showCreateForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 w-full max-w-2xl border border-white/20">
+              <h2 className="text-xl font-bold text-white mb-4">Create New Referral</h2>
+              <ReferralForm
+                patients={patients}
+                providers={providers}
+                onSubmit={handleCreateReferral}
+                onCancel={() => setShowCreateForm(false)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Referrals List */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-white mb-4">Active Referrals</h2>
+            {loading ? (
+              <div className="text-center text-white py-8">Loading referrals...</div>
+            ) : referrals.length === 0 ? (
+              <div className="text-center text-blue-200 py-8">No referrals found</div>
+            ) : (
+              <div className="space-y-4">
+                {referrals.map((referral) => (
+                  <div key={referral.id} className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <h3 className="text-white font-semibold">{referral.patient_name}</h3>
+                        <p className="text-blue-200">To: {referral.referred_to_provider_name}</p>
+                        <p className="text-blue-300 text-sm">Specialty: {referral.referred_to_specialty}</p>
+                        <p className="text-blue-300 text-sm">Reason: {referral.reason_for_referral}</p>
+                      </div>
+                      <div className="text-right">
+                        <span className={`px-3 py-1 rounded-full text-sm ${
+                          referral.status === 'pending' ? 'bg-yellow-500/20 text-yellow-300' :
+                          referral.status === 'scheduled' ? 'bg-blue-500/20 text-blue-300' :
+                          referral.status === 'completed' ? 'bg-green-500/20 text-green-300' :
+                          'bg-gray-500/20 text-gray-300'
+                        }`}>
+                          {referral.status.charAt(0).toUpperCase() + referral.status.slice(1)}
+                        </span>
+                        <div className="mt-2">
+                          <select
+                            value={referral.status}
+                            onChange={(e) => updateReferralStatus(referral.id, e.target.value)}
+                            className="bg-white/10 text-white rounded px-2 py-1 text-sm"
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="scheduled">Scheduled</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Referral Form Component
+const ReferralForm = ({ patients, providers, onSubmit, onCancel }) => {
+  const [formData, setFormData] = useState({
+    patient_id: '',
+    referring_provider_id: '',
+    referred_to_provider_name: '',
+    referred_to_specialty: '',
+    reason_for_referral: '',
+    urgency: 'routine',
+    notes: ''
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Patient</label>
+          <select
+            value={formData.patient_id}
+            onChange={(e) => setFormData({ ...formData, patient_id: e.target.value })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+            required
+          >
+            <option value="">Select Patient</option>
+            {patients.map(patient => (
+              <option key={patient.id} value={patient.id}>
+                {patient.name?.[0]?.given} {patient.name?.[0]?.family}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Referring Provider</label>
+          <select
+            value={formData.referring_provider_id}
+            onChange={(e) => setFormData({ ...formData, referring_provider_id: e.target.value })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+            required
+          >
+            <option value="">Select Provider</option>
+            {providers.map(provider => (
+              <option key={provider.id} value={provider.id}>
+                {provider.first_name} {provider.last_name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Specialist Name</label>
+          <input
+            type="text"
+            value={formData.referred_to_provider_name}
+            onChange={(e) => setFormData({ ...formData, referred_to_provider_name: e.target.value })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Specialty</label>
+          <input
+            type="text"
+            value={formData.referred_to_specialty}
+            onChange={(e) => setFormData({ ...formData, referred_to_specialty: e.target.value })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+            required
+          />
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-blue-200 text-sm mb-1">Reason for Referral</label>
+        <textarea
+          value={formData.reason_for_referral}
+          onChange={(e) => setFormData({ ...formData, reason_for_referral: e.target.value })}
+          className="w-full bg-white/10 text-white rounded px-3 py-2 h-20"
+          required
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Urgency</label>
+          <select
+            value={formData.urgency}
+            onChange={(e) => setFormData({ ...formData, urgency: e.target.value })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+          >
+            <option value="routine">Routine</option>
+            <option value="urgent">Urgent</option>
+            <option value="stat">STAT</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Notes</label>
+          <input
+            type="text"
+            value={formData.notes}
+            onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+          />
+        </div>
+      </div>
+
+      <div className="flex justify-end space-x-4 pt-4">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 text-blue-200 hover:text-white"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+        >
+          Create Referral
+        </button>
+      </div>
+    </form>
+  );
+};
+
+// 2. Clinical Templates Module
+const ClinicalTemplatesModule = ({ setActiveModule }) => {
+  const [templates, setTemplates] = useState([]);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchTemplates();
+    initializeTemplates();
+  }, []);
+
+  const fetchTemplates = async () => {
+    try {
+      const response = await axios.get(`${API}/clinical-templates`);
+      setTemplates(response.data);
+    } catch (error) {
+      console.error('Error fetching templates:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const initializeTemplates = async () => {
+    try {
+      await axios.post(`${API}/clinical-templates/init`);
+    } catch (error) {
+      console.error('Error initializing templates:', error);
+    }
+  };
+
+  const handleCreateTemplate = async (formData) => {
+    try {
+      await axios.post(`${API}/clinical-templates`, formData);
+      fetchTemplates();
+      setShowCreateForm(false);
+    } catch (error) {
+      console.error('Error creating template:', error);
+      alert('Error creating template');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 p-6">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <button
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-400 hover:text-blue-300 mb-2 flex items-center"
+            >
+              ← Back to Dashboard
+            </button>
+            <h1 className="text-3xl font-bold text-white">Clinical Templates</h1>
+            <p className="text-blue-200">Manage clinical protocols and care plans</p>
+          </div>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+          >
+            New Template
+          </button>
+        </div>
+
+        {/* Create Template Modal */}
+        {showCreateForm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 w-full max-w-2xl border border-white/20">
+              <h2 className="text-xl font-bold text-white mb-4">Create Clinical Template</h2>
+              <ClinicalTemplateForm
+                onSubmit={handleCreateTemplate}
+                onCancel={() => setShowCreateForm(false)}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Templates List */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20">
+          <div className="p-6">
+            <h2 className="text-xl font-bold text-white mb-4">Available Templates</h2>
+            {loading ? (
+              <div className="text-center text-white py-8">Loading templates...</div>
+            ) : templates.length === 0 ? (
+              <div className="text-center text-blue-200 py-8">No templates found</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {templates.map((template) => (
+                  <div key={template.id} className="bg-white/5 rounded-lg p-4 border border-white/10">
+                    <h3 className="text-white font-semibold mb-2">{template.name}</h3>
+                    <p className="text-blue-200 text-sm mb-2">Type: {template.template_type}</p>
+                    {template.specialty && (
+                      <p className="text-blue-300 text-sm mb-2">Specialty: {template.specialty}</p>
+                    )}
+                    {template.condition && (
+                      <p className="text-blue-300 text-sm mb-2">Condition: {template.condition}</p>
+                    )}
+                    <span className={`px-3 py-1 rounded-full text-xs ${
+                      template.is_active ? 'bg-green-500/20 text-green-300' : 'bg-gray-500/20 text-gray-300'
+                    }`}>
+                      {template.is_active ? 'Active' : 'Inactive'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Clinical Template Form Component
+const ClinicalTemplateForm = ({ onSubmit, onCancel }) => {
+  const [formData, setFormData] = useState({
+    name: '',
+    template_type: 'protocol',
+    specialty: '',
+    condition: '',
+    age_group: 'adult',
+    sections: [],
+    protocols: [],
+    guidelines: '',
+    evidence_level: 'A',
+    created_by: 'admin'
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    onSubmit(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Template Name</label>
+          <input
+            type="text"
+            value={formData.name}
+            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Template Type</label>
+          <select
+            value={formData.template_type}
+            onChange={(e) => setFormData({ ...formData, template_type: e.target.value })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+          >
+            <option value="visit_template">Visit Template</option>
+            <option value="assessment_template">Assessment Template</option>
+            <option value="procedure_template">Procedure Template</option>
+            <option value="protocol">Protocol</option>
+            <option value="care_plan">Care Plan</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Specialty</label>
+          <input
+            type="text"
+            value={formData.specialty}
+            onChange={(e) => setFormData({ ...formData, specialty: e.target.value })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+          />
+        </div>
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Condition</label>
+          <input
+            type="text"
+            value={formData.condition}
+            onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+          />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Age Group</label>
+          <select
+            value={formData.age_group}
+            onChange={(e) => setFormData({ ...formData, age_group: e.target.value })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+          >
+            <option value="pediatric">Pediatric</option>
+            <option value="adult">Adult</option>
+            <option value="geriatric">Geriatric</option>
+          </select>
+        </div>
+        <div>
+          <label className="block text-blue-200 text-sm mb-1">Evidence Level</label>
+          <select
+            value={formData.evidence_level}
+            onChange={(e) => setFormData({ ...formData, evidence_level: e.target.value })}
+            className="w-full bg-white/10 text-white rounded px-3 py-2"
+          >
+            <option value="A">A - High Quality Evidence</option>
+            <option value="B">B - Moderate Quality Evidence</option>
+            <option value="C">C - Low Quality Evidence</option>
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-blue-200 text-sm mb-1">Guidelines</label>
+        <textarea
+          value={formData.guidelines}
+          onChange={(e) => setFormData({ ...formData, guidelines: e.target.value })}
+          className="w-full bg-white/10 text-white rounded px-3 py-2 h-20"
+        />
+      </div>
+
+      <div className="flex justify-end space-x-4 pt-4">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 text-blue-200 hover:text-white"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+        >
+          Create Template
+        </button>
+      </div>
+    </form>
+  );
+};
+
 // Main App Component
 function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
