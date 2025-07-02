@@ -7526,8 +7526,6 @@ const DailyLogView = ({ setActiveModule }) => {
 };
 
 const PatientQueueView = ({ setActiveModule }) => {
-
-  const fetchDailyLog = async () => {
     try {
       const response = await axios.get(`${API}/dashboard/daily-log`);
       setDailyData(response.data);
