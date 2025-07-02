@@ -728,9 +728,9 @@ test_plan:
 
   - task: "Patient Portal System"
     implemented: true
-    working: true
-    file: "/app/backend/server.py"
-    stuck_count: 0
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
@@ -746,6 +746,9 @@ test_plan:
       - working: true
         agent: "testing"
         comment: "Comprehensive testing completed. All endpoints are now working correctly: POST /api/patient-portal successfully creates patient portal access, GET /api/patient-portal retrieves all portal accounts, GET /api/patient-portal/patient/{patient_id} retrieves portal access for a specific patient, POST /api/patient-portal/{id}/schedule successfully schedules appointments through the portal, and GET /api/patient-portal/{id}/records retrieves patient records through the portal. The MongoDB ObjectId serialization issues have been resolved."
+      - working: false
+        agent: "testing"
+        comment: "The backend API for Patient Portal is working correctly, but the frontend component cannot be tested due to syntax errors in App.js. The frontend application fails to load properly, preventing access to the Patient Portal module. The login page loads but authentication does not proceed to the dashboard."
 
   - task: "Document Management System"
     implemented: true
