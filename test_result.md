@@ -740,6 +740,9 @@ test_plan:
       - working: false
         agent: "testing"
         comment: "The Document Management System is partially implemented. The GET /api/documents endpoint works correctly, but the POST /api/documents endpoint has validation issues - it requires additional fields not mentioned in the documentation: category_id, file_name, file_path, and mime_type. The POST /api/documents/upload endpoint returns 405 Method Not Allowed, and the GET /api/documents/patient/{patient_id} endpoint returns 404 Not Found. The system needs further development to fully support the required functionality."
+      - working: false
+        agent: "testing"
+        comment: "Retested with fixed validation parameters. POST /api/documents endpoint now works correctly and successfully creates a document. PUT /api/documents/{id}/workflow endpoint also works correctly and successfully updates document workflow. However, GET /api/documents, GET /api/documents/{id}, PUT /api/documents/{id}, POST /api/documents/upload, and GET /api/documents/patient/{patient_id} endpoints return 500 Internal Server Error. The system needs further development to fully support the required functionality."
 
   - task: "Telehealth Module System"
     implemented: true
