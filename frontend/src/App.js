@@ -926,7 +926,7 @@ const FinanceModule = ({ setActiveModule }) => {
     </div>
   );
 };
-const Dashboard = () => {
+const Dashboard = ({ onLogout }) => {
   const [stats, setStats] = useState({});
   const [recentPatients, setRecentPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
