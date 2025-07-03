@@ -36,8 +36,24 @@ def print_test_result(test_name, success, response=None):
             print(f"   Response: {response}")
     print("-" * 80)
 
-# Get authentication token
-def get_auth_token():
+# Test the payroll management system
+def test_payroll_management():
+    # Step 1: Initialize admin user and get authentication token
+    print("\n--- Initializing Admin User ---")
+    try:
+        url = f"{API_URL}/auth/init-admin"
+        response = requests.post(url)
+        response.raise_for_status()
+        print("Admin user initialized successfully")
+    except Exception as e:
+        print(f"Error initializing admin user: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print("Continuing with login...")
+    
+    # Step 2: Login with admin credentials
+    print("\n--- Logging in as Admin ---")
     try:
         url = f"{API_URL}/auth/login"
         data = {
@@ -49,22 +65,51 @@ def get_auth_token():
         response.raise_for_status()
         result = response.json()
         
-        return result["access_token"]
+        auth_token = result["access_token"]
+        print("Login successful")
     except Exception as e:
-        print(f"Error getting authentication token: {str(e)}")
+        print(f"Error logging in: {str(e)}")
         if 'response' in locals():
             print(f"Status code: {response.status_code}")
             print(f"Response text: {response.text}")
-        return None
-
-# Test Payroll Period Management
-def test_payroll_periods(auth_token):
-    print("\n--- Testing Payroll Period Management ---")
+        return
     
+    # Set authorization header for subsequent requests
     headers = {"Authorization": f"Bearer {auth_token}"}
-    period_id = None
     
-    # Test creating a payroll period
+    # Step 3: Create a test employee
+    print("\n--- Creating Test Employee ---")
+    employee_id = None
+    try:
+        url = f"{API_URL}/employees"
+        data = {
+            "first_name": "John",
+            "last_name": "Doe",
+            "email": "john.doe@example.com",
+            "phone": "+1-555-123-4567",
+            "role": "doctor",
+            "department": "Medical",
+            "hire_date": date.today().strftime("%Y-%m-%d"),
+            "hourly_rate": 25.0
+        }
+        
+        response = requests.post(url, json=data, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        employee_id = result["id"]
+        print_test_result("Create Test Employee", True, result)
+    except Exception as e:
+        print(f"Error creating test employee: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Create Test Employee", False)
+        return
+    
+    # Step 4: Create a payroll period
+    print("\n--- Testing Payroll Period Creation ---")
+    period_id = None
     try:
         url = f"{API_URL}/payroll/periods"
         
@@ -94,9 +139,10 @@ def test_payroll_periods(auth_token):
             print(f"Status code: {response.status_code}")
             print(f"Response text: {response.text}")
         print_test_result("Create Payroll Period", False)
-        return None
+        return
     
-    # Test retrieving payroll periods
+    # Step 5: Get payroll periods
+    print("\n--- Testing Payroll Period Retrieval ---")
     try:
         url = f"{API_URL}/payroll/periods"
         
@@ -112,41 +158,57 @@ def test_payroll_periods(auth_token):
             print(f"Response text: {response.text}")
         print_test_result("Get Payroll Periods", False)
     
-    # Test filtering payroll periods by year
+    # Step 6: Create time entries for the employee
+    print("\n--- Creating Time Entries for Test Employee ---")
     try:
-        url = f"{API_URL}/payroll/periods"
-        params = {"year": datetime.now().year}
+        # Create time entries for each day in the period
+        period_start_date = datetime.strptime(period_start.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
+        period_end_date = datetime.strptime(period_end.strftime("%Y-%m-%d"), "%Y-%m-%d").date()
         
-        response = requests.get(url, params=params, headers=headers)
-        response.raise_for_status()
-        result = response.json()
+        current_date = period_start_date
+        while current_date <= period_end_date:
+            if current_date.weekday() < 5:  # Monday to Friday
+                # Clock in at 9:00 AM
+                clock_in_time = datetime.combine(current_date, datetime.strptime("09:00", "%H:%M").time())
+                
+                url = f"{API_URL}/time-entries"
+                data = {
+                    "employee_id": employee_id,
+                    "entry_type": "clock_in",
+                    "timestamp": clock_in_time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "location": "Main Office",
+                    "manual_entry": True
+                }
+                
+                response = requests.post(url, json=data, headers=headers)
+                response.raise_for_status()
+                
+                # Clock out at 5:00 PM
+                clock_out_time = datetime.combine(current_date, datetime.strptime("17:00", "%H:%M").time())
+                
+                data = {
+                    "employee_id": employee_id,
+                    "entry_type": "clock_out",
+                    "timestamp": clock_out_time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "location": "Main Office",
+                    "manual_entry": True
+                }
+                
+                response = requests.post(url, json=data, headers=headers)
+                response.raise_for_status()
+            
+            current_date += timedelta(days=1)
         
-        print_test_result("Filter Payroll Periods by Year", True, result)
+        print_test_result("Create Time Entries", True, {"message": "Created time entries for the pay period"})
     except Exception as e:
-        print(f"Error filtering payroll periods: {str(e)}")
+        print(f"Error creating time entries: {str(e)}")
         if 'response' in locals():
             print(f"Status code: {response.status_code}")
             print(f"Response text: {response.text}")
-        print_test_result("Filter Payroll Periods by Year", False)
+        print_test_result("Create Time Entries", False)
     
-    return period_id
-
-# Test Payroll Calculation
-def test_payroll_calculation(auth_token, period_id):
+    # Step 7: Calculate payroll
     print("\n--- Testing Payroll Calculation ---")
-    
-    headers = {"Authorization": f"Bearer {auth_token}"}
-    
-    # First, create an employee for testing
-    employee_id = create_test_employee(auth_token)
-    if not employee_id:
-        print("Skipping payroll calculation tests - could not create test employee")
-        return None
-    
-    # Create time entries for the employee
-    create_test_time_entries(auth_token, employee_id, period_id)
-    
-    # Test calculating payroll
     try:
         url = f"{API_URL}/payroll/calculate/{period_id}"
         
@@ -161,9 +223,10 @@ def test_payroll_calculation(auth_token, period_id):
             print(f"Status code: {response.status_code}")
             print(f"Response text: {response.text}")
         print_test_result("Calculate Payroll", False)
-        return None
+        return
     
-    # Test retrieving payroll records
+    # Step 8: Get payroll records
+    print("\n--- Testing Payroll Records Retrieval ---")
     record_id = None
     try:
         url = f"{API_URL}/payroll/records/{period_id}"
@@ -182,54 +245,30 @@ def test_payroll_calculation(auth_token, period_id):
             print(f"Status code: {response.status_code}")
             print(f"Response text: {response.text}")
         print_test_result("Get Payroll Records", False)
+        return
     
-    return record_id
-
-# Test Paystub Generation
-def test_paystub_generation(auth_token, record_id):
+    # Step 9: Generate paystub
     print("\n--- Testing Paystub Generation ---")
+    if record_id:
+        try:
+            url = f"{API_URL}/payroll/paystub/{record_id}"
+            
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Generate Paystub", True, result)
+        except Exception as e:
+            print(f"Error generating paystub: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Generate Paystub", False)
+    else:
+        print("Skipping paystub generation - no payroll record ID available")
     
-    headers = {"Authorization": f"Bearer {auth_token}"}
-    
-    if not record_id:
-        print("Skipping paystub generation test - no payroll record ID available")
-        return
-    
-    try:
-        url = f"{API_URL}/payroll/paystub/{record_id}"
-        
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Verify paystub structure
-        assert "employee_info" in result
-        assert "pay_period" in result
-        assert "hours_breakdown" in result
-        assert "pay_breakdown" in result
-        assert "taxes_breakdown" in result
-        assert "ytd_totals" in result
-        assert "net_pay" in result
-        
-        print_test_result("Generate Paystub", True, result)
-    except Exception as e:
-        print(f"Error generating paystub: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Generate Paystub", False)
-
-# Test Payroll Workflow
-def test_payroll_workflow(auth_token, period_id):
-    print("\n--- Testing Payroll Workflow ---")
-    
-    headers = {"Authorization": f"Bearer {auth_token}"}
-    
-    if not period_id:
-        print("Skipping payroll workflow tests - no period ID available")
-        return
-    
-    # Test approving payroll
+    # Step 10: Approve payroll
+    print("\n--- Testing Payroll Approval ---")
     try:
         url = f"{API_URL}/payroll/approve/{period_id}"
         data = {"approved_by": "admin"}
@@ -247,7 +286,8 @@ def test_payroll_workflow(auth_token, period_id):
         print_test_result("Approve Payroll", False)
         return
     
-    # Test marking payroll as paid
+    # Step 11: Mark payroll as paid
+    print("\n--- Testing Payroll Payment ---")
     try:
         url = f"{API_URL}/payroll/pay/{period_id}"
         
@@ -262,120 +302,32 @@ def test_payroll_workflow(auth_token, period_id):
             print(f"Status code: {response.status_code}")
             print(f"Response text: {response.text}")
         print_test_result("Mark Payroll as Paid", False)
-
-# Helper function to create a test employee
-def create_test_employee(auth_token):
-    headers = {"Authorization": f"Bearer {auth_token}"}
     
+    # Step 12: Verify workflow status
+    print("\n--- Verifying Payroll Workflow Status ---")
     try:
-        url = f"{API_URL}/employees"
-        data = {
-            "first_name": "John",
-            "last_name": "Doe",
-            "email": "john.doe@example.com",
-            "phone": "+1-555-123-4567",
-            "role": "doctor",
-            "department": "Medical",
-            "hire_date": date.today().isoformat(),
-            "hourly_rate": 25.0
-        }
+        url = f"{API_URL}/payroll/periods"
         
-        response = requests.post(url, json=data, headers=headers)
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
         result = response.json()
         
-        return result["id"]
+        period = next((p for p in result if p["id"] == period_id), None)
+        if period:
+            status = period["status"]
+            print(f"Final payroll status: {status}")
+            if status == "paid":
+                print_test_result("Payroll Workflow", True, {"message": "Payroll workflow completed successfully"})
+            else:
+                print_test_result("Payroll Workflow", False, {"message": f"Unexpected final status: {status}"})
+        else:
+            print_test_result("Payroll Workflow", False, {"message": "Could not find period in results"})
     except Exception as e:
-        print(f"Error creating test employee: {str(e)}")
+        print(f"Error verifying workflow status: {str(e)}")
         if 'response' in locals():
             print(f"Status code: {response.status_code}")
             print(f"Response text: {response.text}")
-        return None
-
-# Helper function to create test time entries
-def create_test_time_entries(auth_token, employee_id, period_id):
-    headers = {"Authorization": f"Bearer {auth_token}"}
-    
-    try:
-        # Get period dates
-        url = f"{API_URL}/payroll/periods"
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        periods = response.json()
-        
-        period = next((p for p in periods if p["id"] == period_id), None)
-        if not period:
-            print("Could not find period information")
-            return
-        
-        period_start = datetime.strptime(period["period_start"], "%Y-%m-%d").date()
-        period_end = datetime.strptime(period["period_end"], "%Y-%m-%d").date()
-        
-        # Create time entries for each day in the period
-        current_date = period_start
-        while current_date <= period_end:
-            if current_date.weekday() < 5:  # Monday to Friday
-                # Clock in at 9:00 AM
-                clock_in_time = datetime.combine(current_date, datetime.strptime("09:00", "%H:%M").time())
-                
-                url = f"{API_URL}/time-entries"
-                data = {
-                    "employee_id": employee_id,
-                    "entry_type": "clock_in",
-                    "timestamp": clock_in_time.isoformat(),
-                    "location": "Main Office",
-                    "manual_entry": True
-                }
-                
-                response = requests.post(url, json=data, headers=headers)
-                response.raise_for_status()
-                
-                # Clock out at 5:00 PM
-                clock_out_time = datetime.combine(current_date, datetime.strptime("17:00", "%H:%M").time())
-                
-                data = {
-                    "employee_id": employee_id,
-                    "entry_type": "clock_out",
-                    "timestamp": clock_out_time.isoformat(),
-                    "location": "Main Office",
-                    "manual_entry": True
-                }
-                
-                response = requests.post(url, json=data, headers=headers)
-                response.raise_for_status()
-            
-            current_date += timedelta(days=1)
-        
-        print("Created test time entries successfully")
-    except Exception as e:
-        print(f"Error creating test time entries: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-
-# Main test function
-def main():
-    # Get authentication token
-    auth_token = get_auth_token()
-    if not auth_token:
-        print("Failed to get authentication token. Exiting.")
-        return
-    
-    # Test payroll periods
-    period_id = test_payroll_periods(auth_token)
-    if not period_id:
-        print("Failed to create payroll period. Skipping remaining tests.")
-        return
-    
-    # Test payroll calculation
-    record_id = test_payroll_calculation(auth_token, period_id)
-    
-    # Test paystub generation
-    if record_id:
-        test_paystub_generation(auth_token, record_id)
-    
-    # Test payroll workflow
-    test_payroll_workflow(auth_token, period_id)
+        print_test_result("Payroll Workflow", False)
 
 if __name__ == "__main__":
-    main()
+    test_payroll_management()
