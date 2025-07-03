@@ -971,6 +971,47 @@ const Dashboard = ({ onLogout, setActiveModule }) => {
 
     fetchDashboardData();
   }, []);
+
+  // Add the missing functions and variables
+  const handleCardClick = (moduleKey) => {
+    setActiveModule(moduleKey);
+  };
+
+  const quickStats = {
+    erx_patients_today: stats.erx_patients_today || 0,
+    daily_revenue: stats.daily_revenue || 0,
+    patients_in_queue: stats.patients_in_queue || 0,
+    pending_payments_total: stats.pending_payments_total || 0
+  };
+
+  const recentInvoices = [];
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        // Fetch dashboard stats
+        const statsResponse = await axios.get(`${API}/dashboard/stats`);
+        setStats(statsResponse.data);
+
+        // Fetch recent patients
+        const patientsResponse = await axios.get(`${API}/patients`);
+        setRecentPatients(patientsResponse.data.slice(0, 5));
+
+        // Fetch today's appointments
+        const today = new Date().toISOString().split('T')[0];
+        const appointmentsResponse = await axios.get(`${API}/appointments`, {
+          params: { date: today }
+        });
+        setAppointments(appointmentsResponse.data.slice(0, 5));
+      } catch (error) {
+        console.error('Error fetching dashboard data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
   
   // Add the missing handleCardClick function
   const handleCardClick = (moduleKey) => {
