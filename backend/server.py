@@ -6710,34 +6710,155 @@ async def get_patient_prior_auths(patient_id: str, current_user: User = Depends(
 # ICD-10 Diagnosis Codes Support
 @api_router.post("/icd10/init")
 async def initialize_icd10_codes(current_user: User = Depends(get_current_active_user)):
-    """Initialize common ICD-10 diagnosis codes"""
+    """Initialize comprehensive ICD-10 diagnosis codes"""
     try:
         existing = await db.icd10_codes.count_documents({})
         if existing > 0:
             return {"message": "ICD-10 codes already initialized", "count": existing}
         
-        common_codes = [
-            {"code": "Z00.00", "description": "Encounter for general adult medical examination without abnormal findings", "category": "Preventive Care"},
-            {"code": "E11.9", "description": "Type 2 diabetes mellitus without complications", "category": "Endocrine"},
-            {"code": "I10", "description": "Essential hypertension", "category": "Cardiovascular"},
-            {"code": "E78.5", "description": "Hyperlipidemia, unspecified", "category": "Endocrine"},
-            {"code": "J06.9", "description": "Acute upper respiratory infection, unspecified", "category": "Respiratory"},
-            {"code": "M79.3", "description": "Panniculitis, unspecified", "category": "Musculoskeletal"},
-            {"code": "R06.02", "description": "Shortness of breath", "category": "Symptoms"},
-            {"code": "R50.9", "description": "Fever, unspecified", "category": "Symptoms"},
-            {"code": "F32.9", "description": "Major depressive disorder, single episode, unspecified", "category": "Mental Health"},
-            {"code": "Z51.11", "description": "Encounter for antineoplastic chemotherapy", "category": "Treatment"}
+        # Comprehensive ICD-10 codes for primary care
+        comprehensive_codes = [
+            # Preventive Care
+            {"code": "Z00.00", "description": "Encounter for general adult medical examination without abnormal findings", "category": "Preventive Care", "search_terms": ["physical", "checkup", "annual", "exam", "wellness"]},
+            {"code": "Z00.01", "description": "Encounter for general adult medical examination with abnormal findings", "category": "Preventive Care", "search_terms": ["physical", "checkup", "annual", "exam", "abnormal"]},
+            {"code": "Z00.121", "description": "Encounter for routine child health examination with abnormal findings", "category": "Preventive Care", "search_terms": ["child", "pediatric", "routine", "checkup"]},
+            {"code": "Z00.129", "description": "Encounter for routine child health examination without abnormal findings", "category": "Preventive Care", "search_terms": ["child", "pediatric", "routine", "checkup"]},
+            {"code": "Z12.31", "description": "Encounter for screening mammogram for malignant neoplasm of breast", "category": "Preventive Care", "search_terms": ["mammogram", "breast", "screening", "cancer"]},
+            {"code": "Z12.11", "description": "Encounter for screening for malignant neoplasm of colon", "category": "Preventive Care", "search_terms": ["colonoscopy", "colon", "screening", "cancer"]},
+            
+            # Endocrine/Metabolic
+            {"code": "E11.9", "description": "Type 2 diabetes mellitus without complications", "category": "Endocrine", "search_terms": ["diabetes", "type 2", "dm", "blood sugar", "glucose"]},
+            {"code": "E11.40", "description": "Type 2 diabetes mellitus with diabetic neuropathy, unspecified", "category": "Endocrine", "search_terms": ["diabetes", "neuropathy", "nerve", "tingling"]},
+            {"code": "E11.319", "description": "Type 2 diabetes mellitus with unspecified diabetic nephropathy", "category": "Endocrine", "search_terms": ["diabetes", "kidney", "nephropathy", "renal"]},
+            {"code": "E11.3213", "description": "Type 2 diabetes mellitus with mild nonproliferative diabetic retinopathy with macular edema, bilateral", "category": "Endocrine", "search_terms": ["diabetes", "retinopathy", "eye", "vision"]},
+            {"code": "E10.9", "description": "Type 1 diabetes mellitus without complications", "category": "Endocrine", "search_terms": ["diabetes", "type 1", "insulin", "juvenile"]},
+            {"code": "E78.5", "description": "Hyperlipidemia, unspecified", "category": "Endocrine", "search_terms": ["cholesterol", "lipids", "hyperlipidemia", "dyslipidemia"]},
+            {"code": "E78.0", "description": "Pure hypercholesterolemia", "category": "Endocrine", "search_terms": ["cholesterol", "high cholesterol", "hypercholesterolemia"]},
+            {"code": "E66.9", "description": "Obesity, unspecified", "category": "Endocrine", "search_terms": ["obesity", "overweight", "weight", "bmi"]},
+            {"code": "E03.9", "description": "Hypothyroidism, unspecified", "category": "Endocrine", "search_terms": ["hypothyroid", "thyroid", "underactive", "tsh"]},
+            {"code": "E05.90", "description": "Thyrotoxicosis, unspecified without thyrotoxic crisis", "category": "Endocrine", "search_terms": ["hyperthyroid", "thyroid", "overactive", "thyrotoxicosis"]},
+            
+            # Cardiovascular
+            {"code": "I10", "description": "Essential hypertension", "category": "Cardiovascular", "search_terms": ["hypertension", "high blood pressure", "htn", "bp"]},
+            {"code": "I25.10", "description": "Atherosclerotic heart disease of native coronary artery without angina pectoris", "category": "Cardiovascular", "search_terms": ["coronary", "heart disease", "atherosclerosis", "cad"]},
+            {"code": "I25.111", "description": "Atherosclerotic heart disease of native coronary artery with angina pectoris with documented spasm", "category": "Cardiovascular", "search_terms": ["angina", "chest pain", "coronary", "heart"]},
+            {"code": "I48.91", "description": "Unspecified atrial fibrillation", "category": "Cardiovascular", "search_terms": ["atrial fibrillation", "afib", "irregular", "rhythm"]},
+            {"code": "I50.9", "description": "Heart failure, unspecified", "category": "Cardiovascular", "search_terms": ["heart failure", "chf", "congestive", "shortness"]},
+            {"code": "I73.9", "description": "Peripheral vascular disease, unspecified", "category": "Cardiovascular", "search_terms": ["peripheral", "vascular", "circulation", "pvd"]},
+            {"code": "I83.90", "description": "Asymptomatic varicose veins of unspecified lower extremity", "category": "Cardiovascular", "search_terms": ["varicose", "veins", "legs", "spider"]},
+            
+            # Respiratory
+            {"code": "J06.9", "description": "Acute upper respiratory infection, unspecified", "category": "Respiratory", "search_terms": ["upper respiratory", "uri", "cold", "congestion"]},
+            {"code": "J44.1", "description": "Chronic obstructive pulmonary disease with acute exacerbation", "category": "Respiratory", "search_terms": ["copd", "emphysema", "chronic", "breathing"]},
+            {"code": "J44.0", "description": "Chronic obstructive pulmonary disease with acute lower respiratory infection", "category": "Respiratory", "search_terms": ["copd", "emphysema", "infection", "breathing"]},
+            {"code": "J45.9", "description": "Asthma, unspecified", "category": "Respiratory", "search_terms": ["asthma", "wheezing", "breathing", "bronchospasm"]},
+            {"code": "J18.9", "description": "Pneumonia, unspecified organism", "category": "Respiratory", "search_terms": ["pneumonia", "lung infection", "chest infection"]},
+            {"code": "J20.9", "description": "Acute bronchitis, unspecified", "category": "Respiratory", "search_terms": ["bronchitis", "acute", "cough", "chest"]},
+            {"code": "J32.9", "description": "Chronic sinusitis, unspecified", "category": "Respiratory", "search_terms": ["sinusitis", "chronic", "sinus", "nasal"]},
+            {"code": "J01.90", "description": "Acute sinusitis, unspecified", "category": "Respiratory", "search_terms": ["sinusitis", "acute", "sinus", "nasal"]},
+            
+            # Musculoskeletal
+            {"code": "M79.3", "description": "Panniculitis, unspecified", "category": "Musculoskeletal", "search_terms": ["panniculitis", "inflammation", "fat", "tissue"]},
+            {"code": "M25.50", "description": "Pain in unspecified joint", "category": "Musculoskeletal", "search_terms": ["joint pain", "arthralgia", "ache", "stiffness"]},
+            {"code": "M54.5", "description": "Low back pain", "category": "Musculoskeletal", "search_terms": ["back pain", "lumbar", "lower back", "lumbago"]},
+            {"code": "M54.2", "description": "Cervicalgia", "category": "Musculoskeletal", "search_terms": ["neck pain", "cervical", "cervicalgia", "stiff neck"]},
+            {"code": "M19.90", "description": "Unspecified osteoarthritis, unspecified site", "category": "Musculoskeletal", "search_terms": ["osteoarthritis", "arthritis", "joint", "degenerative"]},
+            {"code": "M06.9", "description": "Rheumatoid arthritis, unspecified", "category": "Musculoskeletal", "search_terms": ["rheumatoid", "arthritis", "autoimmune", "ra"]},
+            {"code": "M70.03", "description": "Crepitant synovitis (acute) (chronic) of wrist", "category": "Musculoskeletal", "search_terms": ["synovitis", "wrist", "inflammation", "joint"]},
+            {"code": "M75.30", "description": "Calcific tendinitis of unspecified shoulder", "category": "Musculoskeletal", "search_terms": ["tendinitis", "shoulder", "calcific", "pain"]},
+            
+            # Mental Health
+            {"code": "F32.9", "description": "Major depressive disorder, single episode, unspecified", "category": "Mental Health", "search_terms": ["depression", "depressive", "mood", "sad"]},
+            {"code": "F33.9", "description": "Major depressive disorder, recurrent, unspecified", "category": "Mental Health", "search_terms": ["depression", "recurrent", "chronic", "mood"]},
+            {"code": "F41.9", "description": "Anxiety disorder, unspecified", "category": "Mental Health", "search_terms": ["anxiety", "anxious", "worry", "panic"]},
+            {"code": "F41.0", "description": "Panic disorder [episodic paroxysmal anxiety] without agoraphobia", "category": "Mental Health", "search_terms": ["panic", "anxiety", "attack", "episode"]},
+            {"code": "F43.10", "description": "Post-traumatic stress disorder, unspecified", "category": "Mental Health", "search_terms": ["ptsd", "trauma", "stress", "flashback"]},
+            {"code": "F90.9", "description": "Attention-deficit hyperactivity disorder, unspecified type", "category": "Mental Health", "search_terms": ["adhd", "attention", "hyperactivity", "deficit"]},
+            
+            # Gastrointestinal
+            {"code": "K21.9", "description": "Gastro-esophageal reflux disease without esophagitis", "category": "Gastrointestinal", "search_terms": ["gerd", "reflux", "heartburn", "acid"]},
+            {"code": "K59.00", "description": "Constipation, unspecified", "category": "Gastrointestinal", "search_terms": ["constipation", "bowel", "stool", "hard"]},
+            {"code": "K58.9", "description": "Irritable bowel syndrome without diarrhea", "category": "Gastrointestinal", "search_terms": ["ibs", "irritable", "bowel", "abdominal"]},
+            {"code": "K29.70", "description": "Gastritis, unspecified, without bleeding", "category": "Gastrointestinal", "search_terms": ["gastritis", "stomach", "inflammation", "pain"]},
+            {"code": "K80.20", "description": "Calculus of gallbladder without cholecystitis without obstruction", "category": "Gastrointestinal", "search_terms": ["gallstones", "gallbladder", "calculus", "stone"]},
+            {"code": "K92.2", "description": "Gastrointestinal hemorrhage, unspecified", "category": "Gastrointestinal", "search_terms": ["gi bleed", "bleeding", "hemorrhage", "blood"]},
+            
+            # Genitourinary
+            {"code": "N39.0", "description": "Urinary tract infection, site not specified", "category": "Genitourinary", "search_terms": ["uti", "urinary", "infection", "bladder"]},
+            {"code": "N18.6", "description": "End stage renal disease", "category": "Genitourinary", "search_terms": ["kidney", "renal", "esrd", "failure"]},
+            {"code": "N18.3", "description": "Chronic kidney disease, stage 3 (moderate)", "category": "Genitourinary", "search_terms": ["kidney", "renal", "ckd", "chronic"]},
+            {"code": "N40.1", "description": "Enlarged prostate with lower urinary tract symptoms", "category": "Genitourinary", "search_terms": ["prostate", "enlarged", "bph", "urinary"]},
+            {"code": "N92.0", "description": "Excessive and frequent menstruation with regular cycle", "category": "Genitourinary", "search_terms": ["menorrhagia", "heavy", "period", "bleeding"]},
+            
+            # Symptoms and Signs
+            {"code": "R06.02", "description": "Shortness of breath", "category": "Symptoms", "search_terms": ["shortness", "breath", "dyspnea", "sob"]},
+            {"code": "R50.9", "description": "Fever, unspecified", "category": "Symptoms", "search_terms": ["fever", "temperature", "pyrexia", "hot"]},
+            {"code": "R06.00", "description": "Dyspnea, unspecified", "category": "Symptoms", "search_terms": ["dyspnea", "breathing", "shortness", "air"]},
+            {"code": "R51", "description": "Headache", "category": "Symptoms", "search_terms": ["headache", "head pain", "cephalgia", "migraine"]},
+            {"code": "R11.10", "description": "Vomiting, unspecified", "category": "Symptoms", "search_terms": ["vomiting", "nausea", "throw up", "emesis"]},
+            {"code": "R19.7", "description": "Diarrhea, unspecified", "category": "Symptoms", "search_terms": ["diarrhea", "loose", "stool", "bowel"]},
+            {"code": "R42", "description": "Dizziness and giddiness", "category": "Symptoms", "search_terms": ["dizziness", "dizzy", "vertigo", "lightheaded"]},
+            {"code": "R53.83", "description": "Fatigue", "category": "Symptoms", "search_terms": ["fatigue", "tired", "exhausted", "weakness"]},
+            {"code": "R10.9", "description": "Unspecified abdominal pain", "category": "Symptoms", "search_terms": ["abdominal", "stomach", "belly", "pain"]},
+            
+            # Dermatology
+            {"code": "L30.9", "description": "Dermatitis, unspecified", "category": "Dermatology", "search_terms": ["dermatitis", "rash", "skin", "inflammation"]},
+            {"code": "L20.9", "description": "Atopic dermatitis, unspecified", "category": "Dermatology", "search_terms": ["eczema", "atopic", "dermatitis", "itchy"]},
+            {"code": "L40.9", "description": "Psoriasis, unspecified", "category": "Dermatology", "search_terms": ["psoriasis", "plaque", "scaling", "skin"]},
+            {"code": "L29.9", "description": "Pruritus, unspecified", "category": "Dermatology", "search_terms": ["itching", "pruritus", "itch", "scratching"]},
+            {"code": "L02.90", "description": "Cutaneous abscess, unspecified", "category": "Dermatology", "search_terms": ["abscess", "boil", "pus", "infection"]},
+            
+            # Injury and Poisoning
+            {"code": "S72.001A", "description": "Fracture of unspecified part of neck of right femur, initial encounter", "category": "Injury", "search_terms": ["fracture", "femur", "hip", "break"]},
+            {"code": "S06.0X0A", "description": "Concussion without loss of consciousness, initial encounter", "category": "Injury", "search_terms": ["concussion", "head", "injury", "brain"]},
+            {"code": "S93.401A", "description": "Sprain of unspecified ligament of right ankle, initial encounter", "category": "Injury", "search_terms": ["sprain", "ankle", "ligament", "twist"]},
+            {"code": "T78.40XA", "description": "Allergy, unspecified, initial encounter", "category": "Injury", "search_terms": ["allergy", "allergic", "reaction", "hypersensitivity"]},
+            
+            # Infectious Diseases
+            {"code": "A09", "description": "Infectious gastroenteritis and colitis, unspecified", "category": "Infectious", "search_terms": ["gastroenteritis", "food poisoning", "stomach bug", "diarrhea"]},
+            {"code": "B34.9", "description": "Viral infection, unspecified", "category": "Infectious", "search_terms": ["viral", "virus", "infection", "bug"]},
+            {"code": "A46", "description": "Erysipelas", "category": "Infectious", "search_terms": ["erysipelas", "cellulitis", "skin infection", "strep"]},
+            {"code": "B37.9", "description": "Candidiasis, unspecified", "category": "Infectious", "search_terms": ["candidiasis", "yeast", "thrush", "fungal"]},
+            
+            # Pregnancy and Childbirth
+            {"code": "Z34.00", "description": "Encounter for supervision of normal first pregnancy, unspecified trimester", "category": "Pregnancy", "search_terms": ["pregnancy", "prenatal", "antepartum", "supervision"]},
+            {"code": "O09.90", "description": "Supervision of high risk pregnancy, unspecified, unspecified trimester", "category": "Pregnancy", "search_terms": ["high risk", "pregnancy", "supervision", "prenatal"]},
+            {"code": "Z37.0", "description": "Single live birth", "category": "Pregnancy", "search_terms": ["delivery", "birth", "newborn", "live"]},
+            
+            # Neoplasms
+            {"code": "C50.911", "description": "Malignant neoplasm of unspecified site of right female breast", "category": "Neoplasm", "search_terms": ["breast cancer", "malignant", "neoplasm", "carcinoma"]},
+            {"code": "C78.00", "description": "Secondary malignant neoplasm of unspecified lung", "category": "Neoplasm", "search_terms": ["lung cancer", "secondary", "metastatic", "malignant"]},
+            {"code": "C25.9", "description": "Malignant neoplasm of pancreas, unspecified", "category": "Neoplasm", "search_terms": ["pancreatic cancer", "pancreas", "malignant", "neoplasm"]},
+            {"code": "D12.6", "description": "Benign neoplasm of colon, unspecified", "category": "Neoplasm", "search_terms": ["colon polyp", "benign", "neoplasm", "polyp"]},
+            
+            # Other Common Conditions
+            {"code": "H10.9", "description": "Unspecified conjunctivitis", "category": "Ophthalmology", "search_terms": ["conjunctivitis", "pink eye", "red eye", "infection"]},
+            {"code": "H61.23", "description": "Impacted cerumen, bilateral", "category": "Otolaryngology", "search_terms": ["ear wax", "cerumen", "impacted", "blocked"]},
+            {"code": "H65.90", "description": "Unspecified nonsuppurative otitis media, unspecified ear", "category": "Otolaryngology", "search_terms": ["otitis media", "ear infection", "middle ear", "fluid"]},
+            {"code": "H66.90", "description": "Otitis media, unspecified, unspecified ear", "category": "Otolaryngology", "search_terms": ["otitis media", "ear infection", "middle ear", "pain"]},
+            {"code": "M62.830", "description": "Muscle spasm of back", "category": "Musculoskeletal", "search_terms": ["muscle spasm", "back spasm", "cramp", "tightness"]},
+            {"code": "G43.909", "description": "Migraine, unspecified, not intractable, without status migrainosus", "category": "Neurology", "search_terms": ["migraine", "headache", "severe", "throbbing"]},
+            {"code": "G47.00", "description": "Insomnia, unspecified", "category": "Neurology", "search_terms": ["insomnia", "sleeplessness", "sleep", "trouble"]},
+            {"code": "F17.210", "description": "Nicotine dependence, cigarettes, uncomplicated", "category": "Substance Use", "search_terms": ["smoking", "tobacco", "nicotine", "cigarettes"]},
+            {"code": "F10.10", "description": "Alcohol abuse, uncomplicated", "category": "Substance Use", "search_terms": ["alcohol", "abuse", "drinking", "dependence"]},
+            {"code": "Z71.3", "description": "Dietary counseling and surveillance", "category": "Counseling", "search_terms": ["diet", "nutrition", "counseling", "weight"]},
+            {"code": "Z23", "description": "Encounter for immunization", "category": "Preventive Care", "search_terms": ["vaccination", "immunization", "vaccine", "shot"]},
+            {"code": "Z51.11", "description": "Encounter for antineoplastic chemotherapy", "category": "Treatment", "search_terms": ["chemotherapy", "cancer", "treatment", "chemo"]},
+            {"code": "Z79.01", "description": "Long term (current) use of anticoagulants", "category": "Medication", "search_terms": ["anticoagulant", "blood thinner", "warfarin", "long term"]},
+            {"code": "Z79.4", "description": "Long term (current) use of insulin", "category": "Medication", "search_terms": ["insulin", "diabetes", "long term", "injection"]},
+            {"code": "Z87.891", "description": "Personal history of nicotine dependence", "category": "History", "search_terms": ["smoking", "tobacco", "history", "former"]},
+            {"code": "Z91.19", "description": "Patient's noncompliance with other medical treatment and regimen", "category": "Factors", "search_terms": ["noncompliance", "adherence", "medication", "treatment"]}
         ]
         
         # Add IDs to codes
-        for code in common_codes:
+        for code in comprehensive_codes:
             code["id"] = str(uuid.uuid4())
         
-        await db.icd10_codes.insert_many(common_codes)
+        await db.icd10_codes.insert_many(comprehensive_codes)
         
         return {
-            "message": "ICD-10 codes initialized successfully",
-            "codes_added": len(common_codes)
+            "message": "Comprehensive ICD-10 codes initialized successfully",
+            "codes_added": len(comprehensive_codes)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error initializing ICD-10 codes: {str(e)}")
