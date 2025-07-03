@@ -10810,7 +10810,6 @@ const TelehealthModule = ({ setActiveModule }) => {
 // Main App Component
 function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
-  const { logout } = useAuth();
 
   const renderModule = () => {
     switch (activeModule) {
