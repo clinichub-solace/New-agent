@@ -804,6 +804,18 @@ test_plan:
         agent: "testing"
         comment: "The backend API for Telehealth is working correctly, but the frontend component cannot be tested due to syntax errors in App.js. The frontend application fails to load properly, preventing access to the Telehealth module. The login page loads but authentication does not proceed to the dashboard."
 
+  - task: "Payroll Management System"
+    implemented: true
+    working: false
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "testing"
+        comment: "Tested the newly implemented payroll management system endpoints. The system is partially implemented. The GET /api/payroll/periods endpoint works correctly and returns an empty array as expected. However, the POST /api/payroll/periods endpoint fails with a 500 Internal Server Error due to a date serialization issue: 'cannot encode object: datetime.date(2025, 6, 19), of type: <class 'datetime.date'>'. This prevents testing the rest of the workflow since we can't create a pay period. When testing with mock IDs, the other endpoints (POST /api/payroll/calculate/{period_id}, GET /api/payroll/records/{period_id}, GET /api/payroll/paystub/{record_id}, POST /api/payroll/approve/{period_id}, POST /api/payroll/pay/{period_id}) return appropriate 404 or 500 errors indicating the period or record doesn't exist, which is expected behavior when using mock IDs. The system needs to fix the date serialization issue in the period creation endpoint to enable full testing of the payroll workflow."
+
 agent_communication:
   - agent: "testing"
     message: "Tested the newly implemented Lab Integration and Insurance Verification endpoints. Lab Integration is working correctly with all endpoints functioning as expected. Successfully tested initializing lab tests, retrieving lab tests, creating lab orders with patient, provider, lab tests, and ICD-10 codes, and retrieving lab orders. Insurance Verification is partially working - insurance card creation and retrieval, prior authorization, and eligibility retrieval endpoints work correctly. However, the eligibility verification endpoint has an issue with the 'valid_until' parameter being set twice, causing a 'multiple values for keyword argument' error. This needs to be fixed to fully support the insurance verification workflow."
