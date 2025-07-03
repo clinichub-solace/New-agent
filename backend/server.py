@@ -3798,7 +3798,7 @@ async def get_ytd_total(employee_id: str, field: str) -> float:
     """Get year-to-date total for a specific field"""
     try:
         current_year = datetime.now().year
-        start_of_year = datetime(current_year, 1, 1).date()
+        start_of_year = datetime(current_year, 1, 1)
         
         pipeline = [
             {
