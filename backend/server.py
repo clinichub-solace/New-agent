@@ -6869,24 +6869,63 @@ async def search_icd10_codes(
     limit: int = 20,
     current_user: User = Depends(get_current_active_user)
 ):
-    """Search ICD-10 codes by description"""
+    """Search ICD-10 codes by description, code, or search terms with fuzzy matching"""
     try:
-        # Search by description or code
+        # Enhanced search query with multiple fields and fuzzy matching
         search_query = {
             "$or": [
                 {"description": {"$regex": query, "$options": "i"}},
-                {"code": {"$regex": query, "$options": "i"}}
+                {"code": {"$regex": query, "$options": "i"}},
+                {"category": {"$regex": query, "$options": "i"}},
+                {"search_terms": {"$regex": query, "$options": "i"}}
             ]
         }
         
+        # Find exact matches first, then partial matches
         codes = await db.icd10_codes.find(search_query).limit(limit).to_list(limit)
         
-        # Remove MongoDB ObjectId
+        # Remove MongoDB ObjectId and add relevance scoring
+        results = []
         for code in codes:
             if "_id" in code:
                 del code["_id"]
+            
+            # Calculate relevance score for better sorting
+            relevance_score = 0
+            query_lower = query.lower()
+            
+            # Exact code match gets highest score
+            if query_lower == code["code"].lower():
+                relevance_score = 100
+            # Code starts with query
+            elif code["code"].lower().startswith(query_lower):
+                relevance_score = 90
+            # Description starts with query
+            elif code["description"].lower().startswith(query_lower):
+                relevance_score = 80
+            # Search terms contain query
+            elif any(term.lower().startswith(query_lower) for term in code.get("search_terms", [])):
+                relevance_score = 70
+            # Query found in description
+            elif query_lower in code["description"].lower():
+                relevance_score = 60
+            # Query found in search terms
+            elif any(query_lower in term.lower() for term in code.get("search_terms", [])):
+                relevance_score = 50
+            else:
+                relevance_score = 30
+            
+            code["relevance_score"] = relevance_score
+            results.append(code)
         
-        return codes
+        # Sort by relevance score (highest first)
+        results.sort(key=lambda x: x["relevance_score"], reverse=True)
+        
+        # Remove relevance score from final results
+        for result in results:
+            del result["relevance_score"]
+        
+        return results
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error searching ICD-10 codes: {str(e)}")
 
