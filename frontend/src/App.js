@@ -919,6 +919,10 @@ const FinanceModule = ({ setActiveModule }) => {
       {showVendorForm && <VendorForm />}
       {showCheckForm && <CheckForm />}
       {showTransactionForm && <TransactionForm />}
+
+        {activeTab === 'payroll' && (
+          <PayrollTab employee={employee} />
+        )}
     </div>
   );
 };
