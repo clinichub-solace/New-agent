@@ -81,7 +81,7 @@ def test_payroll_management():
     print("\n--- Creating Test Employee ---")
     employee_id = None
     try:
-        url = f"{API_URL}/employees"
+        url = f"{API_URL}/enhanced-employees"
         data = {
             "first_name": "John",
             "last_name": "Doe",
