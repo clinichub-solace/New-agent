@@ -924,12 +924,17 @@ const FinanceModule = ({ setActiveModule }) => {
     </div>
   );
 };
-const Dashboard = ({ onLogout }) => {
+const Dashboard = ({ onLogout, setActiveModule }) => {
   const [stats, setStats] = useState({});
   const [recentPatients, setRecentPatients] = useState([]);
   const [appointments, setAppointments] = useState([]);
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
+  
+  // Add the missing handleCardClick function
+  const handleCardClick = (moduleKey) => {
+    setActiveModule(moduleKey);
+  };
 
   const modules = [
     { name: "Patients/EHR", key: "patients", icon: "👥", color: "bg-blue-500", permission: "patients:read" },
