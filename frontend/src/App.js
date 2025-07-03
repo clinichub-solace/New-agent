@@ -10951,7 +10951,7 @@ function App() {
         return (
           <ProtectedRoute>
             <AppHeader>
-              <Dashboard setActiveModule={setActiveModule} />
+              <Dashboard setActiveModule={setActiveModule} onLogout={logout} />
             </AppHeader>
           </ProtectedRoute>
         );
