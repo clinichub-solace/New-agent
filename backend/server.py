@@ -480,6 +480,137 @@ class WorkShiftCreate(BaseModel):
     notes: Optional[str] = None
     created_by: str
 
+# Payroll Models
+class PayPeriodType(str, Enum):
+    WEEKLY = "weekly"
+    BIWEEKLY = "biweekly"
+    SEMIMONTHLY = "semimonthly"
+    MONTHLY = "monthly"
+
+class PayrollStatus(str, Enum):
+    DRAFT = "draft"
+    CALCULATED = "calculated"
+    APPROVED = "approved"
+    PAID = "paid"
+    VOIDED = "voided"
+
+class DeductionType(str, Enum):
+    FEDERAL_TAX = "federal_tax"
+    STATE_TAX = "state_tax"
+    SOCIAL_SECURITY = "social_security"
+    MEDICARE = "medicare"
+    HEALTH_INSURANCE = "health_insurance"
+    DENTAL_INSURANCE = "dental_insurance"
+    VISION_INSURANCE = "vision_insurance"
+    RETIREMENT_401K = "retirement_401k"
+    LIFE_INSURANCE = "life_insurance"
+    CUSTOM = "custom"
+
+class PayrollPeriod(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    period_start: date
+    period_end: date
+    pay_date: date
+    period_type: PayPeriodType
+    status: PayrollStatus = PayrollStatus.DRAFT
+    total_gross_pay: float = 0.0
+    total_net_pay: float = 0.0
+    total_deductions: float = 0.0
+    total_taxes: float = 0.0
+    employee_count: int = 0
+    created_by: str
+    approved_by: Optional[str] = None
+    approved_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PayrollDeduction(BaseModel):
+    deduction_type: DeductionType
+    description: str
+    amount: float
+    percentage: Optional[float] = None  # If percentage-based
+    is_pre_tax: bool = False
+
+class PayrollRecord(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    payroll_period_id: str
+    employee_id: str
+    
+    # Time and Pay Data
+    regular_hours: float = 0.0
+    overtime_hours: float = 0.0
+    double_time_hours: float = 0.0
+    sick_hours: float = 0.0
+    vacation_hours: float = 0.0
+    holiday_hours: float = 0.0
+    
+    # Pay Rates
+    regular_rate: float
+    overtime_rate: Optional[float] = None
+    double_time_rate: Optional[float] = None
+    
+    # Gross Pay Calculations
+    regular_pay: float = 0.0
+    overtime_pay: float = 0.0
+    double_time_pay: float = 0.0
+    sick_pay: float = 0.0
+    vacation_pay: float = 0.0
+    holiday_pay: float = 0.0
+    bonus_pay: float = 0.0
+    commission_pay: float = 0.0
+    other_pay: float = 0.0
+    gross_pay: float = 0.0
+    
+    # Deductions
+    deductions: List[PayrollDeduction] = []
+    total_deductions: float = 0.0
+    
+    # Tax Calculations
+    federal_tax: float = 0.0
+    state_tax: float = 0.0
+    social_security_tax: float = 0.0
+    medicare_tax: float = 0.0
+    total_taxes: float = 0.0
+    
+    # Net Pay
+    net_pay: float = 0.0
+    
+    # YTD Totals (Year to Date)
+    ytd_gross_pay: float = 0.0
+    ytd_net_pay: float = 0.0
+    ytd_federal_tax: float = 0.0
+    ytd_state_tax: float = 0.0
+    ytd_social_security_tax: float = 0.0
+    ytd_medicare_tax: float = 0.0
+    
+    # Check Information
+    check_number: Optional[str] = None
+    check_date: Optional[date] = None
+    check_status: PayrollStatus = PayrollStatus.DRAFT
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PayrollRecordCreate(BaseModel):
+    payroll_period_id: str
+    employee_id: str
+    bonus_pay: float = 0.0
+    commission_pay: float = 0.0
+    other_pay: float = 0.0
+    deductions: List[PayrollDeduction] = []
+
+class PaystubData(BaseModel):
+    employee_info: Dict[str, Any]
+    pay_period: Dict[str, Any]
+    hours_breakdown: Dict[str, float]
+    pay_breakdown: Dict[str, float]
+    deductions_breakdown: List[Dict[str, Any]]
+    taxes_breakdown: Dict[str, float]
+    ytd_totals: Dict[str, float]
+    net_pay: float
+    check_number: Optional[str] = None
+    check_date: Optional[date] = None
+
 # Finance Module Models
 
 # Finance-related Enums
