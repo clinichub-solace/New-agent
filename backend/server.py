@@ -3397,17 +3397,33 @@ async def get_employee_hours_summary(employee_id: str, start_date: date, end_dat
 async def create_payroll_period(period_data: Dict):
     """Create a new payroll period"""
     try:
-        payroll_period = PayrollPeriod(
-            period_start=datetime.strptime(period_data["period_start"], "%Y-%m-%d").date(),
-            period_end=datetime.strptime(period_data["period_end"], "%Y-%m-%d").date(),
-            pay_date=datetime.strptime(period_data["pay_date"], "%Y-%m-%d").date(),
-            period_type=period_data["period_type"],
-            created_by=period_data["created_by"]
-        )
+        # Convert date strings to date objects for validation, then back to datetime for MongoDB
+        period_start = datetime.strptime(period_data["period_start"], "%Y-%m-%d")
+        period_end = datetime.strptime(period_data["period_end"], "%Y-%m-%d")
+        pay_date = datetime.strptime(period_data["pay_date"], "%Y-%m-%d")
         
-        result = await db.payroll_periods.insert_one(payroll_period.dict())
+        payroll_period = {
+            "id": str(uuid.uuid4()),
+            "period_start": period_start,
+            "period_end": period_end,
+            "pay_date": pay_date,
+            "period_type": period_data["period_type"],
+            "status": "draft",
+            "total_gross_pay": 0.0,
+            "total_net_pay": 0.0,
+            "total_deductions": 0.0,
+            "total_taxes": 0.0,
+            "employee_count": 0,
+            "created_by": period_data["created_by"],
+            "approved_by": None,
+            "approved_at": None,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        
+        result = await db.payroll_periods.insert_one(payroll_period)
         if result.inserted_id:
-            return {"id": payroll_period.id, "message": "Payroll period created successfully"}
+            return {"id": payroll_period["id"], "message": "Payroll period created successfully"}
         else:
             raise HTTPException(status_code=500, detail="Failed to create payroll period")
     except Exception as e:
