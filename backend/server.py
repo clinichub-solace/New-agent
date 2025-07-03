@@ -3391,6 +3391,425 @@ async def get_employee_hours_summary(employee_id: str, start_date: date, end_dat
         logger.error(f"Error calculating hours: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error calculating hours: {str(e)}")
 
+# ===== PAYROLL MANAGEMENT ENDPOINTS =====
+
+@api_router.post("/payroll/periods")
+async def create_payroll_period(period_data: Dict):
+    """Create a new payroll period"""
+    try:
+        payroll_period = PayrollPeriod(
+            period_start=datetime.strptime(period_data["period_start"], "%Y-%m-%d").date(),
+            period_end=datetime.strptime(period_data["period_end"], "%Y-%m-%d").date(),
+            pay_date=datetime.strptime(period_data["pay_date"], "%Y-%m-%d").date(),
+            period_type=period_data["period_type"],
+            created_by=period_data["created_by"]
+        )
+        
+        result = await db.payroll_periods.insert_one(payroll_period.dict())
+        if result.inserted_id:
+            return {"id": payroll_period.id, "message": "Payroll period created successfully"}
+        else:
+            raise HTTPException(status_code=500, detail="Failed to create payroll period")
+    except Exception as e:
+        logger.error(f"Error creating payroll period: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating payroll period: {str(e)}")
+
+@api_router.get("/payroll/periods")
+async def get_payroll_periods(year: Optional[int] = None, status: Optional[str] = None):
+    """Get all payroll periods with optional filtering"""
+    try:
+        query = {}
+        if year:
+            start_date = datetime(year, 1, 1).date()
+            end_date = datetime(year, 12, 31).date()
+            query["period_start"] = {"$gte": start_date, "$lte": end_date}
+        if status:
+            query["status"] = status
+            
+        periods = []
+        async for period in db.payroll_periods.find(query, {"_id": 0}).sort("period_start", -1):
+            periods.append(period)
+            
+        return periods
+    except Exception as e:
+        logger.error(f"Error fetching payroll periods: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching payroll periods: {str(e)}")
+
+@api_router.post("/payroll/calculate/{period_id}")
+async def calculate_payroll(period_id: str):
+    """Calculate payroll for all employees in a period"""
+    try:
+        # Get payroll period
+        period = await db.payroll_periods.find_one({"id": period_id}, {"_id": 0})
+        if not period:
+            raise HTTPException(status_code=404, detail="Payroll period not found")
+            
+        period_start = period["period_start"]
+        period_end = period["period_end"]
+        
+        # Get all active employees
+        employees = []
+        async for emp in db.employees.find({"is_active": True}, {"_id": 0}):
+            employees.append(emp)
+        
+        payroll_records = []
+        
+        for employee in employees:
+            # Calculate hours worked from timesheet
+            hours_data = await calculate_employee_hours(employee["id"], period_start, period_end)
+            
+            # Determine pay rate
+            regular_rate = employee.get("hourly_rate", 0.0)
+            if regular_rate == 0.0 and employee.get("salary"):
+                # Convert salary to hourly (assuming 40 hours/week, 52 weeks/year)
+                regular_rate = employee["salary"] / (40 * 52)
+                
+            overtime_rate = regular_rate * 1.5
+            double_time_rate = regular_rate * 2.0
+            
+            # Calculate gross pay
+            regular_pay = hours_data["regular_hours"] * regular_rate
+            overtime_pay = hours_data["overtime_hours"] * overtime_rate
+            double_time_pay = hours_data.get("double_time_hours", 0.0) * double_time_rate
+            
+            gross_pay = regular_pay + overtime_pay + double_time_pay
+            
+            # Calculate taxes (simplified - real implementation would use tax tables)
+            federal_tax = gross_pay * 0.12  # Simplified 12% federal tax
+            state_tax = gross_pay * 0.05    # Simplified 5% state tax
+            social_security_tax = gross_pay * 0.062  # 6.2% social security
+            medicare_tax = gross_pay * 0.0145        # 1.45% medicare
+            
+            total_taxes = federal_tax + state_tax + social_security_tax + medicare_tax
+            
+            # Calculate net pay (simplified - would include other deductions)
+            net_pay = gross_pay - total_taxes
+            
+            # Get current YTD totals (simplified)
+            ytd_gross = await get_ytd_total(employee["id"], "gross_pay")
+            ytd_net = await get_ytd_total(employee["id"], "net_pay")
+            ytd_federal = await get_ytd_total(employee["id"], "federal_tax")
+            ytd_state = await get_ytd_total(employee["id"], "state_tax")
+            ytd_ss = await get_ytd_total(employee["id"], "social_security_tax")
+            ytd_medicare = await get_ytd_total(employee["id"], "medicare_tax")
+            
+            # Create payroll record
+            payroll_record = PayrollRecord(
+                payroll_period_id=period_id,
+                employee_id=employee["id"],
+                regular_hours=hours_data["regular_hours"],
+                overtime_hours=hours_data["overtime_hours"],
+                regular_rate=regular_rate,
+                overtime_rate=overtime_rate,
+                double_time_rate=double_time_rate,
+                regular_pay=regular_pay,
+                overtime_pay=overtime_pay,
+                double_time_pay=double_time_pay,
+                gross_pay=gross_pay,
+                federal_tax=federal_tax,
+                state_tax=state_tax,
+                social_security_tax=social_security_tax,
+                medicare_tax=medicare_tax,
+                total_taxes=total_taxes,
+                net_pay=net_pay,
+                ytd_gross_pay=ytd_gross + gross_pay,
+                ytd_net_pay=ytd_net + net_pay,
+                ytd_federal_tax=ytd_federal + federal_tax,
+                ytd_state_tax=ytd_state + state_tax,
+                ytd_social_security_tax=ytd_ss + social_security_tax,
+                ytd_medicare_tax=ytd_medicare + medicare_tax
+            )
+            
+            payroll_records.append(payroll_record.dict())
+        
+        # Save all payroll records
+        if payroll_records:
+            result = await db.payroll_records.insert_many(payroll_records)
+            
+            # Update payroll period totals
+            total_gross = sum(r["gross_pay"] for r in payroll_records)
+            total_net = sum(r["net_pay"] for r in payroll_records)
+            total_taxes = sum(r["total_taxes"] for r in payroll_records)
+            
+            await db.payroll_periods.update_one(
+                {"id": period_id},
+                {"$set": {
+                    "status": "calculated",
+                    "total_gross_pay": total_gross,
+                    "total_net_pay": total_net,
+                    "total_taxes": total_taxes,
+                    "employee_count": len(payroll_records),
+                    "updated_at": datetime.utcnow()
+                }}
+            )
+            
+            return {
+                "message": f"Payroll calculated for {len(payroll_records)} employees",
+                "total_gross_pay": total_gross,
+                "total_net_pay": total_net,
+                "employee_count": len(payroll_records)
+            }
+        else:
+            return {"message": "No employees found for payroll calculation"}
+            
+    except Exception as e:
+        logger.error(f"Error calculating payroll: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error calculating payroll: {str(e)}")
+
+@api_router.get("/payroll/records/{period_id}")
+async def get_payroll_records(period_id: str):
+    """Get all payroll records for a specific period"""
+    try:
+        records = []
+        async for record in db.payroll_records.find({"payroll_period_id": period_id}, {"_id": 0}):
+            # Get employee name
+            employee = await db.employees.find_one({"id": record["employee_id"]}, {"_id": 0})
+            if employee:
+                record["employee_name"] = f"{employee['first_name']} {employee['last_name']}"
+            records.append(record)
+            
+        return records
+    except Exception as e:
+        logger.error(f"Error fetching payroll records: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error fetching payroll records: {str(e)}")
+
+@api_router.get("/payroll/paystub/{record_id}")
+async def generate_paystub(record_id: str):
+    """Generate paystub data for a specific payroll record"""
+    try:
+        # Get payroll record
+        payroll_record = await db.payroll_records.find_one({"id": record_id}, {"_id": 0})
+        if not payroll_record:
+            raise HTTPException(status_code=404, detail="Payroll record not found")
+            
+        # Get employee info
+        employee = await db.employees.find_one({"id": payroll_record["employee_id"]}, {"_id": 0})
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+            
+        # Get payroll period info
+        period = await db.payroll_periods.find_one({"id": payroll_record["payroll_period_id"]}, {"_id": 0})
+        if not period:
+            raise HTTPException(status_code=404, detail="Payroll period not found")
+        
+        # Generate check number if not exists
+        check_number = payroll_record.get("check_number")
+        if not check_number:
+            check_number = f"CHK-{record_id[:8].upper()}"
+            await db.payroll_records.update_one(
+                {"id": record_id},
+                {"$set": {"check_number": check_number, "check_date": period["pay_date"]}}
+            )
+        
+        # Build paystub data
+        paystub_data = PaystubData(
+            employee_info={
+                "name": f"{employee['first_name']} {employee['last_name']}",
+                "employee_id": employee.get("employee_id", employee["id"]),
+                "address": f"{employee.get('address', '')}, {employee.get('city', '')}, {employee.get('state', '')} {employee.get('zip_code', '')}".strip(", "),
+                "ssn_last_four": employee.get("ssn_last_four", "")
+            },
+            pay_period={
+                "start_date": period["period_start"],
+                "end_date": period["period_end"],
+                "pay_date": period["pay_date"],
+                "period_type": period["period_type"]
+            },
+            hours_breakdown={
+                "regular_hours": payroll_record["regular_hours"],
+                "overtime_hours": payroll_record["overtime_hours"],
+                "double_time_hours": payroll_record.get("double_time_hours", 0.0),
+                "sick_hours": payroll_record.get("sick_hours", 0.0),
+                "vacation_hours": payroll_record.get("vacation_hours", 0.0),
+                "holiday_hours": payroll_record.get("holiday_hours", 0.0)
+            },
+            pay_breakdown={
+                "regular_pay": payroll_record["regular_pay"],
+                "overtime_pay": payroll_record["overtime_pay"],
+                "double_time_pay": payroll_record.get("double_time_pay", 0.0),
+                "sick_pay": payroll_record.get("sick_pay", 0.0),
+                "vacation_pay": payroll_record.get("vacation_pay", 0.0),
+                "holiday_pay": payroll_record.get("holiday_pay", 0.0),
+                "bonus_pay": payroll_record.get("bonus_pay", 0.0),
+                "commission_pay": payroll_record.get("commission_pay", 0.0),
+                "other_pay": payroll_record.get("other_pay", 0.0),
+                "gross_pay": payroll_record["gross_pay"]
+            },
+            deductions_breakdown=[
+                {"description": "Health Insurance", "amount": 0.0},  # Would be populated from actual deductions
+                {"description": "401k", "amount": 0.0}
+            ],
+            taxes_breakdown={
+                "federal_tax": payroll_record["federal_tax"],
+                "state_tax": payroll_record["state_tax"],
+                "social_security_tax": payroll_record["social_security_tax"],
+                "medicare_tax": payroll_record["medicare_tax"],
+                "total_taxes": payroll_record["total_taxes"]
+            },
+            ytd_totals={
+                "ytd_gross_pay": payroll_record["ytd_gross_pay"],
+                "ytd_net_pay": payroll_record["ytd_net_pay"],
+                "ytd_federal_tax": payroll_record["ytd_federal_tax"],
+                "ytd_state_tax": payroll_record["ytd_state_tax"],
+                "ytd_social_security_tax": payroll_record["ytd_social_security_tax"],
+                "ytd_medicare_tax": payroll_record["ytd_medicare_tax"]
+            },
+            net_pay=payroll_record["net_pay"],
+            check_number=check_number,
+            check_date=period["pay_date"]
+        )
+        
+        return paystub_data.dict()
+        
+    except Exception as e:
+        logger.error(f"Error generating paystub: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error generating paystub: {str(e)}")
+
+@api_router.post("/payroll/approve/{period_id}")
+async def approve_payroll(period_id: str, approval_data: Dict):
+    """Approve a calculated payroll period"""
+    try:
+        result = await db.payroll_periods.update_one(
+            {"id": period_id, "status": "calculated"},
+            {"$set": {
+                "status": "approved",
+                "approved_by": approval_data["approved_by"],
+                "approved_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Payroll period not found or not in calculated status")
+            
+        # Update all payroll records to approved status
+        await db.payroll_records.update_many(
+            {"payroll_period_id": period_id},
+            {"$set": {"check_status": "approved"}}
+        )
+        
+        return {"message": "Payroll period approved successfully"}
+        
+    except Exception as e:
+        logger.error(f"Error approving payroll: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error approving payroll: {str(e)}")
+
+@api_router.post("/payroll/pay/{period_id}")
+async def mark_payroll_paid(period_id: str):
+    """Mark payroll period as paid (checks issued)"""
+    try:
+        result = await db.payroll_periods.update_one(
+            {"id": period_id, "status": "approved"},
+            {"$set": {
+                "status": "paid",
+                "updated_at": datetime.utcnow()
+            }}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Payroll period not found or not approved")
+            
+        # Update all payroll records to paid status
+        await db.payroll_records.update_many(
+            {"payroll_period_id": period_id},
+            {"$set": {"check_status": "paid"}}
+        )
+        
+        return {"message": "Payroll marked as paid successfully"}
+        
+    except Exception as e:
+        logger.error(f"Error marking payroll as paid: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error marking payroll as paid: {str(e)}")
+
+# Helper functions for payroll calculations
+async def calculate_employee_hours(employee_id: str, start_date: date, end_date: date) -> Dict[str, float]:
+    """Calculate employee hours from timesheet entries"""
+    try:
+        # Get all time entries for the period
+        entries = []
+        async for entry in db.time_entries.find({
+            "employee_id": employee_id,
+            "timestamp": {
+                "$gte": datetime.combine(start_date, datetime.min.time()),
+                "$lte": datetime.combine(end_date, datetime.max.time())
+            }
+        }, {"_id": 0}).sort("timestamp", 1):
+            entries.append(entry)
+        
+        # Calculate hours worked
+        total_hours = 0.0
+        daily_hours = {}
+        current_clock_in = None
+        
+        for entry in entries:
+            entry_date = entry["timestamp"].date()
+            
+            if entry["entry_type"] == "clock_in":
+                current_clock_in = entry["timestamp"]
+            elif entry["entry_type"] == "clock_out" and current_clock_in:
+                hours_worked = (entry["timestamp"] - current_clock_in).total_seconds() / 3600
+                daily_hours[entry_date] = daily_hours.get(entry_date, 0) + hours_worked
+                total_hours += hours_worked
+                current_clock_in = None
+        
+        # Calculate regular vs overtime (assuming 40 hours/week is regular)
+        regular_hours = min(total_hours, 40.0)
+        overtime_hours = max(0, total_hours - 40.0)
+        
+        return {
+            "total_hours": round(total_hours, 2),
+            "regular_hours": round(regular_hours, 2),
+            "overtime_hours": round(overtime_hours, 2),
+            "double_time_hours": 0.0,  # Would be calculated based on company policy
+            "daily_breakdown": {str(k): round(v, 2) for k, v in daily_hours.items()}
+        }
+    except Exception as e:
+        logger.error(f"Error calculating employee hours: {str(e)}")
+        return {"total_hours": 0.0, "regular_hours": 0.0, "overtime_hours": 0.0, "double_time_hours": 0.0}
+
+async def get_ytd_total(employee_id: str, field: str) -> float:
+    """Get year-to-date total for a specific field"""
+    try:
+        current_year = datetime.now().year
+        start_of_year = datetime(current_year, 1, 1).date()
+        
+        pipeline = [
+            {
+                "$match": {
+                    "employee_id": employee_id,
+                    "payroll_period_id": {
+                        "$exists": True
+                    }
+                }
+            },
+            {
+                "$lookup": {
+                    "from": "payroll_periods",
+                    "localField": "payroll_period_id",
+                    "foreignField": "id",
+                    "as": "period"
+                }
+            },
+            {
+                "$match": {
+                    "period.period_start": {"$gte": start_of_year}
+                }
+            },
+            {
+                "$group": {
+                    "_id": None,
+                    "total": {"$sum": f"${field}"}
+                }
+            }
+        ]
+        
+        result = await db.payroll_records.aggregate(pipeline).to_list(1)
+        return result[0]["total"] if result else 0.0
+        
+    except Exception as e:
+        logger.error(f"Error calculating YTD total: {str(e)}")
+        return 0.0
+
 # Finance Module Routes
 
 # Vendor Management
