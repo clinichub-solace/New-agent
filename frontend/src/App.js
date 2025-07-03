@@ -935,6 +935,14 @@ const Dashboard = ({ onLogout, setActiveModule }) => {
   const handleCardClick = (moduleKey) => {
     setActiveModule(moduleKey);
   };
+  
+  // Add the missing quickStats object
+  const quickStats = {
+    erx_patients_today: 0,
+    daily_revenue: 0,
+    patients_in_queue: 0,
+    pending_payments_total: 0
+  };
 
   const modules = [
     { name: "Patients/EHR", key: "patients", icon: "👥", color: "bg-blue-500", permission: "patients:read" },
