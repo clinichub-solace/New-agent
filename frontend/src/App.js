@@ -920,9 +920,7 @@ const FinanceModule = ({ setActiveModule }) => {
       {showCheckForm && <CheckForm />}
       {showTransactionForm && <TransactionForm />}
 
-        {activeTab === 'payroll' && (
-          <PayrollTab employee={employee} />
-        )}
+      {/* Removed PayrollTab as it requires an employee object which is not defined in this context */}
     </div>
   );
 };
