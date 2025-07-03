@@ -75,9 +75,9 @@ def test_payroll_periods(auth_token):
         pay_date = today + timedelta(days=5)
         
         data = {
-            "period_start": period_start.isoformat(),
-            "period_end": period_end.isoformat(),
-            "pay_date": pay_date.isoformat(),
+            "period_start": period_start.strftime("%Y-%m-%d"),
+            "period_end": period_end.strftime("%Y-%m-%d"),
+            "pay_date": pay_date.strftime("%Y-%m-%d"),
             "period_type": "biweekly",
             "created_by": "admin"
         }
