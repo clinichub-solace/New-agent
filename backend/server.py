@@ -3738,16 +3738,27 @@ async def mark_payroll_paid(period_id: str):
         raise HTTPException(status_code=500, detail=f"Error marking payroll as paid: {str(e)}")
 
 # Helper functions for payroll calculations
-async def calculate_employee_hours(employee_id: str, start_date: date, end_date: date) -> Dict[str, float]:
+async def calculate_employee_hours(employee_id: str, start_date, end_date) -> Dict[str, float]:
     """Calculate employee hours from timesheet entries"""
     try:
+        # Ensure dates are datetime objects for MongoDB queries
+        if isinstance(start_date, datetime):
+            start_datetime = start_date
+        else:
+            start_datetime = start_date if isinstance(start_date, datetime) else datetime.combine(start_date, datetime.min.time())
+            
+        if isinstance(end_date, datetime):
+            end_datetime = end_date
+        else:
+            end_datetime = end_date if isinstance(end_date, datetime) else datetime.combine(end_date, datetime.max.time())
+        
         # Get all time entries for the period
         entries = []
         async for entry in db.time_entries.find({
             "employee_id": employee_id,
             "timestamp": {
-                "$gte": datetime.combine(start_date, datetime.min.time()),
-                "$lte": datetime.combine(end_date, datetime.max.time())
+                "$gte": start_datetime,
+                "$lte": end_datetime
             }
         }, {"_id": 0}).sort("timestamp", 1):
             entries.append(entry)
