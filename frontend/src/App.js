@@ -5469,7 +5469,7 @@ const EmployeeModule = ({ setActiveModule }) => {
         {/* Tab Navigation */}
         <div className="border-b border-white/20 mb-6">
           <nav className="flex space-x-8">
-            {['overview', 'documents', 'schedule', 'hours'].map((tab) => (
+            {['overview', 'documents', 'schedule', 'hours', 'payroll'].map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
