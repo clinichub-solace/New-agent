@@ -2269,6 +2269,31 @@ async def logout(current_user: User = Depends(get_current_active_user)):
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
     return current_user
 
+@api_router.post("/auth/logout")
+async def logout(current_user: User = Depends(get_current_active_user)):
+    """Logout user and cleanup Synology session if applicable"""
+    try:
+        # If user authenticated via Synology, cleanup the Synology session
+        if current_user.auth_source == "synology" and current_user.synology_sid:
+            await synology_auth.logout_synology(current_user.synology_sid)
+            
+            # Clear Synology session from database
+            await db.users.update_one(
+                {"id": current_user.id},
+                {
+                    "$set": {
+                        "synology_sid": None,
+                        "updated_at": datetime.utcnow()
+                    }
+                }
+            )
+        
+        return {"message": "Logout successful", "auth_source": current_user.auth_source}
+        
+    except Exception as e:
+        logging.error(f"Error during logout: {str(e)}")
+        return {"message": "Logout completed with warnings"}
+
 @api_router.post("/auth/change-password")
 async def change_password(
     current_password: str,
