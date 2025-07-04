@@ -97,7 +97,22 @@ const LoginPage = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [synologyStatus, setSynologyStatus] = useState(null);
   const { login } = useAuth();
+
+  // Check Synology integration status on component mount
+  useEffect(() => {
+    const checkSynologyStatus = async () => {
+      try {
+        const response = await axios.get(`${API}/auth/synology-status`);
+        setSynologyStatus(response.data);
+      } catch (error) {
+        console.error('Error checking Synology status:', error);
+      }
+    };
+    
+    checkSynologyStatus();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
