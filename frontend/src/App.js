@@ -1063,7 +1063,18 @@ const Dashboard = ({ onLogout, setActiveModule }) => {
                 <p className="text-white font-semibold">
                   {user?.first_name} {user?.last_name}
                 </p>
-                <p className="text-blue-200 text-sm capitalize">{user?.role}</p>
+                <div className="flex items-center space-x-2">
+                  <p className="text-blue-200 text-sm capitalize">{user?.role}</p>
+                  {user?.auth_source && (
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      user.auth_source === 'synology' 
+                        ? 'bg-green-500/20 text-green-300 border border-green-500/30' 
+                        : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                    }`}>
+                      {user.auth_source === 'synology' ? '🔐 Synology' : '🔑 Local'}
+                    </span>
+                  )}
+                </div>
               </div>
               {user?.profile_picture && (
                 <img 
