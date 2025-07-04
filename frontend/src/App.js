@@ -1377,9 +1377,7 @@ const MedicationSearchComponent = ({ onSelectMedication, placeholder = "Search f
   );
 };
 
-      alert('Error checking drug interactions. Please try again.');
-    }
-  };
+
 
   useEffect(() => {
     fetchPatients();
