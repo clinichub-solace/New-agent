@@ -2254,6 +2254,8 @@ async def login(user_credentials: UserLogin):
             "last_name": user.last_name,
             "role": user.role,
             "permissions": user.permissions,
+            "auth_source": user.auth_source,
+            "synology_enabled": SYNOLOGY_ENABLED,
             "profile_picture": user.profile_picture
         }
     }
