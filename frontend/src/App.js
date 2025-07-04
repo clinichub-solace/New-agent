@@ -11148,6 +11148,14 @@ function App() {
             </AppHeader>
           </ProtectedRoute>
         );
+      case 'system-settings':
+        return (
+          <ProtectedRoute permission="admin">
+            <AppHeader>
+              <SystemSettingsModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
       default:
         return (
           <ProtectedRoute>
