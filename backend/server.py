@@ -5919,7 +5919,7 @@ async def initialize_comprehensive_medication_database(current_user: User = Depe
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error initializing comprehensive medication database: {str(e)}")
 
-@api_router.get("/medications/search")
+@api_router.get("/comprehensive-medications/search")
 async def search_comprehensive_medications(
     query: str,
     drug_class: Optional[str] = None,
@@ -6006,7 +6006,7 @@ async def search_comprehensive_medications(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error searching medications: {str(e)}")
 
-@api_router.get("/medications/comprehensive")
+@api_router.get("/comprehensive-medications")
 async def get_comprehensive_medications(
     drug_class: Optional[str] = None,
     limit: int = 50,
