@@ -8016,10 +8016,18 @@ const LabIntegrationModule = ({ setActiveModule }) => {
 
   const fetchIcd10Codes = async () => {
     try {
-      const response = await axios.get(`${API}/icd10/search?query=common`);
-      setIcd10Codes(response.data.slice(0, 50)); // Limit for UI
+      // Use our comprehensive ICD-10 database instead of basic search
+      const response = await axios.get(`${API}/icd10/comprehensive?limit=100`);
+      setIcd10Codes(response.data); // Get comprehensive codes
     } catch (error) {
       console.error("Error fetching ICD-10 codes:", error);
+      // Fallback to basic search if comprehensive endpoint fails
+      try {
+        const fallbackResponse = await axios.get(`${API}/icd10/search?query=common`);
+        setIcd10Codes(fallbackResponse.data.slice(0, 50)); // Limit for UI
+      } catch (fallbackError) {
+        console.error("Fallback ICD-10 search also failed:", fallbackError);
+      }
     }
   };
 
