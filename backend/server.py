@@ -2314,6 +2314,72 @@ async def change_password(
     
     return {"message": "Password changed successfully"}
 
+@api_router.get("/auth/synology-status")
+async def get_synology_status():
+    """Get Synology integration status and configuration"""
+    return {
+        "synology_enabled": SYNOLOGY_ENABLED,
+        "synology_url": SYNOLOGY_DSM_URL if SYNOLOGY_ENABLED else None,
+        "session_name": SYNOLOGY_SESSION_NAME,
+        "verify_ssl": SYNOLOGY_VERIFY_SSL
+    }
+
+@api_router.post("/auth/test-synology")
+async def test_synology_connection(current_user: User = Depends(get_current_active_user)):
+    """Test Synology DSM connection (admin only)"""
+    if current_user.role != UserRole.ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required"
+        )
+    
+    if not SYNOLOGY_ENABLED:
+        return {
+            "success": False,
+            "message": "Synology integration not configured",
+            "config_required": ["SYNOLOGY_DSM_URL"]
+        }
+    
+    try:
+        # Test connection by trying to access the API info endpoint
+        ssl_context = ssl.create_default_context()
+        if not SYNOLOGY_VERIFY_SSL:
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+            
+        connector = aiohttp.TCPConnector(ssl=ssl_context)
+        
+        async with aiohttp.ClientSession(connector=connector) as session:
+            test_url = f"{SYNOLOGY_DSM_URL}/webapi/query.cgi"
+            test_params = {
+                'api': 'SYNO.API.Info',
+                'version': '1',
+                'method': 'query',
+                'query': 'SYNO.API.Auth'
+            }
+            
+            async with session.get(test_url, params=test_params, timeout=10) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    return {
+                        "success": True,
+                        "message": "Synology DSM connection successful",
+                        "dsm_info": result.get('data', {})
+                    }
+                else:
+                    return {
+                        "success": False,
+                        "message": f"Synology DSM returned HTTP {response.status}",
+                        "url_tested": SYNOLOGY_DSM_URL
+                    }
+                    
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Connection failed: {str(e)}",
+            "url_tested": SYNOLOGY_DSM_URL
+        }
+
 # User Management Routes (Admin only)
 @api_router.post("/users", response_model=User)
 async def create_user(
