@@ -32,6 +32,12 @@ SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'your-secret-key-change-in-product
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
 
+# Synology DSM Integration Configuration
+SYNOLOGY_DSM_URL = os.environ.get('SYNOLOGY_DSM_URL', None)  # e.g., "https://your-nas:5001"
+SYNOLOGY_VERIFY_SSL = os.environ.get('SYNOLOGY_VERIFY_SSL', 'true').lower() == 'true'
+SYNOLOGY_SESSION_NAME = os.environ.get('SYNOLOGY_SESSION_NAME', 'ClinicHub')
+SYNOLOGY_ENABLED = SYNOLOGY_DSM_URL is not None
+
 security = HTTPBearer()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
