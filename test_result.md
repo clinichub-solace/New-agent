@@ -875,20 +875,29 @@ test_plan:
         agent: "testing"
         comment: "FIXED routing conflict by changing medication endpoints from /medications/search to /comprehensive-medications/search and /medications/comprehensive to /comprehensive-medications. All endpoints now working correctly: POST /api/comprehensive-medications/init, GET /api/comprehensive-medications/search, GET /api/comprehensive-medications with filtering by drug class. ICD-10 endpoints continue working: POST /api/icd10/init, GET /api/icd10/search, GET /api/icd10/comprehensive. Search functionality includes fuzzy matching and relevance scoring for clinical use."
 
-agent_communication:
-  - agent: "testing"
-    message: "Successfully tested the comprehensive medical database endpoints for offline-first operation. All ICD-10 and comprehensive medication database endpoints are working correctly. The routing conflict between /medications/{medication_id} and /medications/search has been resolved by using the /comprehensive-medications prefix. Search functionality works well with fuzzy matching and relevance scoring, and filtering by drug class is also working properly."
-  - agent: "testing"
-    message: "Tested the newly implemented Lab Integration and Insurance Verification endpoints. Lab Integration is working correctly with all endpoints functioning as expected. Successfully tested initializing lab tests, retrieving lab tests, creating lab orders with patient, provider, lab tests, and ICD-10 codes, and retrieving lab orders. Insurance Verification is partially working - insurance card creation and retrieval, prior authorization, and eligibility retrieval endpoints work correctly. However, the eligibility verification endpoint has an issue with the 'valid_until' parameter being set twice, causing a 'multiple values for keyword argument' error. This needs to be fixed to fully support the insurance verification workflow."
-  - agent: "testing"
-    message: "Tested the two problematic endpoints as requested: 1) Calendar View endpoint (/api/appointments/calendar) is implemented in the code but still returns a 404 error with the message 'Appointment not found'. Tested with parameters (date=2025-01-15&view=week) and without parameters, both return the same error. 2) Communications Templates endpoint - The initialization endpoint (/api/communications/init-templates) works correctly, but the templates endpoint (/api/communications/templates) still returns a 500 Internal Server Error. Both endpoints need implementation fixes."
-  - agent: "testing"
-    message: "Successfully tested the HIPAA and Texas compliant form templates. The /api/forms/templates/init-compliant endpoint correctly creates all four required compliant templates with proper structure and fields. All forms include appropriate signature fields and required legal language. The patient intake form includes comprehensive demographic, emergency contact, and insurance sections. The consent forms have proper informed consent language, and the HIPAA form includes privacy rights and authorization options. All tests passed successfully."
-  - agent: "testing"
-    message: "I've completed comprehensive testing of the ClinicHub frontend. All modules are loading correctly without JavaScript errors. The Employee Management module and Payroll tab are working properly. Navigation between modules is smooth, and all UI elements render correctly. The system is now in a healthy state with all frontend components functioning as expected."
-  - agent: "testing"
-    message: "Completed comprehensive testing of the 6 newly implemented backend modules after MongoDB ObjectId fixes. All modules are now working correctly with proper JSON serialization: 1) Referrals Management System - All endpoints working correctly including create, retrieve, update, status changes, and report creation, 2) Clinical Templates & Protocols System - All endpoints working correctly including template initialization, creation, retrieval, and updates, 3) Quality Measures & Reporting System - Most endpoints working correctly with only the report endpoint having a minor issue, 4) Patient Portal System - All endpoints working correctly including portal access creation, appointment scheduling, and record retrieval, 5) Document Management System - All endpoints working correctly including document creation, retrieval, updates, workflow management, and status changes, 6) Telehealth Module System - All endpoints working correctly including session creation, retrieval, updates, joining, and status management. The MongoDB ObjectId serialization issues have been completely resolved by adding the {'_id': 0} projection to all find operations."
-  - agent: "testing"
+  - task: "Referrals Management System"
+    implemented: true
+    working: false
+    file: "/app/frontend/src/App.js"
+    stuck_count: 1
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Recently implemented Referral model and API endpoints for managing patient referrals to specialists, tracking status, and handling reports. Includes CRUD operations for referrals: POST/GET /api/referrals, GET/PUT /api/referrals/{id}, GET /api/referrals/patient/{patient_id}. Ready for backend testing."
+      - working: false
+        agent: "testing"
+        comment: "The Referrals Management System is partially implemented but has validation issues. The POST /api/referrals endpoint exists but requires additional fields not mentioned in the documentation: referring_provider_id, referred_to_provider_name, referred_to_specialty, and reason_for_referral. The GET /api/referrals endpoint works correctly. The other endpoints were not tested due to the failure to create a referral."
+      - working: false
+        agent: "testing"
+        comment: "Retested with fixed validation parameters. POST /api/referrals endpoint works correctly and successfully creates a referral. However, all other endpoints (GET /api/referrals, GET /api/referrals/{id}, PUT /api/referrals/{id}, GET /api/referrals/patient/{patient_id}) return 500 Internal Server Error. The system needs further development to fully support the required functionality."
+      - working: true
+        agent: "testing"
+        comment: "Comprehensive testing completed. All endpoints are now working correctly: POST /api/referrals successfully creates referrals, GET /api/referrals retrieves all referrals, GET /api/referrals/{id} retrieves a specific referral, PUT /api/referrals/{id} updates a referral, PUT /api/referrals/{id}/status updates referral status, GET /api/referrals/patient/{patient_id} retrieves patient-specific referrals, and POST /api/referrals/{id}/reports adds referral reports. The MongoDB ObjectId serialization issues have been resolved."
+      - working: false
+        agent: "testing"
+        comment: "The backend API for Referrals Management is working correctly, but the frontend component cannot be tested due to syntax errors in App.js. The frontend application fails to load properly, preventing access to the Referrals module. The login page loads but authentication does not proceed to the dashboard."
     message: "Identified and fixed a BSON datetime encoding error in the dashboard endpoints. The error was occurring because Python date objects cannot be directly encoded to BSON format for MongoDB. Fixed the issue by: 1) Converting date objects to datetime objects before using them in MongoDB queries, 2) Adding proper error handling for date calculations in the pending-payments endpoint, 3) Adding try-except blocks to catch and report errors properly. All dashboard endpoints are now working correctly, including /api/dashboard/stats which was previously returning a 500 error."
   - agent: "testing"
     message: "Completed final verification testing of all previously problematic endpoints. All tests passed successfully: 1) Authentication is working properly with admin login, 2) Dashboard Stats endpoint (/api/dashboard/stats) returns correct data structure with no BSON encoding errors, 3) Pending Payments endpoint (/api/dashboard/pending-payments) correctly returns payment data with proper date handling, 4) HIPAA and Texas compliant forms initialization is working correctly, 5) Forms access and listing is functioning properly. The BSON datetime encoding errors have been completely resolved, and all tested endpoints are stable and error-free."
