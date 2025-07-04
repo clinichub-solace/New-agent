@@ -1717,12 +1717,22 @@ const PatientsModule = ({ setActiveModule }) => {
       }
       
       try {
-        const response = await axios.get(`${API}/medications`, {
-          params: { search: query, limit: 10 }
+        // Use our new comprehensive medication database
+        const response = await axios.get(`${API}/comprehensive-medications/search`, {
+          params: { query: query, limit: 10 }
         });
         setDrugSearchResults(response.data);
       } catch (error) {
         console.error("Error searching medications:", error);
+        // Fallback to original endpoint if comprehensive search fails
+        try {
+          const fallbackResponse = await axios.get(`${API}/medications`, {
+            params: { search: query, limit: 10 }
+          });
+          setDrugSearchResults(fallbackResponse.data);
+        } catch (fallbackError) {
+          console.error("Fallback medication search also failed:", fallbackError);
+        }
       }
     };
 
