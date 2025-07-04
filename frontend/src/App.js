@@ -194,6 +194,34 @@ const LoginPage = () => {
               </div>
             )}
 
+            {/* Synology Integration Status */}
+            {synologyStatus && (
+              <div className={`rounded-lg p-3 ${
+                synologyStatus.synology_enabled 
+                  ? 'bg-green-500/20 border border-green-500/50' 
+                  : 'bg-blue-500/20 border border-blue-500/50'
+              }`}>
+                <div className="flex items-center space-x-2">
+                  <div className={`w-2 h-2 rounded-full ${
+                    synologyStatus.synology_enabled ? 'bg-green-400' : 'bg-blue-400'
+                  }`}></div>
+                  <p className={`text-sm ${
+                    synologyStatus.synology_enabled ? 'text-green-200' : 'text-blue-200'
+                  }`}>
+                    {synologyStatus.synology_enabled 
+                      ? '🔐 Synology SSO Enabled' 
+                      : '🔑 Local Authentication Mode'
+                    }
+                  </p>
+                </div>
+                {synologyStatus.synology_enabled && (
+                  <p className="text-xs text-green-300 mt-1">
+                    Connected to: {synologyStatus.synology_url?.replace(/^https?:\/\//, '')}
+                  </p>
+                )}
+              </div>
+            )}
+
             <button
               type="submit"
               disabled={loading}
