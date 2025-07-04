@@ -5610,7 +5610,7 @@ async def initialize_erx_data(current_user: User = Depends(get_current_active_us
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error initializing eRx data: {str(e)}")
-@api_router.post("/medications/init-comprehensive")
+@api_router.post("/comprehensive-medications/init")
 async def initialize_comprehensive_medication_database(current_user: User = Depends(get_current_active_user)):
     """Initialize comprehensive medication database for offline-first operation"""
     try:
