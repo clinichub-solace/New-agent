@@ -10994,6 +10994,235 @@ const TelehealthModule = ({ setActiveModule }) => {
   );
 };
 
+// System Settings Module
+const SystemSettingsModule = ({ setActiveModule }) => {
+  const [synologyStatus, setSynologyStatus] = useState(null);
+  const [testResult, setTestResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchSynologyStatus();
+  }, []);
+
+  const fetchSynologyStatus = async () => {
+    try {
+      const response = await axios.get(`${API}/auth/synology-status`);
+      setSynologyStatus(response.data);
+    } catch (error) {
+      console.error('Error fetching Synology status:', error);
+    }
+  };
+
+  const testSynologyConnection = async () => {
+    setLoading(true);
+    setTestResult(null);
+    
+    try {
+      const response = await axios.post(`${API}/auth/test-synology`);
+      setTestResult(response.data);
+    } catch (error) {
+      setTestResult({
+        success: false,
+        message: error.response?.data?.detail || 'Connection test failed'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center space-x-4">
+            <button 
+              onClick={() => setActiveModule('dashboard')}
+              className="text-blue-400 hover:text-blue-300 transition-colors"
+            >
+              ← Back to Dashboard
+            </button>
+            <div>
+              <h1 className="text-3xl font-bold text-white">System Settings</h1>
+              <p className="text-blue-300">Configure ClinicHub integration settings</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Synology Integration Panel */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6 mb-6">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold">🔐</span>
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-white">Synology DSM Integration</h2>
+              <p className="text-blue-300 text-sm">Single Sign-On and unified authentication</p>
+            </div>
+          </div>
+
+          {synologyStatus && (
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Current Status */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-white">Current Status</h3>
+                
+                <div className={`p-4 rounded-lg border ${
+                  synologyStatus.synology_enabled 
+                    ? 'bg-green-500/20 border-green-500/50' 
+                    : 'bg-yellow-500/20 border-yellow-500/50'
+                }`}>
+                  <div className="flex items-center space-x-2 mb-2">
+                    <div className={`w-3 h-3 rounded-full ${
+                      synologyStatus.synology_enabled ? 'bg-green-400' : 'bg-yellow-400'
+                    }`}></div>
+                    <span className={`font-medium ${
+                      synologyStatus.synology_enabled ? 'text-green-200' : 'text-yellow-200'
+                    }`}>
+                      {synologyStatus.synology_enabled ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </div>
+                  
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">DSM URL:</span>
+                      <span className="text-white">
+                        {synologyStatus.synology_url || 'Not configured'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">Session Name:</span>
+                      <span className="text-white">{synologyStatus.session_name}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-300">SSL Verification:</span>
+                      <span className="text-white">
+                        {synologyStatus.verify_ssl ? 'Enabled' : 'Disabled'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {!synologyStatus.synology_enabled && (
+                  <div className="bg-blue-500/20 border border-blue-500/50 rounded-lg p-4">
+                    <h4 className="text-blue-200 font-medium mb-2">Configuration Required</h4>
+                    <p className="text-blue-300 text-sm mb-3">
+                      To enable Synology SSO, configure these environment variables in your backend .env file:
+                    </p>
+                    <div className="bg-black/30 rounded p-3 text-xs text-green-400 font-mono">
+                      SYNOLOGY_DSM_URL=https://your-nas-ip:5001<br/>
+                      SYNOLOGY_VERIFY_SSL=false<br/>
+                      SYNOLOGY_SESSION_NAME=ClinicHub
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Connection Test */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-medium text-white">Connection Test</h3>
+                
+                <button
+                  onClick={testSynologyConnection}
+                  disabled={loading}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 text-white font-medium py-3 px-4 rounded-lg transition-colors"
+                >
+                  {loading ? 'Testing Connection...' : 'Test Synology Connection'}
+                </button>
+
+                {testResult && (
+                  <div className={`p-4 rounded-lg border ${
+                    testResult.success 
+                      ? 'bg-green-500/20 border-green-500/50' 
+                      : 'bg-red-500/20 border-red-500/50'
+                  }`}>
+                    <div className="flex items-center space-x-2 mb-2">
+                      <span className={`font-medium ${
+                        testResult.success ? 'text-green-200' : 'text-red-200'
+                      }`}>
+                        {testResult.success ? '✅ Success' : '❌ Failed'}
+                      </span>
+                    </div>
+                    <p className={`text-sm ${
+                      testResult.success ? 'text-green-300' : 'text-red-300'
+                    }`}>
+                      {testResult.message}
+                    </p>
+                    {testResult.url_tested && (
+                      <p className="text-xs text-gray-400 mt-2">
+                        Tested URL: {testResult.url_tested}
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Other System Settings */}
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+          <div className="flex items-center space-x-3 mb-6">
+            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-teal-600 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold">⚙️</span>
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-white">System Information</h2>
+              <p className="text-blue-300 text-sm">ClinicHub configuration and status</p>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-4">
+            <div className="bg-white/5 rounded-lg p-4">
+              <h4 className="text-white font-medium mb-2">Authentication</h4>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-300">Mode:</span>
+                  <span className="text-white">
+                    {synologyStatus?.synology_enabled ? 'Hybrid (Local + Synology)' : 'Local Only'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-300">Session Timeout:</span>
+                  <span className="text-white">8 hours</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white/5 rounded-lg p-4">
+              <h4 className="text-white font-medium mb-2">Medical Databases</h4>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-300">ICD-10 Codes:</span>
+                  <span className="text-green-400">80+ Loaded</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-300">Medications:</span>
+                  <span className="text-green-400">15+ Loaded</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white/5 rounded-lg p-4">
+              <h4 className="text-white font-medium mb-2">Offline Capability</h4>
+              <div className="space-y-1 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-gray-300">SOAP Notes:</span>
+                  <span className="text-green-400">✓ Offline Ready</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-300">Prescriptions:</span>
+                  <span className="text-green-400">✓ Offline Ready</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 // Main App Component
 function App() {
   const [activeModule, setActiveModule] = useState('dashboard');
