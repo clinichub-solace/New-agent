@@ -1193,6 +1193,190 @@ const Dashboard = ({ onLogout, setActiveModule }) => {
   );
 };
 
+// Comprehensive ICD-10 Search Component
+const ICD10SearchComponent = ({ onSelectCode, placeholder = "Search for diagnosis codes...", selectedCodes = [] }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const searchICD10Codes = async (query) => {
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    
+    setIsSearching(true);
+    try {
+      const response = await axios.get(`${API}/icd10/search`, {
+        params: { query: query, limit: 15 }
+      });
+      setSearchResults(response.data);
+    } catch (error) {
+      console.error("Error searching ICD-10 codes:", error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const selectCode = (code) => {
+    onSelectCode(code);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={searchQuery}
+        onChange={(e) => {
+          setSearchQuery(e.target.value);
+          searchICD10Codes(e.target.value);
+        }}
+        placeholder={placeholder}
+        className="w-full p-3 border border-gray-300 rounded-lg"
+      />
+      
+      {isSearching && (
+        <div className="absolute right-3 top-3">
+          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
+      
+      {searchResults.length > 0 && (
+        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          {searchResults.map((code) => (
+            <div
+              key={code.id || code.code}
+              onClick={() => selectCode(code)}
+              className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+            >
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="font-medium text-blue-600">{code.code}</div>
+                  <div className="text-sm text-gray-800">{code.description}</div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Category: {code.category}
+                  </div>
+                </div>
+                {selectedCodes.includes(code.code) && (
+                  <div className="text-green-500 ml-2">✓</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {searchQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
+        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-3">
+          <div className="text-gray-500 text-sm">No diagnosis codes found for "{searchQuery}"</div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Comprehensive Medication Search Component
+const MedicationSearchComponent = ({ onSelectMedication, placeholder = "Search for medications...", selectedMedications = [] }) => {
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  const searchMedications = async (query) => {
+    if (query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    
+    setIsSearching(true);
+    try {
+      const response = await axios.get(`${API}/comprehensive-medications/search`, {
+        params: { query: query, limit: 10 }
+      });
+      setSearchResults(response.data);
+    } catch (error) {
+      console.error("Error searching medications:", error);
+      // Fallback to original endpoint
+      try {
+        const fallbackResponse = await axios.get(`${API}/medications`, {
+          params: { search: query, limit: 10 }
+        });
+        setSearchResults(fallbackResponse.data);
+      } catch (fallbackError) {
+        console.error("Fallback medication search failed:", fallbackError);
+      }
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const selectMedication = (medication) => {
+    onSelectMedication(medication);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  return (
+    <div className="relative">
+      <input
+        type="text"
+        value={searchQuery}
+        onChange={(e) => {
+          setSearchQuery(e.target.value);
+          searchMedications(e.target.value);
+        }}
+        placeholder={placeholder}
+        className="w-full p-3 border border-gray-300 rounded-lg"
+      />
+      
+      {isSearching && (
+        <div className="absolute right-3 top-3">
+          <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
+      
+      {searchResults.length > 0 && (
+        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+          {searchResults.map((med) => (
+            <div
+              key={med.id}
+              onClick={() => selectMedication(med)}
+              className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100"
+            >
+              <div className="flex justify-between items-start">
+                <div className="flex-1">
+                  <div className="font-medium text-purple-600">{med.generic_name}</div>
+                  <div className="text-sm text-gray-600">
+                    {med.brand_names?.join(', ')} | {med.strength?.join(', ')} | {med.dosage_forms?.join(', ')}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    Class: {med.drug_class} | Route: {med.route?.join(', ')}
+                  </div>
+                  {med.indications && (
+                    <div className="text-xs text-blue-600 mt-1">
+                      Indications: {med.indications.slice(0, 3).join(', ')}
+                    </div>
+                  )}
+                </div>
+                {selectedMedications.some(selected => selected.id === med.id) && (
+                  <div className="text-green-500 ml-2">✓</div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {searchQuery.length >= 2 && searchResults.length === 0 && !isSearching && (
+        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg p-3">
+          <div className="text-gray-500 text-sm">No medications found for "{searchQuery}"</div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const PatientsModule = ({ setActiveModule }) => {
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
