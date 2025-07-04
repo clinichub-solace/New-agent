@@ -1316,6 +1316,11 @@ class User(BaseModel):
     # Permissions - role-based access control
     permissions: List[str] = []
     
+    # Synology Integration
+    auth_source: str = "local"  # "local" or "synology"
+    synology_sid: Optional[str] = None  # Synology session ID
+    synology_last_verified: Optional[datetime] = None
+    
     # Audit
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
