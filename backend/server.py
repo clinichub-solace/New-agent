@@ -5610,6 +5610,420 @@ async def initialize_erx_data(current_user: User = Depends(get_current_active_us
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error initializing eRx data: {str(e)}")
+@api_router.post("/medications/init-comprehensive")
+async def initialize_comprehensive_medication_database(current_user: User = Depends(get_current_active_user)):
+    """Initialize comprehensive medication database for offline-first operation"""
+    try:
+        # Check if comprehensive medications already exist
+        existing_meds = await db.comprehensive_medications.count_documents({})
+        if existing_meds > 0:
+            return {"message": "Comprehensive medication database already initialized", "medications_count": existing_meds}
+        
+        # Comprehensive medication database for primary care
+        comprehensive_medications = [
+            # Cardiovascular Medications
+            {
+                "id": str(uuid.uuid4()),
+                "generic_name": "Lisinopril",
+                "brand_names": ["Prinivil", "Zestril"],
+                "drug_class": "ACE Inhibitor",
+                "strength": ["2.5mg", "5mg", "10mg", "20mg", "40mg"],
+                "dosage_forms": ["tablet"],
+                "route": ["oral"],
+                "rxnorm_codes": ["314076", "617993", "206765"],
+                "search_terms": ["ace inhibitor", "blood pressure", "hypertension", "heart"],
+                "indications": ["Hypertension", "Heart failure", "Post-MI", "Diabetic nephropathy"],
+                "contraindications": ["Pregnancy", "Bilateral renal artery stenosis", "Angioedema"],
+                "common_side_effects": ["Dry cough", "Hyperkalemia", "Hypotension", "Angioedema"],
+                "interactions": ["NSAIDs", "Potassium supplements", "ARBs"],
+                "standard_dosing": {
+                    "hypertension": "Initial: 10mg daily, Target: 20-40mg daily",
+                    "heart_failure": "Initial: 2.5-5mg daily, Target: 20-35mg daily"
+                },
+                "pregnancy_category": "D",
+                "monitoring": ["Blood pressure", "Serum creatinine", "Potassium"]
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "generic_name": "Amlodipine",
+                "brand_names": ["Norvasc"],
+                "drug_class": "Calcium Channel Blocker",
+                "strength": ["2.5mg", "5mg", "10mg"],
+                "dosage_forms": ["tablet"],
+                "route": ["oral"],
+                "rxnorm_codes": ["17767", "197361"],
+                "search_terms": ["calcium channel blocker", "blood pressure", "hypertension", "angina"],
+                "indications": ["Hypertension", "Coronary artery disease", "Angina"],
+                "contraindications": ["Severe aortic stenosis"],
+                "common_side_effects": ["Peripheral edema", "Dizziness", "Flushing", "Fatigue"],
+                "interactions": ["CYP3A4 inhibitors", "Simvastatin"],
+                "standard_dosing": {
+                    "hypertension": "Initial: 5mg daily, Max: 10mg daily",
+                    "angina": "5-10mg daily"
+                },
+                "pregnancy_category": "C",
+                "monitoring": ["Blood pressure", "Ankle swelling"]
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "generic_name": "Metoprolol",
+                "brand_names": ["Lopressor", "Toprol-XL"],
+                "drug_class": "Beta Blocker",
+                "strength": ["25mg", "50mg", "100mg", "200mg"],
+                "dosage_forms": ["tablet", "extended-release tablet"],
+                "route": ["oral"],
+                "rxnorm_codes": ["6918", "866511"],
+                "search_terms": ["beta blocker", "blood pressure", "heart rate", "angina"],
+                "indications": ["Hypertension", "Angina", "Heart failure", "Post-MI"],
+                "contraindications": ["Severe bradycardia", "Heart block", "Cardiogenic shock"],
+                "common_side_effects": ["Fatigue", "Dizziness", "Bradycardia", "Cold extremities"],
+                "interactions": ["Calcium channel blockers", "Insulin", "Clonidine"],
+                "standard_dosing": {
+                    "hypertension": "Initial: 25-50mg BID, Max: 200mg BID",
+                    "heart_failure": "Initial: 12.5mg BID, Target: 200mg BID"
+                },
+                "pregnancy_category": "C",
+                "monitoring": ["Heart rate", "Blood pressure", "Signs of HF"]
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "generic_name": "Atorvastatin",
+                "brand_names": ["Lipitor"],
+                "drug_class": "Statin",
+                "strength": ["10mg", "20mg", "40mg", "80mg"],
+                "dosage_forms": ["tablet"],
+                "route": ["oral"],
+                "rxnorm_codes": ["83367", "617318"],
+                "search_terms": ["statin", "cholesterol", "lipid", "cardiovascular"],
+                "indications": ["Hyperlipidemia", "Cardiovascular disease prevention"],
+                "contraindications": ["Active liver disease", "Pregnancy", "Breastfeeding"],
+                "common_side_effects": ["Myalgia", "Elevated liver enzymes", "Headache"],
+                "interactions": ["CYP3A4 inhibitors", "Warfarin", "Digoxin"],
+                "standard_dosing": {
+                    "hyperlipidemia": "Initial: 10-20mg daily, Max: 80mg daily"
+                },
+                "pregnancy_category": "X",
+                "monitoring": ["Lipid panel", "Liver function tests", "CK if symptoms"]
+            },
+            
+            # Diabetes Medications
+            {
+                "id": str(uuid.uuid4()),
+                "generic_name": "Metformin",
+                "brand_names": ["Glucophage", "Fortamet", "Glumetza"],
+                "drug_class": "Biguanide",
+                "strength": ["500mg", "850mg", "1000mg"],
+                "dosage_forms": ["tablet", "extended-release tablet"],
+                "route": ["oral"],
+                "rxnorm_codes": ["6809", "860975"],
+                "search_terms": ["diabetes", "blood sugar", "glucose", "metformin"],
+                "indications": ["Type 2 diabetes mellitus", "Prediabetes", "PCOS"],
+                "contraindications": ["Severe renal impairment", "Metabolic acidosis", "Heart failure"],
+                "common_side_effects": ["GI upset", "Diarrhea", "Metallic taste", "B12 deficiency"],
+                "interactions": ["Contrast agents", "Alcohol", "Carbonic anhydrase inhibitors"],
+                "standard_dosing": {
+                    "diabetes": "Initial: 500mg BID, Max: 2550mg daily"
+                },
+                "pregnancy_category": "B",
+                "monitoring": ["HbA1c", "Renal function", "B12 levels"]
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "generic_name": "Glipizide",
+                "brand_names": ["Glucotrol"],
+                "drug_class": "Sulfonylurea",
+                "strength": ["5mg", "10mg"],
+                "dosage_forms": ["tablet", "extended-release tablet"],
+                "route": ["oral"],
+                "rxnorm_codes": ["4821", "310534"],
+                "search_terms": ["diabetes", "blood sugar", "sulfonylurea", "insulin"],
+                "indications": ["Type 2 diabetes mellitus"],
+                "contraindications": ["Type 1 diabetes", "Diabetic ketoacidosis", "Severe renal/hepatic impairment"],
+                "common_side_effects": ["Hypoglycemia", "Weight gain", "GI upset"],
+                "interactions": ["Beta blockers", "Warfarin", "NSAIDs"],
+                "standard_dosing": {
+                    "diabetes": "Initial: 5mg daily, Max: 20mg daily"
+                },
+                "pregnancy_category": "C",
+                "monitoring": ["Blood glucose", "HbA1c", "Signs of hypoglycemia"]
+            },
+            
+            # Antibiotics
+            {
+                "id": str(uuid.uuid4()),
+                "generic_name": "Amoxicillin",
+                "brand_names": ["Amoxil"],
+                "drug_class": "Penicillin Antibiotic",
+                "strength": ["250mg", "500mg", "875mg"],
+                "dosage_forms": ["capsule", "tablet", "suspension"],
+                "route": ["oral"],
+                "rxnorm_codes": ["723", "308192"],
+                "search_terms": ["antibiotic", "infection", "penicillin", "bacterial"],
+                "indications": ["Bacterial infections", "Strep throat", "UTI", "Pneumonia"],
+                "contraindications": ["Penicillin allergy"],
+                "common_side_effects": ["Diarrhea", "Nausea", "Rash", "Yeast infections"],
+                "interactions": ["Oral contraceptives", "Warfarin", "Methotrexate"],
+                "standard_dosing": {
+                    "general_infection": "500mg TID or 875mg BID for 7-10 days",
+                    "strep_throat": "500mg BID for 10 days"
+                },
+                "pregnancy_category": "B",
+                "monitoring": ["Clinical response", "Allergic reactions"]
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "generic_name": "Azithromycin",
+                "brand_names": ["Zithromax", "Z-Pak"],
+                "drug_class": "Macrolide Antibiotic",
+                "strength": ["250mg", "500mg"],
+                "dosage_forms": ["tablet", "suspension"],
+                "route": ["oral"],
+                "rxnorm_codes": ["18631", "141963"],
+                "search_terms": ["antibiotic", "z-pak", "respiratory", "atypical"],
+                "indications": ["Respiratory tract infections", "Skin infections", "STIs"],
+                "contraindications": ["Macrolide allergy", "Severe hepatic impairment"],
+                "common_side_effects": ["GI upset", "Diarrhea", "QT prolongation"],
+                "interactions": ["Warfarin", "Digoxin", "QT-prolonging drugs"],
+                "standard_dosing": {
+                    "respiratory": "500mg day 1, then 250mg daily x 4 days",
+                    "skin": "500mg daily x 3 days"
+                },
+                "pregnancy_category": "B",
+                "monitoring": ["Clinical response", "QT interval if risk factors"]
+            },
+            
+            # Pain/Anti-inflammatory
+            {
+                "id": str(uuid.uuid4()),
+                "generic_name": "Ibuprofen",
+                "brand_names": ["Advil", "Motrin"],
+                "drug_class": "NSAID",
+                "strength": ["200mg", "400mg", "600mg", "800mg"],
+                "dosage_forms": ["tablet", "capsule", "suspension"],
+                "route": ["oral"],
+                "rxnorm_codes": ["5640", "310965"],
+                "search_terms": ["nsaid", "pain", "inflammation", "fever", "arthritis"],
+                "indications": ["Pain", "Inflammation", "Fever", "Arthritis"],
+                "contraindications": ["GI bleeding", "Severe heart failure", "Advanced kidney disease"],
+                "common_side_effects": ["GI upset", "Bleeding", "Renal impairment", "Hypertension"],
+                "interactions": ["ACE inhibitors", "Warfarin", "Lithium", "Methotrexate"],
+                "standard_dosing": {
+                    "pain": "400-600mg q6-8h, Max: 2400mg daily",
+                    "arthritis": "1200-3200mg daily divided"
+                },
+                "pregnancy_category": "C/D (3rd trimester)",
+                "monitoring": ["GI symptoms", "Renal function", "Blood pressure"]
+            },
+            {
+                "id": str(uuid.uuid4()),
+                "generic_name": "Acetaminophen",
+                "brand_names": ["Tylenol"],
+                "drug_class": "Analgesic/Antipyretic",
+                "strength": ["325mg", "500mg", "650mg"],
+                "dosage_forms": ["tablet", "capsule", "suspension"],
+                "route": ["oral"],
+                "rxnorm_codes": ["161", "313782"],
+                "search_terms": ["pain", "fever", "tylenol", "analgesic", "safe"],
+                "indications": ["Pain", "Fever"],
+                "contraindications": ["Severe hepatic impairment"],
+                "common_side_effects": ["Hepatotoxicity (overdose)", "Rare: skin reactions"],
+                "interactions": ["Warfarin", "Alcohol"],
+                "standard_dosing": {
+                    "pain_fever": "325-650mg q4-6h, Max: 3000mg daily"
+                },
+                "pregnancy_category": "B",
+                "monitoring": ["Liver function if chronic use", "Total daily dose"]
+            },
+            
+            # Mental Health
+            {
+                "id": str(uuid.uuid4()),
+                "generic_name": "Sertraline",
+                "brand_names": ["Zoloft"],
+                "drug_class": "SSRI",
+                "strength": ["25mg", "50mg", "100mg"],
+                "dosage_forms": ["tablet"],
+                "route": ["oral"],
+                "rxnorm_codes": ["36437", "883805"],
+                "search_terms": ["antidepressant", "ssri", "depression", "anxiety", "serotonin"],
+                "indications": ["Depression", "Anxiety disorders", "PTSD", "OCD"],
+                "contraindications": ["MAOI use", "Pimozide use"],
+                "common_side_effects": ["Nausea", "Sexual dysfunction", "Insomnia", "Dizziness"],
+                "interactions": ["MAOIs", "Warfarin", "NSAIDs", "Triptans"],
+                "standard_dosing": {
+                    "depression": "Initial: 50mg daily, Range: 50-200mg daily",
+                    "anxiety": "Initial: 25mg daily, Target: 50-200mg daily"
+                },
+                "pregnancy_category": "C",
+                "monitoring": ["Mood", "Suicidal ideation", "Sexual function"]
+            },
+            
+            # Gastrointestinal
+            {
+                "id": str(uuid.uuid4()),
+                "generic_name": "Omeprazole",
+                "brand_names": ["Prilosec"],
+                "drug_class": "Proton Pump Inhibitor",
+                "strength": ["10mg", "20mg", "40mg"],
+                "dosage_forms": ["capsule", "tablet"],
+                "route": ["oral"],
+                "rxnorm_codes": ["7646", "312961"],
+                "search_terms": ["ppi", "acid reflux", "gerd", "stomach", "ulcer"],
+                "indications": ["GERD", "Peptic ulcer disease", "Dyspepsia"],
+                "contraindications": ["Hypersensitivity to PPIs"],
+                "common_side_effects": ["Headache", "Diarrhea", "Nausea", "B12 deficiency"],
+                "interactions": ["Clopidogrel", "Warfarin", "Atazanavir"],
+                "standard_dosing": {
+                    "gerd": "20mg daily x 4-8 weeks",
+                    "ulcer": "20-40mg daily"
+                },
+                "pregnancy_category": "C",
+                "monitoring": ["Symptom improvement", "Magnesium if long-term"]
+            },
+            
+            # Thyroid
+            {
+                "id": str(uuid.uuid4()),
+                "generic_name": "Levothyroxine",
+                "brand_names": ["Synthroid", "Levoxyl"],
+                "drug_class": "Thyroid Hormone",
+                "strength": ["25mcg", "50mcg", "75mcg", "100mcg", "125mcg", "150mcg"],
+                "dosage_forms": ["tablet"],
+                "route": ["oral"],
+                "rxnorm_codes": ["6387", "966246"],
+                "search_terms": ["thyroid", "hypothyroid", "hormone", "tsh", "metabolism"],
+                "indications": ["Hypothyroidism", "Thyroid cancer"],
+                "contraindications": ["Uncorrected adrenal insufficiency", "Recent MI with hyperthyroidism"],
+                "common_side_effects": ["Hyperthyroid symptoms if overdosed", "Hair loss initially"],
+                "interactions": ["Iron", "Calcium", "Coffee", "Soybean products"],
+                "standard_dosing": {
+                    "hypothyroidism": "1.6 mcg/kg/day, adjust based on TSH"
+                },
+                "pregnancy_category": "A",
+                "monitoring": ["TSH", "T4", "Heart rate", "Symptoms"]
+            }
+        ]
+        
+        # Add timestamps to medications
+        for medication in comprehensive_medications:
+            medication["created_at"] = datetime.utcnow()
+            medication["updated_at"] = datetime.utcnow()
+        
+        await db.comprehensive_medications.insert_many(comprehensive_medications)
+        
+        return {
+            "message": "Comprehensive medication database initialized successfully",
+            "medications_added": len(comprehensive_medications)
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error initializing comprehensive medication database: {str(e)}")
+
+@api_router.get("/medications/search")
+async def search_comprehensive_medications(
+    query: str,
+    drug_class: Optional[str] = None,
+    limit: int = 20,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Search comprehensive medication database with intelligent matching"""
+    try:
+        # Build search query
+        search_conditions = []
+        
+        # Text search across multiple fields
+        text_search = {
+            "$or": [
+                {"generic_name": {"$regex": query, "$options": "i"}},
+                {"brand_names": {"$regex": query, "$options": "i"}},
+                {"drug_class": {"$regex": query, "$options": "i"}},
+                {"search_terms": {"$regex": query, "$options": "i"}},
+                {"indications": {"$regex": query, "$options": "i"}}
+            ]
+        }
+        search_conditions.append(text_search)
+        
+        # Drug class filter
+        if drug_class:
+            search_conditions.append({"drug_class": {"$regex": drug_class, "$options": "i"}})
+        
+        # Combine conditions
+        final_query = {"$and": search_conditions} if len(search_conditions) > 1 else search_conditions[0]
+        
+        # Execute search
+        medications = await db.comprehensive_medications.find(final_query).limit(limit).to_list(limit)
+        
+        # Process results with relevance scoring
+        results = []
+        query_lower = query.lower()
+        
+        for med in medications:
+            if "_id" in med:
+                del med["_id"]
+            
+            # Calculate relevance score
+            relevance_score = 0
+            
+            # Exact generic name match
+            if query_lower == med["generic_name"].lower():
+                relevance_score = 100
+            # Generic name starts with query
+            elif med["generic_name"].lower().startswith(query_lower):
+                relevance_score = 90
+            # Brand name exact match
+            elif any(query_lower == brand.lower() for brand in med["brand_names"]):
+                relevance_score = 95
+            # Brand name starts with query
+            elif any(brand.lower().startswith(query_lower) for brand in med["brand_names"]):
+                relevance_score = 85
+            # Drug class match
+            elif query_lower in med["drug_class"].lower():
+                relevance_score = 75
+            # Search terms match
+            elif any(query_lower in term.lower() for term in med.get("search_terms", [])):
+                relevance_score = 70
+            # Indication match
+            elif any(query_lower in indication.lower() for indication in med.get("indications", [])):
+                relevance_score = 65
+            # Generic name contains query
+            elif query_lower in med["generic_name"].lower():
+                relevance_score = 60
+            else:
+                relevance_score = 50
+            
+            med["relevance_score"] = relevance_score
+            results.append(med)
+        
+        # Sort by relevance
+        results.sort(key=lambda x: x["relevance_score"], reverse=True)
+        
+        # Remove relevance score from final results
+        for result in results:
+            del result["relevance_score"]
+        
+        return results
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error searching medications: {str(e)}")
+
+@api_router.get("/medications/comprehensive")
+async def get_comprehensive_medications(
+    drug_class: Optional[str] = None,
+    limit: int = 50,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get all medications from comprehensive database with optional filtering"""
+    try:
+        query = {}
+        if drug_class:
+            query["drug_class"] = {"$regex": drug_class, "$options": "i"}
+        
+        medications = await db.comprehensive_medications.find(query, {"_id": 0}).limit(limit).to_list(limit)
+        
+        return medications
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving comprehensive medications: {str(e)}")
 
 # Scheduling System API Endpoints
 
