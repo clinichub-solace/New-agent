@@ -7277,6 +7277,25 @@ async def initialize_icd10_codes(current_user: User = Depends(get_current_active
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error initializing ICD-10 codes: {str(e)}")
 
+@api_router.get("/icd10/comprehensive")
+async def get_comprehensive_icd10_codes(
+    category: Optional[str] = None,
+    limit: int = 100,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get all ICD-10 codes with optional category filtering"""
+    try:
+        query = {}
+        if category:
+            query["category"] = {"$regex": category, "$options": "i"}
+        
+        codes = await db.icd10_codes.find(query, {"_id": 0}).limit(limit).to_list(limit)
+        
+        return codes
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving ICD-10 codes: {str(e)}")
+
 @api_router.get("/icd10/search")
 async def search_icd10_codes(
     query: str,
