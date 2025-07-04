@@ -1955,6 +1955,177 @@ def require_permission(permission: str):
         return current_user
     return permission_checker
 
+# Synology DSM Authentication Integration
+class SynologyAuthService:
+    """Service for integrating with Synology DSM authentication"""
+    
+    def __init__(self):
+        self.base_url = SYNOLOGY_DSM_URL
+        self.verify_ssl = SYNOLOGY_VERIFY_SSL
+        self.session_name = SYNOLOGY_SESSION_NAME
+        
+    async def authenticate_with_synology(self, username: str, password: str) -> Optional[Dict]:
+        """Authenticate user with Synology DSM API"""
+        if not self.base_url:
+            return None
+            
+        try:
+            # Configure SSL context
+            ssl_context = ssl.create_default_context()
+            if not self.verify_ssl:
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            
+            async with aiohttp.ClientSession(connector=connector) as session:
+                # Synology DSM API authentication endpoint
+                auth_url = f"{self.base_url}/webapi/auth.cgi"
+                auth_params = {
+                    'api': 'SYNO.API.Auth',
+                    'version': '2',
+                    'method': 'login',
+                    'account': username,
+                    'passwd': password,
+                    'session': self.session_name,
+                    'format': 'sid'
+                }
+                
+                async with session.get(auth_url, params=auth_params) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        
+                        if result.get('success'):
+                            # Get user info from DSM
+                            user_info = await self._get_synology_user_info(
+                                session, result['data']['sid'], username
+                            )
+                            
+                            return {
+                                'sid': result['data']['sid'],
+                                'username': username,
+                                'synology_user': user_info
+                            }
+                        else:
+                            logging.error(f"Synology auth failed: {result.get('error')}")
+                            return None
+                    else:
+                        logging.error(f"Synology API error: HTTP {response.status}")
+                        return None
+                        
+        except Exception as e:
+            logging.error(f"Synology authentication error: {str(e)}")
+            return None
+    
+    async def _get_synology_user_info(self, session: aiohttp.ClientSession, sid: str, username: str) -> Dict:
+        """Get user information from Synology DSM"""
+        try:
+            # Try to get user info - this might vary depending on DSM version and available APIs
+            user_info_url = f"{self.base_url}/webapi/entry.cgi"
+            user_params = {
+                'api': 'SYNO.Core.User',
+                'version': '1',
+                'method': 'get',
+                '_sid': sid
+            }
+            
+            async with session.get(user_info_url, params=user_params) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    if result.get('success'):
+                        return result.get('data', {})
+                        
+        except Exception as e:
+            logging.warning(f"Could not fetch Synology user info: {str(e)}")
+            
+        # Return basic info if detailed info fails
+        return {
+            'username': username,
+            'display_name': username,
+            'is_admin': False  # Default, would need additional API calls to determine
+        }
+    
+    async def logout_synology(self, sid: str) -> bool:
+        """Logout from Synology DSM session"""
+        if not self.base_url or not sid:
+            return True
+            
+        try:
+            ssl_context = ssl.create_default_context()
+            if not self.verify_ssl:
+                ssl_context.check_hostname = False
+                ssl_context.verify_mode = ssl.CERT_NONE
+                
+            connector = aiohttp.TCPConnector(ssl=ssl_context)
+            
+            async with aiohttp.ClientSession(connector=connector) as session:
+                logout_url = f"{self.base_url}/webapi/auth.cgi"
+                logout_params = {
+                    'api': 'SYNO.API.Auth',
+                    'version': '2',
+                    'method': 'logout',
+                    'session': self.session_name,
+                    '_sid': sid
+                }
+                
+                async with session.get(logout_url, params=logout_params) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return result.get('success', False)
+                        
+        except Exception as e:
+            logging.error(f"Synology logout error: {str(e)}")
+            
+        return False
+
+# Initialize Synology auth service
+synology_auth = SynologyAuthService()
+
+async def get_or_create_synology_user(synology_data: Dict) -> User:
+    """Get existing user or create new user from Synology authentication"""
+    username = synology_data['username']
+    synology_user_info = synology_data.get('synology_user', {})
+    
+    # Check if user already exists
+    existing_user = await db.users.find_one({"username": username})
+    
+    if existing_user:
+        # Update last login and sync any changed info
+        await db.users.update_one(
+            {"username": username},
+            {
+                "$set": {
+                    "last_login": datetime.utcnow(),
+                    "synology_sid": synology_data['sid'],
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        return User(**existing_user)
+    else:
+        # Create new user from Synology data
+        new_user = User(
+            username=username,
+            email=synology_user_info.get('email', f"{username}@local"),
+            first_name=synology_user_info.get('first_name', username),
+            last_name=synology_user_info.get('last_name', 'User'),
+            role=UserRole.DOCTOR if synology_user_info.get('is_admin') else UserRole.RECEPTIONIST,
+            password_hash="",  # No password needed for Synology users
+            phone=synology_user_info.get('phone'),
+            permissions=ROLE_PERMISSIONS.get(
+                UserRole.DOCTOR if synology_user_info.get('is_admin') else UserRole.RECEPTIONIST, 
+                []
+            ),
+            last_login=datetime.utcnow(),
+            synology_sid=synology_data['sid'],
+            auth_source="synology"
+        )
+        
+        user_dict = jsonable_encoder(new_user)
+        await db.users.insert_one(user_dict)
+        
+        return new_user
+
 async def authenticate_user(username: str, password: str):
     user = await db.users.find_one({"username": username})
     if not user:
