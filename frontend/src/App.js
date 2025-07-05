@@ -2227,7 +2227,49 @@ const MedicationSearchComponent = ({ onSelectMedication, placeholder = "Search f
   };
 
 const PatientsModule = ({ setActiveModule }) => {
-              </button>
+  const [patients, setPatients] = useState([]);
+  const [selectedPatient, setSelectedPatient] = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [patientSummary, setPatientSummary] = useState(null);
+  const [showEncounterForm, setShowEncounterForm] = useState(false);
+  const [showVitalsForm, setShowVitalsForm] = useState(false);
+  const [showDocumentUpload, setShowDocumentUpload] = useState(false);
+  const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
+
+  useEffect(() => {
+    fetchPatients();
+  }, []);
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/patients`);
+      setPatients(response.data);
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+    }
+  };
+
+  const fetchPatientSummary = async (patientId) => {
+    try {
+      const response = await axios.get(`${API}/patients/${patientId}/summary`);
+      setPatientSummary(response.data);
+    } catch (error) {
+      console.error("Error fetching patient summary:", error);
+    }
+  };
+
+  if (selectedPatient) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+        <div className="max-w-7xl mx-auto px-6 py-8">
+          {/* Patient Header */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center space-x-4">
+              <button 
+                onClick={() => setSelectedPatient(null)}
+                className="text-blue-200 hover:text-white"
+              >
+                ← Back to Patients
               <div>
                 <h1 className="text-3xl font-bold text-white">
                   {selectedPatient.name?.[0]?.given?.[0]} {selectedPatient.name?.[0]?.family}
