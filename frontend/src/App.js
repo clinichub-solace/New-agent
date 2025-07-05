@@ -2226,18 +2226,7 @@ const MedicationSearchComponent = ({ onSelectMedication, placeholder = "Search f
     );
   };
 
-  if (selectedPatient) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
-        <div className="max-w-7xl mx-auto px-6 py-8">
-          {/* Patient Header */}
-          <div className="flex items-center justify-between mb-8">
-            <div className="flex items-center space-x-4">
-              <button 
-                onClick={() => setSelectedPatient(null)}
-                className="text-blue-200 hover:text-white"
-              >
-                ← Back to Patients
+const PatientsModule = ({ setActiveModule }) => {
               </button>
               <div>
                 <h1 className="text-3xl font-bold text-white">
