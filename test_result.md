@@ -634,6 +634,7 @@ test_plan:
     - "Document Management System"
     - "Telehealth Module System"
     - "Payroll Management System"
+    - "Frontend Code Organization"
   stuck_tasks:
     - "Referrals Management System"
     - "Clinical Templates & Protocols System"
@@ -642,6 +643,7 @@ test_plan:
     - "Document Management System"
     - "Telehealth Module System"
     - "Payroll Management System"
+    - "Frontend Code Organization"
   test_all: false
   test_priority: "high_first"
       - working: false
