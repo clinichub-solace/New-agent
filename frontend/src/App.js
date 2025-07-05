@@ -2270,6 +2270,7 @@ const PatientsModule = ({ setActiveModule }) => {
                 className="text-blue-200 hover:text-white"
               >
                 ← Back to Patients
+              </button>
               <div>
                 <h1 className="text-3xl font-bold text-white">
                   {selectedPatient.name?.[0]?.given?.[0]} {selectedPatient.name?.[0]?.family}
