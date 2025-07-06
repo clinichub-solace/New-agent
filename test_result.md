@@ -181,9 +181,9 @@ frontend:
 
   - task: "General System Health Check"
     implemented: true
-    working: true
+    working: false
     file: "/app/frontend/src/App.js"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
@@ -202,6 +202,9 @@ frontend:
       - working: true
         agent: "testing"
         comment: "Final comprehensive testing confirms that the system is fully operational. All modules load without JavaScript errors, navigation between modules works correctly, and the Payroll tab in the Employee Management module is now working properly. The Patient Portal button is present and clickable, and all UI elements render correctly. No JavaScript errors were detected during testing, and all frontend components are functioning as expected."
+      - working: false
+        agent: "testing"
+        comment: "After testing the frontend with the fixed backend URL configuration, I found that the frontend is not rendering properly. The backend API is correctly configured to use http://localhost:8001 and is accessible, but the React application is failing with an 'Invalid hook call' error in the console. This is likely due to compatibility issues with React 19.0.0, which is a very recent version that might not be compatible with some of the hooks used in the application. The backend API is working correctly and responds to requests, but the frontend is not able to render the login page or any other components."
 
   - task: "Lab Integration Frontend Module"
     implemented: true
