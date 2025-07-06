@@ -205,6 +205,9 @@ frontend:
       - working: false
         agent: "testing"
         comment: "After testing the frontend with the fixed backend URL configuration, I found that the frontend is not rendering properly. The backend API is correctly configured to use http://localhost:8001 and is accessible, but the React application is failing with an 'Invalid hook call' error in the console. This is likely due to compatibility issues with React 19.0.0, which is a very recent version that might not be compatible with some of the hooks used in the application. The backend API is working correctly and responds to requests, but the frontend is not able to render the login page or any other components."
+      - working: false
+        agent: "testing"
+        comment: "Attempted to fix the React hook error by downgrading React from version 19.0.0 to 18.2.0, but the issue persists. The frontend is still experiencing the 'Invalid hook call' error, which prevents the application from rendering properly. The backend API is working correctly and responds to requests, but the frontend is not able to render the login page or any other components. This issue requires further investigation and might need a more comprehensive fix, possibly involving code changes to the React components or a different React version."
 
   - task: "Lab Integration Frontend Module"
     implemented: true
