@@ -36,8 +36,9 @@ const AuthProvider = ({ children }) => {
       const response = await axios.get(`${API}/auth/me`);
       setUser(response.data);
     } catch (error) {
-      console.error('Token invalid, logging out:', error);
-      logout();
+      console.error('Token validation failed:', error);
+      localStorage.removeItem('token');
+      setToken(null);
     } finally {
       setLoading(false);
     }
@@ -55,37 +56,31 @@ const AuthProvider = ({ children }) => {
       
       return { success: true };
     } catch (error) {
+      console.error('Login failed:', error);
       return { 
         success: false, 
-        error: error.response?.data?.detail || 'Login failed' 
+        error: error.response?.data?.detail || 'Login failed. Please try again.' 
       };
     }
   };
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    setToken(null);
-    setUser(null);
-    delete axios.defaults.headers.common['Authorization'];
-  };
-
-  const hasPermission = (permission) => {
-    if (!user) return false;
-    if (user.role === 'admin') return true; // Admin has all permissions
-    return user.permissions?.includes(permission) || false;
-  };
-
-  const value = {
-    user,
-    login,
-    logout,
-    hasPermission,
-    loading,
-    isAuthenticated: !!user
+  const logout = async () => {
+    try {
+      if (token) {
+        await axios.post(`${API}/auth/logout`);
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      localStorage.removeItem('token');
+      setToken(null);
+      setUser(null);
+      delete axios.defaults.headers.common['Authorization'];
+    }
   };
 
   return (
-    <AuthContext.Provider value={value}>
+    <AuthContext.Provider value={{ user, login, logout, loading }}>
       {children}
     </AuthContext.Provider>
   );
