@@ -637,13 +637,7 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Referrals Management System"
-    - "Clinical Templates & Protocols System"
-    - "Quality Measures & Reporting System"
-    - "Patient Portal System"
-    - "Document Management System"
-    - "Telehealth Module System"
-    - "Payroll Management System"
+    - "General System Health Check"
     - "Frontend Code Organization"
   stuck_tasks:
     - "Referrals Management System"
@@ -654,6 +648,7 @@ test_plan:
     - "Telehealth Module System"
     - "Payroll Management System"
     - "Frontend Code Organization"
+    - "General System Health Check"
   test_all: false
   test_priority: "high_first"
       - working: false
