@@ -1346,14 +1346,15 @@ const MedicationSearchComponent = ({ onSelectMedication, placeholder = "Search f
     
     setIsSearching(true);
     try {
-      const response = await axios.get(`${API}/comprehensive-medications/search`, {
-        params: { query: query, limit: 10 }
+      const response = await axios.get(`${API}/erx/medications`, {
+        params: searchQuery ? { search: searchQuery } : {},
+        headers: { Authorization: `Bearer ${token}` }
       });
-      setSearchResults(response.data);
+      setMedications(response.data || []);
     } catch (error) {
-      console.error("Error searching medications:", error);
-      // Fallback to original endpoint
+      console.error("Medication search failed:", error);
       try {
+        // Fallback to regular medications endpoint
         const fallbackResponse = await axios.get(`${API}/medications`, {
           params: { search: query, limit: 10 }
         });
