@@ -687,8 +687,8 @@ metadata:
 
 test_plan:
   current_focus:
-    - "General System Health Check"
-    - "Frontend Code Organization"
+    - "eRx Functionality"
+    - "eRx Backend System Stability"
   stuck_tasks:
     - "Referrals Management System"
     - "Clinical Templates & Protocols System"
