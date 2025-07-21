@@ -6469,14 +6469,25 @@ async def get_employee(employee_id: str, current_user: User = Depends(get_curren
 @api_router.post("/employees", response_model=EnhancedEmployee)
 async def create_employee(employee_data: EnhancedEmployeeCreate, current_user: User = Depends(get_current_active_user)):
     try:
-        # Check if employee with same employee_id exists
-        existing = await db.employees.find_one({"employee_id": employee_data.employee_id}, {"_id": 0})
-        if existing:
-            raise HTTPException(status_code=400, detail="Employee ID already exists")
+        # Generate auto-incrementing employee ID
+        last_employee = await db.employees.find().sort("employee_id", -1).limit(1).to_list(1)
+        if last_employee:
+            # Extract number from last employee ID (e.g., "EMP-0001" -> 1)
+            last_id = last_employee[0].get("employee_id", "EMP-0000")
+            try:
+                last_num = int(last_id.split("-")[1])
+                new_num = last_num + 1
+            except (IndexError, ValueError):
+                new_num = 1
+        else:
+            new_num = 1
+        
+        employee_id = f"EMP-{new_num:04d}"
         
         # Create employee with generated ID
         employee_dict = employee_data.dict()
         employee_dict["id"] = str(uuid.uuid4())
+        employee_dict["employee_id"] = employee_id
         employee_dict["created_at"] = datetime.utcnow()
         employee_dict["updated_at"] = datetime.utcnow()
         
