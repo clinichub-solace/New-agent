@@ -6565,8 +6565,16 @@ async def create_appointment(appointment_data: dict, current_user: User = Depend
         if not provider:
             raise HTTPException(status_code=404, detail="Provider not found")
         
-        provider_name = f"{provider.get('first_name', '')} {provider.get('last_name', '')}".strip()
-        if not provider_name:
+        # Build provider name with title
+        title = provider.get('title', '').strip()
+        first_name = provider.get('first_name', '').strip()
+        last_name = provider.get('last_name', '').strip()
+        
+        if title and first_name and last_name:
+            provider_name = f"{title} {first_name} {last_name}"
+        elif first_name and last_name:
+            provider_name = f"{first_name} {last_name}"
+        else:
             provider_name = "Unknown Provider"
         
         # Create appointment with populated names
