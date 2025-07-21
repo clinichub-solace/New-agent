@@ -1873,10 +1873,10 @@ const MedicationSearchComponent = ({ onSelectMedication, placeholder = "Search f
       
       try {
         // Use our new comprehensive medication database
-        const response = await axios.get(`${API}/comprehensive-medications/search`, {
-          params: { query: query, limit: 10 }
+        const response = await axios.get(`${API}/erx/medications`, {
+          params: query ? { search: query } : {},
         });
-        setDrugSearchResults(response.data);
+        setDrugSearchResults(response.data || []);
       } catch (error) {
         console.error("Error searching medications:", error);
         // Fallback to original endpoint if comprehensive search fails
