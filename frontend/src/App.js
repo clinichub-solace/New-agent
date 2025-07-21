@@ -1347,10 +1347,9 @@ const MedicationSearchComponent = ({ onSelectMedication, placeholder = "Search f
     setIsSearching(true);
     try {
       const response = await axios.get(`${API}/erx/medications`, {
-        params: searchQuery ? { search: searchQuery } : {},
-        headers: { Authorization: `Bearer ${token}` }
+        params: query ? { search: query } : {},
       });
-      setMedications(response.data || []);
+      setSearchResults(response.data || []);
     } catch (error) {
       console.error("Medication search failed:", error);
       try {
