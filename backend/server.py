@@ -6446,25 +6446,45 @@ async def get_provider_schedule(provider_id: str, date: str = None):
 
 # Appointment Management
 @api_router.post("/appointments", response_model=Appointment)
-async def create_appointment(appointment_data: dict):
+async def create_appointment(appointment_data: dict, current_user: User = Depends(get_current_active_user)):
     try:
-        # Verify patient exists
+        # Verify patient exists and get patient name
         patient = await db.patients.find_one({"id": appointment_data["patient_id"]}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
-        # Verify provider exists
+        # Extract patient name from FHIR structure
+        patient_name = "Unknown Patient"
+        if patient.get("name") and len(patient["name"]) > 0:
+            name_obj = patient["name"][0]
+            given_name = name_obj.get("given", [""])[0] if name_obj.get("given") else ""
+            family_name = name_obj.get("family", "")
+            patient_name = f"{given_name} {family_name}".strip()
+        
+        # Verify provider exists and get provider name
         provider = await db.providers.find_one({"id": appointment_data["provider_id"]}, {"_id": 0})
         if not provider:
             raise HTTPException(status_code=404, detail="Provider not found")
         
-        appointment = Appointment(
-            id=str(uuid.uuid4()),
-            **appointment_data
-        )
+        provider_name = f"{provider.get('first_name', '')} {provider.get('last_name', '')}".strip()
+        if not provider_name:
+            provider_name = "Unknown Provider"
         
-        appointment_dict = jsonable_encoder(appointment)
-        await db.appointments.insert_one(appointment_dict)
+        # Create appointment with populated names
+        appointment_dict = {
+            "id": str(uuid.uuid4()),
+            "patient_id": appointment_data["patient_id"],
+            "patient_name": patient_name,
+            "provider_id": appointment_data["provider_id"], 
+            "provider_name": provider_name,
+            "scheduled_by": f"{current_user.first_name} {current_user.last_name}",
+            **{k: v for k, v in appointment_data.items() if k not in ["patient_id", "provider_id"]}
+        }
+        
+        appointment = Appointment(**appointment_dict)
+        
+        appointment_json = jsonable_encoder(appointment)
+        await db.appointments.insert_one(appointment_json)
         return appointment
     except HTTPException:
         raise
