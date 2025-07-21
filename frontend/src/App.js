@@ -1,8 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import "./App.css";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import LoginPage from "./components/LoginPage";
+import Dashboard from "./components/Dashboard";
+import AppHeader from "./components/AppHeader";
+import ProtectedRoute from "./components/ProtectedRoute";
 import ERxModule from "./components/eRxModule";
+
+// Import Module Components
+import PatientsModule from "./components/modules/PatientsModule";
+import SchedulingModule from "./components/modules/SchedulingModule";
 
 // Loading Component
 const LoadingScreen = () => (
@@ -14,141 +21,145 @@ const LoadingScreen = () => (
   </div>
 );
 
-// Dashboard Component with Module Navigation
-const Dashboard = () => {
-  const { user, logout } = useAuth();
-  const [activeModule, setActiveModule] = React.useState(null);
-
-  // Handle module navigation
-  const handleModuleClick = (module) => {
-    setActiveModule(module);
-  };
-
-  const handleBackToDashboard = () => {
-    setActiveModule(null);
-  };
-
-  // If a module is active, render it
-  if (activeModule === 'erx') {
-    return (
-      <div>
-        <div className="bg-white/10 backdrop-blur-md border-b border-white/20 px-6 py-4">
-          <button
-            onClick={handleBackToDashboard}
-            className="text-blue-300 hover:text-white mb-2 flex items-center"
-          >
-            ← Back to Dashboard
-          </button>
-        </div>
-        <ERxModule />
-      </div>
-    );
-  }
-
-  // Default dashboard view
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
-      <div className="bg-white/10 backdrop-blur-md border-b border-white/20 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-white">ClinicHub Dashboard</h1>
-            <p className="text-blue-200">Welcome back, {user?.first_name}!</p>
-          </div>
-          <button
-            onClick={logout}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
-          >
-            Logout
-          </button>
-        </div>
-      </div>
-
-      <div className="max-w-7xl mx-auto px-6 py-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div 
-            onClick={() => handleModuleClick('patients')}
-            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6 hover:bg-white/20 cursor-pointer transition-all duration-300"
-          >
-            <h3 className="text-lg font-semibold text-white mb-2">Patients/EHR</h3>
-            <p className="text-blue-200 text-sm">Manage patient records and encounters</p>
-          </div>
-          
-          <div 
-            onClick={() => handleModuleClick('erx')}
-            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6 hover:bg-white/20 cursor-pointer transition-all duration-300"
-          >
-            <h3 className="text-lg font-semibold text-white mb-2">eRx Module</h3>
-            <p className="text-blue-200 text-sm">Electronic prescribing system</p>
-            <div className="mt-2 text-green-400 text-xs">✅ FHIR Compliant</div>
-          </div>
-          
-          <div 
-            onClick={() => handleModuleClick('appointments')}
-            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6 hover:bg-white/20 cursor-pointer transition-all duration-300"
-          >
-            <h3 className="text-lg font-semibold text-white mb-2">Appointments</h3>
-            <p className="text-blue-200 text-sm">Schedule and manage appointments</p>
-          </div>
-          
-          <div 
-            onClick={() => handleModuleClick('settings')}
-            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6 hover:bg-white/20 cursor-pointer transition-all duration-300"
-          >
-            <h3 className="text-lg font-semibold text-white mb-2">System Settings</h3>
-            <p className="text-blue-200 text-sm">Configure Synology integration</p>
-          </div>
-          
-          <div 
-            onClick={() => handleModuleClick('medical-db')}
-            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6 hover:bg-white/20 cursor-pointer transition-all duration-300"
-          >
-            <h3 className="text-lg font-semibold text-white mb-2">Medical Databases</h3>
-            <p className="text-blue-200 text-sm">Search ICD-10 codes and medications</p>
-          </div>
-          
-          <div 
-            onClick={() => handleModuleClick('reports')}
-            className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6 hover:bg-white/20 cursor-pointer transition-all duration-300"
-          >
-            <h3 className="text-lg font-semibold text-white mb-2">Reports</h3>
-            <p className="text-blue-200 text-sm">Generate practice analytics</p>
-          </div>
-        </div>
-
-        <div className="mt-8 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">System Status</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <p className="text-blue-200 text-sm">Authentication Source</p>
-              <p className="text-white font-medium">{user?.auth_source || 'Local'}</p>
-            </div>
-            <div>
-              <p className="text-blue-200 text-sm">User Role</p>
-              <p className="text-white font-medium">{user?.role || 'User'}</p>
-            </div>
-            <div>
-              <p className="text-blue-200 text-sm">Backend Status</p>
-              <p className="text-green-400 font-medium">✅ Operational</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// Main App Content
-const AppContent = () => {
+// Main App Component with Module Routing
+function AppContent() {
   const { user, loading } = useAuth();
+  const [activeModule, setActiveModule] = useState('dashboard');
 
   if (loading) {
     return <LoadingScreen />;
   }
 
-  return user ? <Dashboard /> : <LoginPage />;
-};
+  if (!user) {
+    return <LoginPage />;
+  }
 
-// Main App Component
+  // Module Routing
+  const renderModule = () => {
+    switch (activeModule) {
+      case 'patients':
+        return (
+          <ProtectedRoute permission="patients:read">
+            <AppHeader setActiveModule={setActiveModule}>
+              <PatientsModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
+      
+      case 'scheduling':
+        return (
+          <ProtectedRoute permission="scheduling:read">
+            <AppHeader setActiveModule={setActiveModule}>
+              <SchedulingModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
+      
+      case 'erx':
+        return (
+          <ProtectedRoute permission="patients:read">
+            <AppHeader setActiveModule={setActiveModule}>
+              <ERxModule setActiveModule={setActiveModule} />
+            </AppHeader>
+          </ProtectedRoute>
+        );
+
+      // Placeholder modules - will be implemented next
+      case 'forms':
+        return (
+          <ProtectedRoute permission="forms:read">
+            <AppHeader setActiveModule={setActiveModule}>
+              <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-8 text-center">
+                <h2 className="text-2xl font-bold text-white mb-4">SmartForms Module</h2>
+                <p className="text-blue-200">FHIR-compliant form builder coming soon...</p>
+              </div>
+            </AppHeader>
+          </ProtectedRoute>
+        );
+      
+      case 'inventory':
+        return (
+          <ProtectedRoute permission="inventory:read">
+            <AppHeader setActiveModule={setActiveModule}>
+              <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-8 text-center">
+                <h2 className="text-2xl font-bold text-white mb-4">Inventory Management</h2>
+                <p className="text-blue-200">Medical supplies tracking coming soon...</p>
+              </div>
+            </AppHeader>
+          </ProtectedRoute>
+        );
+      
+      case 'invoices':
+        return (
+          <ProtectedRoute permission="invoices:read">
+            <AppHeader setActiveModule={setActiveModule}>
+              <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-8 text-center">
+                <h2 className="text-2xl font-bold text-white mb-4">Invoice Management</h2>
+                <p className="text-blue-200">Billing and payments coming soon...</p>
+              </div>
+            </AppHeader>
+          </ProtectedRoute>
+        );
+      
+      case 'lab-orders':
+        return (
+          <ProtectedRoute permission="lab:read">
+            <AppHeader setActiveModule={setActiveModule}>
+              <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-8 text-center">
+                <h2 className="text-2xl font-bold text-white mb-4">Lab Integration</h2>
+                <p className="text-blue-200">Laboratory orders and results coming soon...</p>
+              </div>
+            </AppHeader>
+          </ProtectedRoute>
+        );
+      
+      case 'insurance':
+        return (
+          <ProtectedRoute permission="insurance:read">
+            <AppHeader setActiveModule={setActiveModule}>
+              <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-8 text-center">
+                <h2 className="text-2xl font-bold text-white mb-4">Insurance Verification</h2>
+                <p className="text-blue-200">Eligibility and prior authorization coming soon...</p>
+              </div>
+            </AppHeader>
+          </ProtectedRoute>
+        );
+      
+      case 'employees':
+        return (
+          <ProtectedRoute permission="employees:read">
+            <AppHeader setActiveModule={setActiveModule}>
+              <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-8 text-center">
+                <h2 className="text-2xl font-bold text-white mb-4">Employee Management</h2>
+                <p className="text-blue-200">Staff management and payroll coming soon...</p>
+              </div>
+            </AppHeader>
+          </ProtectedRoute>
+        );
+      
+      case 'finance':
+        return (
+          <ProtectedRoute permission="finance:read">
+            <AppHeader setActiveModule={setActiveModule}>
+              <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-8 text-center">
+                <h2 className="text-2xl font-bold text-white mb-4">Financial Reports</h2>
+                <p className="text-blue-200">Practice analytics and reporting coming soon...</p>
+              </div>
+            </AppHeader>
+          </ProtectedRoute>
+        );
+
+      // Add more modules as needed...
+      
+      default:
+        return <Dashboard setActiveModule={setActiveModule} />;
+    }
+  };
+
+  return renderModule();
+}
+
+// Main App Wrapper
 function App() {
   return (
     <AuthProvider>
