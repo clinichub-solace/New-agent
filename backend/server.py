@@ -5489,7 +5489,10 @@ async def create_prescription(prescription_data: dict, current_user: User = Depe
             "authored_on": datetime.utcnow(),
             "dosage_instruction": prescription_data.get("dosage_instruction", []),
             "dispense_request": prescription_data.get("dispense_request", {}),
-            "substitution": prescription_data.get("substitution", {"allowed": True})
+            "substitution": prescription_data.get("substitution", {"allowed": True}),
+            "created_by": current_user.username,
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
         }
         
         # Add optional fields if present
