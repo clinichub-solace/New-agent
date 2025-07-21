@@ -355,6 +355,9 @@ backend:
       - working: true
         agent: "testing"
         comment: "Patient management API endpoints are working correctly. Successfully created a patient with FHIR-compliant structure, retrieved all patients, and retrieved a specific patient by ID."
+      - working: true
+        agent: "testing"
+        comment: "Comprehensive testing confirms FHIR-compliant patient management is fully functional. Successfully tested: 1) Patient creation with FHIR-compliant structure including proper name, telecom, and address fields, 2) Patient retrieval by ID working correctly, 3) All patients list retrieval working, 4) FHIR resource_type validation working. Patient management system is operating correctly with proper FHIR compliance."
 
   - task: "SmartForm Builder with FHIR Mapping"
     implemented: true
