@@ -175,11 +175,11 @@ frontend:
 
   - task: "eRx Functionality"
     implemented: true
-    working: true
+    working: false
     file: "/app/frontend/src/App.js"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
       - working: true
         agent: "testing"
@@ -190,6 +190,9 @@ frontend:
       - working: true
         agent: "testing"
         comment: "Verified that clicking on the eRx card on the dashboard successfully redirects to the Patients/EHR module. The eRx functionality is properly integrated into the Patients/EHR module."
+      - working: false
+        agent: "main"
+        comment: "Current issue: Frontend is using minimal App.js (268 lines) without eRx functionality. Full implementation exists in App.js.large. Backend eRx endpoints (/api/erx/init, /api/erx/medications) are working correctly. Need to restore full frontend functionality and update API endpoints to use /api/erx/* instead of /comprehensive-medications/*."
 
   - task: "General System Health Check"
     implemented: true
