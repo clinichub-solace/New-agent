@@ -6444,6 +6444,91 @@ async def get_provider_schedule(provider_id: str, date: str = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching schedule: {str(e)}")
 
+# Employee Management Endpoints
+@api_router.get("/employees", response_model=List[EnhancedEmployee])
+async def get_employees(current_user: User = Depends(get_current_active_user)):
+    try:
+        employees = await db.employees.find({}, {"_id": 0}).sort("last_name", 1).to_list(1000)
+        return [EnhancedEmployee(**employee) for employee in employees]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching employees: {str(e)}")
+
+@api_router.get("/employees/{employee_id}", response_model=EnhancedEmployee)
+async def get_employee(employee_id: str, current_user: User = Depends(get_current_active_user)):
+    try:
+        employee = await db.employees.find_one({"id": employee_id}, {"_id": 0})
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        return EnhancedEmployee(**employee)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching employee: {str(e)}")
+
+@api_router.post("/employees", response_model=EnhancedEmployee)
+async def create_employee(employee_data: EnhancedEmployeeCreate, current_user: User = Depends(get_current_active_user)):
+    try:
+        # Check if employee with same employee_id exists
+        existing = await db.employees.find_one({"employee_id": employee_data.employee_id}, {"_id": 0})
+        if existing:
+            raise HTTPException(status_code=400, detail="Employee ID already exists")
+        
+        # Create employee with generated ID
+        employee_dict = employee_data.dict()
+        employee_dict["id"] = str(uuid.uuid4())
+        employee_dict["created_at"] = datetime.utcnow()
+        employee_dict["updated_at"] = datetime.utcnow()
+        
+        employee = EnhancedEmployee(**employee_dict)
+        
+        employee_json = jsonable_encoder(employee)
+        await db.employees.insert_one(employee_json)
+        
+        return employee
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating employee: {str(e)}")
+
+@api_router.put("/employees/{employee_id}", response_model=EnhancedEmployee)
+async def update_employee(employee_id: str, employee_data: dict, current_user: User = Depends(get_current_active_user)):
+    try:
+        # Check if employee exists
+        existing = await db.employees.find_one({"id": employee_id}, {"_id": 0})
+        if not existing:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        
+        # Update with timestamp
+        update_data = employee_data.copy()
+        update_data["updated_at"] = datetime.utcnow()
+        
+        result = await db.employees.update_one(
+            {"id": employee_id},
+            {"$set": jsonable_encoder(update_data)}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        
+        # Return updated employee
+        updated_employee = await db.employees.find_one({"id": employee_id}, {"_id": 0})
+        return EnhancedEmployee(**updated_employee)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating employee: {str(e)}")
+
+@api_router.delete("/employees/{employee_id}")
+async def delete_employee(employee_id: str, current_user: User = Depends(get_current_active_user)):
+    try:
+        result = await db.employees.delete_one({"id": employee_id})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        
+        return {"message": "Employee deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting employee: {str(e)}")
+
 # Appointment Management
 @api_router.post("/appointments", response_model=Appointment)
 async def create_appointment(appointment_data: dict, current_user: User = Depends(get_current_active_user)):
