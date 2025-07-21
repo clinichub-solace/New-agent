@@ -663,6 +663,21 @@ backend:
     needs_retesting: false
     status_history:
 
+  - task: "eRx Backend System Stability"
+    implemented: true
+    working: true
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: false
+    status_history:
+      - working: false
+        agent: "main"
+        comment: "Backend was crashing after eRx integration with 'Address already in use' errors preventing medication endpoints from being accessible."
+      - working: true
+        agent: "main"
+        comment: "Diagnosed that backend is actually running fine. All eRx endpoints are working correctly: /api/erx/init, /api/erx/medications. Authentication is working. The issue was resolved - supervisor shows backend RUNNING status. eRx system initializes correctly with 5 medications in database."
+
 metadata:
   created_by: "main_agent"
   version: "1.0"
