@@ -1027,7 +1027,47 @@ def test_authentication():
 def test_erx_system(patient_id, admin_token):
     print("\n--- Testing eRx (Electronic Prescribing) System ---")
     
-    # Test 1: Initialize eRx Data
+    # Test 1: Initialize eRx System (NEW ENDPOINT)
+    try:
+        url = f"{API_URL}/erx/init"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.post(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        print_test_result("Initialize eRx System (/api/erx/init)", True, result)
+    except Exception as e:
+        print(f"Error initializing eRx system: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Initialize eRx System (/api/erx/init)", False)
+    
+    # Test 2: Get eRx Medications (NEW ENDPOINT)
+    try:
+        url = f"{API_URL}/erx/medications"
+        headers = {"Authorization": f"Bearer {admin_token}"}
+        
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
+        result = response.json()
+        
+        # Verify FHIR-compliant medication structure
+        assert len(result) > 0
+        assert result[0]["resource_type"] == "Medication"
+        assert "code" in result[0]
+        assert "generic_name" in result[0]
+        
+        print_test_result("Get eRx Medications (/api/erx/medications)", True, result)
+    except Exception as e:
+        print(f"Error getting eRx medications: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
+        print_test_result("Get eRx Medications (/api/erx/medications)", False)
+    
+    # Test 3: Initialize eRx Data (LEGACY ENDPOINT)
     try:
         url = f"{API_URL}/init-erx-data"
         headers = {"Authorization": f"Bearer {admin_token}"}
@@ -1036,13 +1076,13 @@ def test_erx_system(patient_id, admin_token):
         response.raise_for_status()
         result = response.json()
         
-        print_test_result("Initialize eRx Data", True, result)
+        print_test_result("Initialize eRx Data (Legacy)", True, result)
     except Exception as e:
         print(f"Error initializing eRx data: {str(e)}")
         if 'response' in locals():
             print(f"Status code: {response.status_code}")
             print(f"Response text: {response.text}")
-        print_test_result("Initialize eRx Data", False)
+        print_test_result("Initialize eRx Data (Legacy)", False)
         return None, None
     
     # Test 2: Search Medications
