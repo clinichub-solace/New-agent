@@ -56,7 +56,7 @@
 ##   test_all: false
 ##   test_priority: "high_first"  # or "sequential" or "stuck_first"
 ##
-## agent_communication:
+## ## agent_communication:
   - agent: "testing"
     message: "Successfully tested the comprehensive medical database endpoints for offline-first operation. All ICD-10 and comprehensive medication database endpoints are working correctly. The routing conflict between /medications/{medication_id} and /medications/search has been resolved by using the /comprehensive-medications prefix. Search functionality works well with fuzzy matching and relevance scoring, and filtering by drug class is also working properly."
   - agent: "testing"
@@ -89,6 +89,8 @@
     message: "Investigated the login issue with admin/admin123 credentials. Found that the backend API is working correctly, as direct API calls to http://localhost:8001/api/auth/login with these credentials return a successful response with a valid token. However, there's an issue with the browser automation tool, which is navigating to http://localhost:8001/ (the backend URL) instead of http://localhost:3000/ (the frontend URL). This is preventing us from properly testing the frontend login functionality. The frontend code is correctly configured to use the environment variable REACT_APP_BACKEND_URL for API calls, which is set to http://localhost:8001 in the .env file. The frontend server is running on port 3000 and serving the correct HTML content, but the browser automation tool is unable to access it properly."
   - agent: "testing"
     message: "Completed testing of the ClinicHub frontend login functionality. The frontend has been completely rebuilt with a clean, minimal App.js file (200 lines instead of 11,450). The login functionality is properly implemented with the correct API endpoints. I verified that: 1) The frontend is correctly serving the ClinicHub login page with the title 'ClinicHub - Practice Management', 2) The login form includes username and password fields with proper validation, 3) The default credentials hint 'Default: admin / admin123' is displayed, 4) The backend API at http://localhost:8001/api/auth/login correctly authenticates with admin/admin123 credentials and returns a valid JWT token, 5) The frontend is correctly configured to use the backend URL from the environment variable. While I couldn't directly test the UI interaction due to browser automation tool limitations, all the code components for login functionality are correctly implemented and the backend authentication API is working properly."
+  - agent: "main"
+    message: "Investigated backend crash issue and found that backend is actually running fine. All eRx endpoints are working correctly: /api/erx/init returns 'eRx system already initialized' with 5 medications, /api/erx/medications returns full FHIR-compliant medication list. Authentication is working properly. The real issue is that frontend is using minimal App.js (268 lines) instead of full implementation in App.js.large which contains eRx modules. Frontend needs to be restored to full functionality and API endpoints updated to use /api/erx/* instead of /comprehensive-medications/*."
 ##     -agent: "main"  # or "testing" or "user"
 ##     -message: "Communication message between agents"
 
