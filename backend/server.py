@@ -5457,15 +5457,52 @@ async def create_prescription(prescription_data: dict, current_user: User = Depe
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
-        # Create prescription object
-        prescription = MedicationRequest(
-            id=str(uuid.uuid4()),
-            **prescription_data
-        )
+        # Get medication details if medication_id provided
+        medication = None
+        if "medication_id" in prescription_data:
+            medication = await db.fhir_medications.find_one({"id": prescription_data["medication_id"]}, {"_id": 0})
+        
+        # Populate required fields
+        patient_name = "Unknown Patient"
+        if patient.get("name") and len(patient["name"]) > 0:
+            name_obj = patient["name"][0]
+            given_name = name_obj.get("given", [""])[0] if name_obj.get("given") else ""
+            family_name = name_obj.get("family", "")
+            patient_name = f"{given_name} {family_name}".strip()
+        
+        medication_display = prescription_data.get("medication_display", "Unknown Medication")
+        if medication:
+            medication_display = medication.get("generic_name", medication_display)
+        
+        # Create prescription object with all required fields
+        prescription_dict = {
+            "id": str(uuid.uuid4()),
+            "resource_type": "MedicationRequest",
+            "status": prescription_data.get("status", "active"),
+            "intent": prescription_data.get("intent", "order"),
+            "medication_id": prescription_data.get("medication_id", ""),
+            "medication_display": medication_display,
+            "patient_id": prescription_data["patient_id"],
+            "patient_display": patient_name,
+            "prescriber_id": current_user.id,
+            "prescriber_name": f"{current_user.first_name} {current_user.last_name}",
+            "authored_on": datetime.utcnow(),
+            "dosage_instruction": prescription_data.get("dosage_instruction", []),
+            "dispense_request": prescription_data.get("dispense_request", {}),
+            "substitution": prescription_data.get("substitution", {"allowed": True})
+        }
+        
+        # Add optional fields if present
+        optional_fields = ["encounter_id", "prescriber_npi", "prescriber_dea", "category", "priority"]
+        for field in optional_fields:
+            if field in prescription_data:
+                prescription_dict[field] = prescription_data[field]
+        
+        prescription = MedicationRequest(**prescription_dict)
         
         # Store in database
-        prescription_dict = jsonable_encoder(prescription)
-        await db.prescriptions.insert_one(prescription_dict)
+        prescription_json = jsonable_encoder(prescription)
+        await db.prescriptions.insert_one(prescription_json)
         
         return prescription
     except HTTPException:
