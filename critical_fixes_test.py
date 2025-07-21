@@ -46,10 +46,10 @@ def print_test_result(test_name, success, response=None, error_msg=None):
 def authenticate():
     """Get admin token for authenticated requests"""
     try:
-        # Initialize admin user first
+        # Try to initialize admin user first (ignore if already exists)
         url = f"{API_URL}/auth/init-admin"
         response = requests.post(url)
-        response.raise_for_status()
+        # Don't raise for status here as admin might already exist
         
         # Login as admin
         url = f"{API_URL}/auth/login"
