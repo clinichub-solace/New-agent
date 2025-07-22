@@ -112,11 +112,11 @@ setup_environment() {
     print_status "Configuring environment variables..."
     
     # Update docker-compose.synology.yml with actual values
-    sed -i "s/YOUR-NAS-IP/$NAS_IP/g" docker-compose.synology.yml
+    sed -i "s/YOUR-NAS-IP/192.168.1.5/g" docker-compose.synology.yml
     sed -i "s/YOUR-CERT/clinichub/g" docker-compose.synology.yml
     
     # Update nginx config
-    sed -i "s/YOUR-NAS-IP/$NAS_IP/g" nginx/clinichub.conf
+    sed -i "s/YOUR-NAS-IP/192.168.1.5/g" nginx/clinichub.conf
     
     # Create environment file for backend
     cat > backend/.env << EOF
