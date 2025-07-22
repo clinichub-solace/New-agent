@@ -43,8 +43,8 @@ services:
       HOST: 0.0.0.0
       PORT: 8001
       
-      # Synology DSM Integration - CONFIGURE THESE FOR YOUR NAS
-      SYNOLOGY_DSM_URL: https://YOUR-NAS-IP:5001
+      # Synology DSM Integration - CONFIGURED FOR YOUR NAS
+      SYNOLOGY_DSM_URL: https://192.168.1.5:5001
       SYNOLOGY_VERIFY_SSL: "false"  # Set to "true" if you have valid SSL cert
       SYNOLOGY_SESSION_NAME: ClinicHub
       
