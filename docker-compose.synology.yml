@@ -78,8 +78,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      # Backend URL for Synology - adjust YOUR-NAS-IP
-      REACT_APP_BACKEND_URL: https://YOUR-NAS-IP:8001
+      # Backend URL for Synology - configured for your NAS
+      REACT_APP_BACKEND_URL: https://192.168.1.5:8001
       NODE_ENV: production
     depends_on:
       - backend
