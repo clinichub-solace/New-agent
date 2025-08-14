@@ -1377,4 +1377,382 @@ function AppContent() {
   return user ? <Dashboard /> : <LoginPage />;
 }
 
+// Invoices/Receipts Module
+const InvoicesModule = ({ setActiveModule }) => {
+  const [invoices, setInvoices] = useState([]);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchInvoices();
+  }, []);
+
+  const fetchInvoices = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/invoices`);
+      setInvoices(response.data);
+    } catch (error) {
+      console.error('Failed to fetch invoices:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const viewInvoice = (invoice) => {
+    setSelectedInvoice(invoice);
+  };
+
+  if (selectedInvoice) {
+    return (
+      <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-semibold text-white">Invoice Details</h2>
+          <button
+            onClick={() => setSelectedInvoice(null)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            Back to List
+          </button>
+        </div>
+        
+        <div className="space-y-4">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <h3 className="text-lg font-medium text-white mb-4">Invoice #{selectedInvoice.invoice_number}</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-blue-200">Status:</span>
+                <span className="text-white ml-2 capitalize">{selectedInvoice.status}</span>
+              </div>
+              <div>
+                <span className="text-blue-200">Issue Date:</span>
+                <span className="text-white ml-2">{selectedInvoice.issue_date}</span>
+              </div>
+              <div>
+                <span className="text-blue-200">Due Date:</span>
+                <span className="text-white ml-2">{selectedInvoice.due_date || 'N/A'}</span>
+              </div>
+              <div>
+                <span className="text-blue-200">Total Amount:</span>
+                <span className="text-white ml-2 font-bold">${selectedInvoice.total_amount}</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <h4 className="text-lg font-medium text-white mb-3">Items</h4>
+            <div className="space-y-2">
+              {selectedInvoice.items.map((item, index) => (
+                <div key={index} className="flex justify-between items-center p-2 bg-white/5 rounded">
+                  <div>
+                    <div className="text-white font-medium">{item.description}</div>
+                    <div className="text-blue-200 text-sm">Qty: {item.quantity} × ${item.unit_price}</div>
+                  </div>
+                  <div className="text-white font-bold">${item.total}</div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-4 pt-4 border-t border-white/20">
+              <div className="flex justify-between text-lg font-bold text-white">
+                <span>Total:</span>
+                <span>${selectedInvoice.total_amount}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">Invoices & Receipts</h2>
+        <button
+          onClick={() => setActiveModule('dashboard')}
+          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+      
+      {loading ? (
+        <div className="text-center text-blue-200 py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+          Loading invoices...
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {invoices.length > 0 ? (
+            invoices.map((invoice) => (
+              <div
+                key={invoice.id}
+                className="bg-white/5 border border-white/10 rounded-lg p-4 hover:bg-white/10 transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-white font-medium">Invoice #{invoice.invoice_number}</div>
+                    <div className="text-blue-200 text-sm">
+                      Issue Date: {invoice.issue_date} | Status: {invoice.status}
+                    </div>
+                    <div className="text-blue-300 text-sm">Total: ${invoice.total_amount}</div>
+                  </div>
+                  <button
+                    onClick={() => viewInvoice(invoice)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                  >
+                    View Receipt
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center text-blue-200 py-8">
+              No invoices found
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Employees Module
+const EmployeesModule = ({ setActiveModule }) => {
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
+
+  const fetchEmployees = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/employees`);
+      setEmployees(response.data);
+    } catch (error) {
+      console.error('Failed to fetch employees:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">Employee Management</h2>
+        <button
+          onClick={() => setActiveModule('dashboard')}
+          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+      
+      {loading ? (
+        <div className="text-center text-blue-200 py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+          Loading employees...
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {employees.length > 0 ? (
+            employees.map((employee) => (
+              <div
+                key={employee.id}
+                className="bg-white/5 border border-white/10 rounded-lg p-4"
+              >
+                <div className="text-white font-medium">
+                  {employee.first_name} {employee.last_name}
+                </div>
+                <div className="text-blue-200 text-sm">ID: {employee.employee_id}</div>
+                <div className="text-blue-300 text-sm capitalize">Role: {employee.role}</div>
+                <div className="text-blue-300 text-sm">Department: {employee.department || 'N/A'}</div>
+                <div className="text-blue-300 text-sm">Email: {employee.email}</div>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full text-center text-blue-200 py-8">
+              No employees found
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Inventory Module
+const InventoryModule = ({ setActiveModule }) => {
+  const [inventory, setInventory] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchInventory();
+  }, []);
+
+  const fetchInventory = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/inventory`);
+      setInventory(response.data);
+    } catch (error) {
+      console.error('Failed to fetch inventory:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">Inventory Management</h2>
+        <button
+          onClick={() => setActiveModule('dashboard')}
+          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+      
+      {loading ? (
+        <div className="text-center text-blue-200 py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+          Loading inventory...
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {inventory.length > 0 ? (
+            inventory.map((item) => (
+              <div
+                key={item.id}
+                className="bg-white/5 border border-white/10 rounded-lg p-4"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-white font-medium">{item.name}</div>
+                    <div className="text-blue-200 text-sm">SKU: {item.sku || 'N/A'}</div>
+                    <div className="text-blue-300 text-sm">Category: {item.category}</div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-white font-bold">Stock: {item.current_stock}</div>
+                    <div className="text-blue-300 text-sm">Min: {item.min_stock_level}</div>
+                    <div className="text-blue-300 text-sm">Cost: ${item.unit_cost}</div>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center text-blue-200 py-8">
+              No inventory items found
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Finance Module
+const FinanceModule = ({ setActiveModule }) => {
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+
+  const fetchTransactions = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/financial-transactions`);
+      setTransactions(response.data);
+    } catch (error) {
+      console.error('Failed to fetch transactions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const totalIncome = transactions
+    .filter(t => t.transaction_type === 'income')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const totalExpenses = transactions
+    .filter(t => t.transaction_type === 'expense')
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">Financial Management</h2>
+        <button
+          onClick={() => setActiveModule('dashboard')}
+          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+      
+      {/* Financial Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className="bg-green-600/20 border border-green-400/50 rounded-lg p-4">
+          <div className="text-2xl font-bold text-white">${totalIncome.toFixed(2)}</div>
+          <div className="text-green-200 text-sm">Total Income</div>
+        </div>
+        <div className="bg-red-600/20 border border-red-400/50 rounded-lg p-4">
+          <div className="text-2xl font-bold text-white">${totalExpenses.toFixed(2)}</div>
+          <div className="text-red-200 text-sm">Total Expenses</div>
+        </div>
+        <div className="bg-blue-600/20 border border-blue-400/50 rounded-lg p-4">
+          <div className="text-2xl font-bold text-white">${(totalIncome - totalExpenses).toFixed(2)}</div>
+          <div className="text-blue-200 text-sm">Net Income</div>
+        </div>
+      </div>
+      
+      {loading ? (
+        <div className="text-center text-blue-200 py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+          Loading transactions...
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium text-white">Recent Transactions</h3>
+          {transactions.length > 0 ? (
+            transactions.slice(0, 10).map((transaction) => (
+              <div
+                key={transaction.id}
+                className="bg-white/5 border border-white/10 rounded-lg p-4"
+              >
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-white font-medium">{transaction.description}</div>
+                    <div className="text-blue-200 text-sm">
+                      {transaction.transaction_number} | {transaction.transaction_date}
+                    </div>
+                    <div className="text-blue-300 text-sm capitalize">
+                      {transaction.payment_method} | {transaction.category || 'N/A'}
+                    </div>
+                  </div>
+                  <div className={`text-lg font-bold ${
+                    transaction.transaction_type === 'income' ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {transaction.transaction_type === 'income' ? '+' : '-'}${transaction.amount}
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center text-blue-200 py-8">
+              No transactions found
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default App;
