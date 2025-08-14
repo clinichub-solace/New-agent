@@ -1,30 +1,30 @@
-# Use Node.js 18 alpine image
 FROM node:18-alpine
 
-# Set working directory
 WORKDIR /app
 
-# Install dependencies for node-gyp
-RUN apk add --no-cache python3 make g++
+# Install build dependencies
+RUN apk add --no-cache python3 make g++ curl
 
 # Copy package files
 COPY package*.json ./
-COPY yarn.lock ./
 
-# Install dependencies
-RUN yarn install --frozen-lockfile
+# Remove package-lock.json to avoid conflicts with yarn
+RUN rm -f package-lock.json
+
+# Install dependencies using yarn
+RUN yarn install --frozen-lockfile || yarn install
 
 # Copy application code
 COPY . .
 
-# Build the application
+# Build the application for production
 RUN yarn build
 
 # Expose port
 EXPOSE 3000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
     CMD curl -f http://localhost:3000 || exit 1
 
 # Start the application

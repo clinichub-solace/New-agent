@@ -1,7 +1,5 @@
-# Use Python 3.11 slim image
 FROM python:3.11-slim
 
-# Set working directory
 WORKDIR /app
 
 # Install system dependencies
@@ -26,8 +24,8 @@ RUN mkdir -p logs
 EXPOSE 8001
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8001/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+    CMD curl -f http://localhost:8001/docs || exit 1
 
-# Run the application
-CMD ["python", "server.py"]
+# Run with uvicorn
+CMD ["uvicorn", "server:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
