@@ -309,29 +309,233 @@ const Dashboard = () => {
   );
 };
 
-// Dashboard Home Component
+// Dashboard Home Component - Comprehensive Practice Management System
 const DashboardHome = () => {
   const { user } = useAuth();
+  const [stats, setStats] = useState({
+    patients: 0,
+    dailyRevenue: 0,
+    patientCare: 0,
+    pendingIssues: 0
+  });
+  
+  useEffect(() => {
+    // This would fetch real stats from the backend
+    setStats({
+      patients: 0,
+      dailyRevenue: 0,
+      patientCare: 0,
+      pendingIssues: 0
+    });
+  }, []);
+  
+  const practiceModules = [
+    {
+      id: 'patients-ehr',
+      title: 'Patients/EHR',
+      description: 'Patient records & encounters',
+      icon: '👥',
+      color: 'bg-blue-600/20 border-blue-400/50',
+      onClick: () => setActiveModule('patients')
+    },
+    {
+      id: 'smart-forms',
+      title: 'Smart Forms',
+      description: 'FHIR-compliant forms',
+      icon: '📋',
+      color: 'bg-green-600/20 border-green-400/50',
+      onClick: () => setActiveModule('forms')
+    },
+    {
+      id: 'inventory',
+      title: 'Inventory',
+      description: 'Medical supplies tracking',
+      icon: '📦',
+      color: 'bg-purple-600/20 border-purple-400/50',
+      onClick: () => setActiveModule('inventory')
+    },
+    {
+      id: 'invoices',
+      title: 'Invoices',
+      description: 'Billing & payments',
+      icon: '💰',
+      color: 'bg-yellow-600/20 border-yellow-400/50',
+      onClick: () => setActiveModule('invoices')
+    },
+    {
+      id: 'lab-orders',
+      title: 'Lab Orders',
+      description: 'Laboratory integration',
+      icon: '🧪',
+      color: 'bg-red-600/20 border-red-400/50',
+      onClick: () => setActiveModule('lab-orders')
+    },
+    {
+      id: 'insurance',
+      title: 'Insurance',
+      description: 'Verification & prior auth',
+      icon: '🛡️',
+      color: 'bg-indigo-600/20 border-indigo-400/50',
+      onClick: () => setActiveModule('insurance')
+    },
+    {
+      id: 'employees',
+      title: 'Employees',
+      description: 'Staff management',
+      icon: '👨‍⚕️',
+      color: 'bg-teal-600/20 border-teal-400/50',
+      onClick: () => setActiveModule('employees')
+    },
+    {
+      id: 'finance',
+      title: 'Finance',
+      description: 'Financial reporting',
+      icon: '📊',
+      color: 'bg-orange-600/20 border-orange-400/50',
+      onClick: () => setActiveModule('finance')
+    },
+    {
+      id: 'scheduling',
+      title: 'Scheduling',
+      description: 'Appointment management',
+      icon: '📅',
+      color: 'bg-pink-600/20 border-pink-400/50',
+      onClick: () => setActiveModule('scheduling')
+    },
+    {
+      id: 'communications',
+      title: 'Communications',
+      description: 'Patient messaging',
+      icon: '💬',
+      color: 'bg-cyan-600/20 border-cyan-400/50',
+      onClick: () => setActiveModule('communication')
+    },
+    {
+      id: 'referrals',
+      title: 'Referrals',
+      description: 'Provider network',
+      icon: '🔗',
+      color: 'bg-violet-600/20 border-violet-400/50',
+      onClick: () => setActiveModule('referrals')
+    },
+    {
+      id: 'clinical-templates',
+      title: 'Clinical Templates',
+      description: 'Clinical protocols',
+      icon: '📝',
+      color: 'bg-lime-600/20 border-lime-400/50',
+      onClick: () => setActiveModule('clinical-templates')
+    },
+    {
+      id: 'quality-measures',
+      title: 'Quality Measures',
+      description: 'Performance analytics',
+      icon: '📈',
+      color: 'bg-emerald-600/20 border-emerald-400/50',
+      onClick: () => setActiveModule('quality-measures')
+    },
+    {
+      id: 'patient-portal',
+      title: 'Patient Portal',
+      description: 'Portal management',
+      icon: '🌐',
+      color: 'bg-sky-600/20 border-sky-400/50',
+      onClick: () => setActiveModule('patient-portal')
+    },
+    {
+      id: 'documents',
+      title: 'Documents',
+      description: 'Document workflows',
+      icon: '📄',
+      color: 'bg-amber-600/20 border-amber-400/50',
+      onClick: () => setActiveModule('documents')
+    },
+    {
+      id: 'telehealth',
+      title: 'Telehealth',
+      description: 'Virtual consultations',
+      icon: '💻',
+      color: 'bg-rose-600/20 border-rose-400/50',
+      onClick: () => setActiveModule('telehealth')
+    },
+    {
+      id: 'system-settings',
+      title: 'System Settings',
+      description: 'System configuration',
+      icon: '⚙️',
+      color: 'bg-slate-600/20 border-slate-400/50',
+      onClick: () => setActiveModule('system-settings')
+    }
+  ];
   
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Dashboard Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
-          <h3 className="text-lg font-semibold text-white mb-2">Patients/EHR</h3>
-          <p className="text-blue-200 text-sm">Manage patient records and encounters</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-2xl font-bold text-white">{stats.patients}</h3>
+              <p className="text-blue-200 text-sm">Patients</p>
+            </div>
+            <div className="text-3xl">👥</div>
+          </div>
         </div>
         
         <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
-          <h3 className="text-lg font-semibold text-white mb-2">System Settings</h3>
-          <p className="text-blue-200 text-sm">Configure Synology integration</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-2xl font-bold text-white">${stats.dailyRevenue}</h3>
+              <p className="text-blue-200 text-sm">Daily Revenue</p>
+            </div>
+            <div className="text-3xl">💰</div>
+          </div>
         </div>
         
         <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
-          <h3 className="text-lg font-semibold text-white mb-2">Medical Databases</h3>
-          <p className="text-blue-200 text-sm">Search ICD-10 codes and medications</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-2xl font-bold text-white">{stats.patientCare}</h3>
+              <p className="text-blue-200 text-sm">Patient Care</p>
+            </div>
+            <div className="text-3xl">⚕️</div>
+          </div>
+        </div>
+        
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-2xl font-bold text-white">${stats.pendingIssues}</h3>
+              <p className="text-blue-200 text-sm">Pending Issues</p>
+            </div>
+            <div className="text-3xl">⚠️</div>
+          </div>
         </div>
       </div>
 
+      {/* Practice Management Modules */}
+      <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+        <h3 className="text-xl font-bold text-white mb-6">Practice Management Modules</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {practiceModules.map((module) => (
+            <div
+              key={module.id}
+              onClick={module.onClick}
+              className={`${module.color} backdrop-blur-md rounded-lg border p-4 hover:bg-white/20 transition-all cursor-pointer`}
+            >
+              <div className="flex items-center space-x-3">
+                <div className="text-2xl">{module.icon}</div>
+                <div>
+                  <h4 className="text-white font-semibold text-sm">{module.title}</h4>
+                  <p className="text-blue-200 text-xs">{module.description}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* System Status */}
       <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
         <h3 className="text-lg font-semibold text-white mb-4">System Status</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -341,7 +545,7 @@ const DashboardHome = () => {
           </div>
           <div>
             <p className="text-blue-200 text-sm">User Role</p>
-            <p className="text-white font-medium">{user?.role || 'User'}</p>
+            <p className="text-white font-medium">{user?.role || 'Admin'}</p>
           </div>
         </div>
       </div>
