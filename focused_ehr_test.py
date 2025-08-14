@@ -280,12 +280,12 @@ def test_lab_integration(token, patient_id):
     
     try:
         # Initialize lab system
-        response = requests.post(f"{API_URL}/lab/init", headers=headers)
+        response = requests.post(f"{API_URL}/lab-tests/init", headers=headers)
         response.raise_for_status()
         print("✅ Lab system initialization: SUCCESS")
         
         # Get lab tests
-        response = requests.get(f"{API_URL}/lab/tests", headers=headers)
+        response = requests.get(f"{API_URL}/lab-tests", headers=headers)
         response.raise_for_status()
         tests = response.json()
         
@@ -301,7 +301,7 @@ def test_lab_integration(token, patient_id):
                 "ordered_by": "Dr. Johnson"
             }
             
-            response = requests.post(f"{API_URL}/lab/orders", headers=headers, json=order_data)
+            response = requests.post(f"{API_URL}/lab-orders", headers=headers, json=order_data)
             response.raise_for_status()
             print("✅ Lab order creation: SUCCESS")
         
