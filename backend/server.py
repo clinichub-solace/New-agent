@@ -2154,6 +2154,12 @@ async def authenticate_user(username: str, password: str):
     user = await db.users.find_one({"username": username})
     if not user:
         return False
+    
+    # Handle legacy users that might not have first_name/last_name fields
+    if "first_name" not in user:
+        user["first_name"] = "User"
+    if "last_name" not in user:
+        user["last_name"] = "Unknown"
         
     user_obj = User(**user)
     
