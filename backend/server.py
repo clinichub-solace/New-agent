@@ -2504,12 +2504,18 @@ async def initialize_admin():
         # Check if any admin users exist
         admin_exists = await db.users.find_one({"role": "admin"})
         if admin_exists:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Admin user already exists"
-            )
+            # Check if existing admin has required fields
+            if "first_name" not in admin_exists or "last_name" not in admin_exists:
+                # Delete old incomplete admin user and recreate
+                await db.users.delete_many({"username": "admin"})
+                print("Deleted incomplete admin user, recreating...")
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="Admin user already exists"
+                )
         
-        # Create default admin user
+        # Create default admin user with all required fields
         admin_user = User(
             username="admin",
             email="admin@clinichub.com",
