@@ -1,4 +1,3 @@
-# Docker Compose configuration for ClinicHub
 services:
   # MongoDB Database
   mongodb:
