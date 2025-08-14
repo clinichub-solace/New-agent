@@ -48,6 +48,17 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 # Create the main app without a prefix
 app = FastAPI(title="ClinicHub API", description="AI-Powered Practice Management System")
 
+# Add root route for health verification
+@app.get("/")
+async def root():
+    return {
+        "message": "ClinicHub API is running", 
+        "status": "healthy", 
+        "version": "1.0.0",
+        "docs": "/docs",
+        "api_endpoints": "/api"
+    }
+
 # Create a router with the /api prefix
 api_router = APIRouter(prefix="/api")
 
