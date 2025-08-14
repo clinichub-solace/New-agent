@@ -208,8 +208,14 @@ const Dashboard = () => {
         return <PatientsModule />;
       case 'invoices':
         return <InvoicesModule setActiveModule={setActiveModule} />;
-      case 'medical-databases':
-        return <MedicalDatabasesModule />;
+      case 'system-settings':
+        return <SystemSettingsModule onStatusUpdate={fetchSynologyStatus} />;
+      case 'employees':
+        return <EmployeesModule setActiveModule={setActiveModule} />;
+      case 'inventory':
+        return <InventoryModule setActiveModule={setActiveModule} />;
+      case 'finance':
+        return <FinanceModule setActiveModule={setActiveModule} />;
       case 'communication':
         return <CommunicationModule />;
       default:
