@@ -23,11 +23,10 @@ from pathlib import Path
 # Load environment variables from frontend/.env to get the backend URL
 load_dotenv(Path(__file__).parent / "frontend" / ".env")
 
-# Get the backend URL from environment variables
-BACKEND_URL = os.environ.get("REACT_APP_BACKEND_URL")
-if not BACKEND_URL:
-    print("Error: REACT_APP_BACKEND_URL not found in environment variables")
-    exit(1)
+# Get the backend URL from environment variables, fallback to localhost
+BACKEND_URL = os.environ.get("REACT_APP_BACKEND_URL", "http://localhost:8001")
+print(f"Backend URL from env: {os.environ.get('REACT_APP_BACKEND_URL')}")
+print(f"Using Backend URL: {BACKEND_URL}")
 
 # Set the API URL
 API_URL = f"{BACKEND_URL}/api"
