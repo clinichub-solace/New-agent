@@ -53,16 +53,20 @@ def authenticate_admin():
     
     print("\n=== AUTHENTICATION ===")
     
-    # Initialize admin user first
+    # Initialize admin user first (or skip if already exists)
     try:
         url = f"{API_URL}/auth/init-admin"
         response = requests.post(url)
-        response.raise_for_status()
-        result = response.json()
-        print_test_result("Initialize Admin User", True, result)
+        if response.status_code == 400 and "already exists" in response.text:
+            print_test_result("Initialize Admin User", True, {"message": "Admin user already exists"})
+        else:
+            response.raise_for_status()
+            result = response.json()
+            print_test_result("Initialize Admin User", True, result)
     except Exception as e:
         print_test_result("Initialize Admin User", False, error_msg=str(e))
-        return False
+        # Don't return False here, try to login anyway
+        pass
     
     # Login with admin credentials
     try:
