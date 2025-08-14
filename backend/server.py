@@ -2548,6 +2548,43 @@ async def initialize_admin():
         logger.error(f"Error creating admin user: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error creating admin: {str(e)}")
 
+# Force reinitialize admin user (for fixing corrupted users)
+@api_router.post("/auth/force-init-admin")
+async def force_initialize_admin():
+    try:
+        # Delete any existing admin users
+        await db.users.delete_many({"username": "admin"})
+        
+        # Create fresh admin user with all required fields
+        admin_user = User(
+            username="admin",
+            email="admin@clinichub.com",
+            first_name="System",
+            last_name="Administrator",
+            role=UserRole.ADMIN,
+            password_hash=get_password_hash("admin123"),
+            permissions=ROLE_PERMISSIONS[UserRole.ADMIN],
+            status=UserStatus.ACTIVE
+        )
+        
+        user_dict = jsonable_encoder(admin_user)
+        await db.users.insert_one(user_dict)
+        
+        return {
+            "message": "Admin user forcibly recreated successfully",
+            "username": "admin",
+            "password": "admin123",
+            "note": "Old admin user was deleted and recreated with proper fields"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating admin user: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error creating admin user: {str(e)}"
+        )
+
 # Patient Routes
 @api_router.post("/patients", response_model=Patient)
 async def create_patient(patient_data: PatientCreate):
