@@ -310,7 +310,7 @@ const Dashboard = () => {
 };
 
 // Dashboard Home Component - Comprehensive Practice Management System
-const DashboardHome = () => {
+const DashboardHome = ({ setActiveModule }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState({
     patients: 0,
