@@ -2108,7 +2108,6 @@ const InvoicesModule = ({ setActiveModule }) => {
     </div>
   );
 };
-};
 
 // Employees Module - Comprehensive Employee Management System
 const EmployeesModule = ({ setActiveModule }) => {
