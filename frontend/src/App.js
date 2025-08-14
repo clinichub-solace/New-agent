@@ -206,8 +206,8 @@ const Dashboard = () => {
     switch (activeModule) {
       case 'patients':
         return <PatientsModule />;
-      case 'system-settings':
-        return <SystemSettingsModule onStatusUpdate={fetchSynologyStatus} />;
+      case 'invoices':
+        return <InvoicesModule setActiveModule={setActiveModule} />;
       case 'medical-databases':
         return <MedicalDatabasesModule />;
       case 'communication':
