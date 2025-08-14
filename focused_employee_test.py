@@ -15,7 +15,7 @@ from pathlib import Path
 # Load environment variables
 load_dotenv(Path(__file__).parent / "frontend" / ".env")
 
-BACKEND_URL = os.environ.get("REACT_APP_BACKEND_URL")
+BACKEND_URL = "http://localhost:8001"  # Use localhost for testing
 API_URL = f"{BACKEND_URL}/api"
 
 print(f"🏥 Focused Employee Management Test")
