@@ -2540,7 +2540,7 @@ async def initialize_admin():
             "message": "Default admin user created successfully",
             "username": "admin",
             "password": "admin123",
-            "warning": "Please change the password immediately!"
+            "note": "Please change the default password after first login"
         }
     except HTTPException:
         raise
