@@ -9913,6 +9913,15 @@ async def get_openemr_status(
 
 app.include_router(api_router)
 
+# Health endpoint for Docker health check
+@app.get("/api/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
+@app.get("/health")
+async def root_health_check():
+    return {"status": "healthy", "service": "ClinicHub API"}
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
