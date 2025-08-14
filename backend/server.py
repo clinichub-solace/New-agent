@@ -4385,9 +4385,14 @@ async def create_financial_transaction(transaction_data: FinancialTransactionCre
         prefix = "INC" if transaction_data.transaction_type == TransactionType.INCOME else "EXP"
         transaction_number = f"{prefix}-{count + 1:06d}"
         
+        # Prepare transaction data with defaults
+        transaction_dict = transaction_data.dict()
+        if transaction_dict.get("transaction_date") is None:
+            transaction_dict["transaction_date"] = date.today()
+        
         transaction = FinancialTransaction(
             transaction_number=transaction_number,
-            **transaction_data.dict()
+            **transaction_dict
         )
         
         transaction_dict = jsonable_encoder(transaction)
