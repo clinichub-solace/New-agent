@@ -1520,10 +1520,27 @@ const InvoicesModule = ({ setActiveModule }) => {
   );
 };
 
-// Employees Module
+// Employees Module - Comprehensive Employee Management System
 const EmployeesModule = ({ setActiveModule }) => {
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [selectedEmployee, setSelectedEmployee] = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newEmployee, setNewEmployee] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    role: 'staff',
+    department: '',
+    hire_date: new Date().toISOString().split('T')[0],
+    salary: '',
+    employment_type: 'full_time',
+    benefits_eligible: true,
+    vacation_days_allocated: 15,
+    sick_days_allocated: 10
+  });
 
   useEffect(() => {
     fetchEmployees();
@@ -1541,8 +1558,239 @@ const EmployeesModule = ({ setActiveModule }) => {
     }
   };
 
+  const handleAddEmployee = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post(`${API}/employees`, newEmployee);
+      setEmployees([...employees, response.data]);
+      setNewEmployee({
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: '',
+        role: 'staff',
+        department: '',
+        hire_date: new Date().toISOString().split('T')[0],
+        salary: '',
+        employment_type: 'full_time',
+        benefits_eligible: true,
+        vacation_days_allocated: 15,
+        sick_days_allocated: 10
+      });
+      setShowAddForm(false);
+    } catch (error) {
+      console.error('Failed to add employee:', error);
+    }
+  };
+
+  const handleDeleteEmployee = async (employeeId) => {
+    if (window.confirm('Are you sure you want to delete this employee?')) {
+      try {
+        await axios.delete(`${API}/employees/${employeeId}`);
+        setEmployees(employees.filter(emp => emp.id !== employeeId));
+      } catch (error) {
+        console.error('Failed to delete employee:', error);
+      }
+    }
+  };
+
+  const renderEmployeeOverview = () => (
+    <div className="space-y-6">
+      {/* Employee Stats */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+          <div className="text-2xl font-bold text-white">{employees.length}</div>
+          <div className="text-blue-200 text-sm">Total Employees</div>
+        </div>
+        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+          <div className="text-2xl font-bold text-white">
+            {employees.filter(emp => emp.role === 'doctor').length}
+          </div>
+          <div className="text-blue-200 text-sm">Doctors</div>
+        </div>
+        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+          <div className="text-2xl font-bold text-white">
+            {employees.filter(emp => emp.role === 'nurse').length}
+          </div>
+          <div className="text-blue-200 text-sm">Nurses</div>
+        </div>
+        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+          <div className="text-2xl font-bold text-white">
+            {employees.filter(emp => emp.employment_type === 'full_time').length}
+          </div>
+          <div className="text-blue-200 text-sm">Full-Time</div>
+        </div>
+      </div>
+
+      {/* Employee List */}
+      <div className="bg-white/5 border border-white/10 rounded-lg">
+        <div className="p-4 border-b border-white/10">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-medium text-white">Employee Directory</h3>
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+            >
+              + Add Employee
+            </button>
+          </div>
+        </div>
+        
+        {loading ? (
+          <div className="text-center text-blue-200 py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+            Loading employees...
+          </div>
+        ) : (
+          <div className="p-4">
+            {employees.length > 0 ? (
+              <div className="space-y-4">
+                {employees.map((employee) => (
+                  <div
+                    key={employee.id}
+                    className="bg-white/5 border border-white/10 rounded-lg p-4 hover:bg-white/10 transition-colors"
+                  >
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center">
+                            <span className="text-white font-medium">
+                              {employee.first_name?.[0]}{employee.last_name?.[0]}
+                            </span>
+                          </div>
+                          <div>
+                            <div className="text-white font-medium">
+                              {employee.first_name} {employee.last_name}
+                            </div>
+                            <div className="text-blue-200 text-sm">ID: {employee.employee_id}</div>
+                          </div>
+                        </div>
+                        <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <div>
+                            <div className="text-blue-200 text-xs">Role</div>
+                            <div className="text-white text-sm capitalize">{employee.role}</div>
+                          </div>
+                          <div>
+                            <div className="text-blue-200 text-xs">Department</div>
+                            <div className="text-white text-sm">{employee.department || 'N/A'}</div>
+                          </div>
+                          <div>
+                            <div className="text-blue-200 text-xs">Email</div>
+                            <div className="text-white text-sm">{employee.email}</div>
+                          </div>
+                          <div>
+                            <div className="text-blue-200 text-xs">Status</div>
+                            <div className="text-green-400 text-sm">Active</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => setSelectedEmployee(employee)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          View
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEmployee(employee.id)}
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center text-blue-200 py-8">
+                No employees found. Click "Add Employee" to get started.
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const renderTimeTracking = () => (
+    <div className="space-y-6">
+      <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+        <h3 className="text-lg font-medium text-white mb-4">Time Clock</h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <button className="w-full bg-green-600 hover:bg-green-700 text-white py-3 rounded-lg font-medium">
+              ⏰ Clock In
+            </button>
+          </div>
+          <div>
+            <button className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium">
+              ⏰ Clock Out
+            </button>
+          </div>
+        </div>
+      </div>
+      
+      <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+        <h3 className="text-lg font-medium text-white mb-4">Today's Attendance</h3>
+        <div className="space-y-3">
+          {employees.slice(0, 5).map((employee) => (
+            <div key={employee.id} className="flex justify-between items-center py-2">
+              <div>
+                <div className="text-white">{employee.first_name} {employee.last_name}</div>
+                <div className="text-blue-200 text-sm">{employee.role}</div>
+              </div>
+              <div className="text-right">
+                <div className="text-green-400 text-sm">Present</div>
+                <div className="text-blue-200 text-xs">8:00 AM - Present</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderPayroll = () => (
+    <div className="space-y-6">
+      <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+        <h3 className="text-lg font-medium text-white mb-4">Payroll Summary</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-2xl font-bold text-white">$45,250</div>
+            <div className="text-blue-200 text-sm">This Period</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-2xl font-bold text-white">$542,000</div>
+            <div className="text-blue-200 text-sm">YTD Total</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-2xl font-bold text-white">Next Friday</div>
+            <div className="text-blue-200 text-sm">Next Payday</div>
+          </div>
+        </div>
+      </div>
+      
+      <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+        <h3 className="text-lg font-medium text-white mb-4">Payroll Actions</h3>
+        <div className="flex space-x-4">
+          <button className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+            Process Payroll
+          </button>
+          <button className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">
+            Generate Reports
+          </button>
+          <button className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+            Print Checks
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
   return (
     <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-white">Employee Management</h2>
         <button
@@ -1552,34 +1800,207 @@ const EmployeesModule = ({ setActiveModule }) => {
           Back to Dashboard
         </button>
       </div>
-      
-      {loading ? (
-        <div className="text-center text-blue-200 py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
-          Loading employees...
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {employees.length > 0 ? (
-            employees.map((employee) => (
-              <div
-                key={employee.id}
-                className="bg-white/5 border border-white/10 rounded-lg p-4"
-              >
-                <div className="text-white font-medium">
-                  {employee.first_name} {employee.last_name}
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'overview', name: 'Overview', icon: '👥' },
+            { id: 'timetracking', name: 'Time & Attendance', icon: '⏰' },
+            { id: 'payroll', name: 'Payroll', icon: '💰' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeTab === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && renderEmployeeOverview()}
+      {activeTab === 'timetracking' && renderTimeTracking()}
+      {activeTab === 'payroll' && renderPayroll()}
+
+      {/* Add Employee Modal */}
+      {showAddForm && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md max-h-screen overflow-y-auto">
+            <h3 className="text-lg font-medium text-white mb-4">Add New Employee</h3>
+            <form onSubmit={handleAddEmployee} className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">First Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={newEmployee.first_name}
+                    onChange={(e) => setNewEmployee({...newEmployee, first_name: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                  />
                 </div>
-                <div className="text-blue-200 text-sm">ID: {employee.employee_id}</div>
-                <div className="text-blue-300 text-sm capitalize">Role: {employee.role}</div>
-                <div className="text-blue-300 text-sm">Department: {employee.department || 'N/A'}</div>
-                <div className="text-blue-300 text-sm">Email: {employee.email}</div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Last Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={newEmployee.last_name}
+                    onChange={(e) => setNewEmployee({...newEmployee, last_name: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                  />
+                </div>
               </div>
-            ))
-          ) : (
-            <div className="col-span-full text-center text-blue-200 py-8">
-              No employees found
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={newEmployee.email}
+                  onChange={(e) => setNewEmployee({...newEmployee, email: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-1">Phone</label>
+                <input
+                  type="tel"
+                  value={newEmployee.phone}
+                  onChange={(e) => setNewEmployee({...newEmployee, phone: e.target.value})}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Role</label>
+                  <select
+                    value={newEmployee.role}
+                    onChange={(e) => setNewEmployee({...newEmployee, role: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                  >
+                    <option value="doctor">Doctor</option>
+                    <option value="nurse">Nurse</option>
+                    <option value="technician">Technician</option>
+                    <option value="admin">Admin</option>
+                    <option value="staff">Staff</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Department</label>
+                  <input
+                    type="text"
+                    value={newEmployee.department}
+                    onChange={(e) => setNewEmployee({...newEmployee, department: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Hire Date</label>
+                  <input
+                    type="date"
+                    value={newEmployee.hire_date}
+                    onChange={(e) => setNewEmployee({...newEmployee, hire_date: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-1">Salary</label>
+                  <input
+                    type="number"
+                    value={newEmployee.salary}
+                    onChange={(e) => setNewEmployee({...newEmployee, salary: e.target.value})}
+                    className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex space-x-4 pt-4">
+                <button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg"
+                >
+                  Add Employee
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Employee Detail Modal */}
+      {selectedEmployee && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-medium text-white">
+                {selectedEmployee.first_name} {selectedEmployee.last_name}
+              </h3>
+              <button
+                onClick={() => setSelectedEmployee(null)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
             </div>
-          )}
+            
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <div className="text-gray-300 text-sm">Employee ID</div>
+                  <div className="text-white">{selectedEmployee.employee_id}</div>
+                </div>
+                <div>
+                  <div className="text-gray-300 text-sm">Role</div>
+                  <div className="text-white capitalize">{selectedEmployee.role}</div>
+                </div>
+                <div>
+                  <div className="text-gray-300 text-sm">Department</div>
+                  <div className="text-white">{selectedEmployee.department || 'N/A'}</div>
+                </div>
+                <div>
+                  <div className="text-gray-300 text-sm">Email</div>
+                  <div className="text-white">{selectedEmployee.email}</div>
+                </div>
+                <div>
+                  <div className="text-gray-300 text-sm">Phone</div>
+                  <div className="text-white">{selectedEmployee.phone || 'N/A'}</div>
+                </div>
+                <div>
+                  <div className="text-gray-300 text-sm">Hire Date</div>
+                  <div className="text-white">{selectedEmployee.hire_date || 'N/A'}</div>
+                </div>
+              </div>
+              
+              <div className="pt-4">
+                <button
+                  onClick={() => setSelectedEmployee(null)}
+                  className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>
