@@ -213,7 +213,7 @@ const Dashboard = () => {
       case 'communication':
         return <CommunicationModule />;
       default:
-        return <DashboardHome />;
+        return <DashboardHome setActiveModule={setActiveModule} />;
     }
   };
 
