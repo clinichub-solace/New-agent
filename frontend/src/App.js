@@ -220,6 +220,8 @@ const Dashboard = () => {
         return <FinanceModule setActiveModule={setActiveModule} />;
       case 'communication':
         return <CommunicationModule />;
+      case 'referrals':
+        return <ReferralsModule setActiveModule={setActiveModule} />;
       default:
         return <DashboardHome setActiveModule={setActiveModule} />;
     }
