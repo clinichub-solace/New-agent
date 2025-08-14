@@ -2111,6 +2111,860 @@ const InvoicesModule = ({ setActiveModule }) => {
   );
 };
 
+// Comprehensive Referrals Management Module
+const ReferralsModule = ({ setActiveModule }) => {
+  const [referrals, setReferrals] = useState([]);
+  const [specialists, setSpecialists] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [selectedReferral, setSelectedReferral] = useState(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showSpecialistForm, setShowSpecialistForm] = useState(false);
+  const [newReferral, setNewReferral] = useState({
+    patient_id: '',
+    specialist_id: '',
+    reason: '',
+    urgency: 'routine',
+    clinical_notes: '',
+    requested_services: '',
+    insurance_authorization_required: false,
+    preferred_appointment_date: '',
+    patient_symptoms: '',
+    relevant_history: '',
+    current_medications: '',
+    diagnostic_results: ''
+  });
+  const [newSpecialist, setNewSpecialist] = useState({
+    name: '',
+    specialty: '',
+    practice_name: '',
+    phone: '',
+    email: '',
+    address: '',
+    fax: '',
+    accepts_new_patients: true,
+    insurance_networks: '',
+    notes: ''
+  });
+
+  useEffect(() => {
+    fetchReferrals();
+    fetchSpecialists();
+    fetchPatients();
+  }, []);
+
+  const fetchReferrals = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/referrals`);
+      setReferrals(response.data);
+    } catch (error) {
+      console.error('Failed to fetch referrals:', error);
+      // Mock data for demo
+      setReferrals([
+        {
+          id: '1',
+          referral_number: 'REF-2024-001',
+          patient_name: 'John Doe',
+          patient_id: 'P001',
+          specialist_name: 'Dr. Sarah Johnson',
+          specialist_id: 'S001', 
+          specialty: 'Cardiology',
+          reason: 'Chest pain evaluation',
+          status: 'pending',
+          urgency: 'urgent',
+          date_created: '2024-01-15',
+          appointment_date: '2024-01-25',
+          insurance_status: 'approved'
+        },
+        {
+          id: '2',
+          referral_number: 'REF-2024-002',
+          patient_name: 'Jane Smith',
+          patient_id: 'P002',
+          specialist_name: 'Dr. Michael Chen',
+          specialist_id: 'S002',
+          specialty: 'Orthopedics',
+          reason: 'Knee pain - possible arthritis',
+          status: 'scheduled',
+          urgency: 'routine',
+          date_created: '2024-01-10',
+          appointment_date: '2024-02-01',
+          insurance_status: 'pending'
+        }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchSpecialists = async () => {
+    try {
+      const response = await axios.get(`${API}/specialists`);
+      setSpecialists(response.data);
+    } catch (error) {
+      console.error('Failed to fetch specialists:', error);
+      // Mock data for demo
+      setSpecialists([
+        {
+          id: 'S001',
+          name: 'Dr. Sarah Johnson',
+          specialty: 'Cardiology',
+          practice_name: 'Heart Care Associates',
+          phone: '(555) 123-4567',
+          email: 'sarah@heartcare.com',
+          address: '123 Medical Plaza, Suite 200',
+          accepts_new_patients: true,
+          rating: 4.8,
+          years_experience: 15
+        },
+        {
+          id: 'S002',
+          name: 'Dr. Michael Chen',
+          specialty: 'Orthopedics',
+          practice_name: 'Bone & Joint Clinic',
+          phone: '(555) 234-5678',
+          email: 'mchen@boneclinic.com',
+          address: '456 Healthcare Blvd, Floor 3',
+          accepts_new_patients: true,
+          rating: 4.9,
+          years_experience: 12
+        },
+        {
+          id: 'S003',
+          name: 'Dr. Emily Rodriguez',
+          specialty: 'Dermatology',
+          practice_name: 'Skin Health Center',
+          phone: '(555) 345-6789',
+          email: 'erodriguez@skinhealth.com',
+          address: '789 Wellness Ave, Building A',
+          accepts_new_patients: false,
+          rating: 4.7,
+          years_experience: 18
+        }
+      ]);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/patients`);
+      setPatients(response.data);
+    } catch (error) {
+      console.error('Failed to fetch patients:', error);
+    }
+  };
+
+  const handleCreateReferral = async (e) => {
+    e.preventDefault();
+    try {
+      const referralData = {
+        ...newReferral,
+        referral_number: `REF-${new Date().getFullYear()}-${String(referrals.length + 1).padStart(3, '0')}`,
+        date_created: new Date().toISOString().split('T')[0],
+        status: 'pending'
+      };
+      
+      const response = await axios.post(`${API}/referrals`, referralData);
+      setReferrals([response.data, ...referrals]);
+      setNewReferral({
+        patient_id: '',
+        specialist_id: '',
+        reason: '',
+        urgency: 'routine',
+        clinical_notes: '',
+        requested_services: '',
+        insurance_authorization_required: false,
+        preferred_appointment_date: '',
+        patient_symptoms: '',
+        relevant_history: '',
+        current_medications: '',
+        diagnostic_results: ''
+      });
+      setShowCreateForm(false);
+    } catch (error) {
+      console.error('Failed to create referral:', error);
+    }
+  };
+
+  const handleCreateSpecialist = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post(`${API}/specialists`, newSpecialist);
+      setSpecialists([response.data, ...specialists]);
+      setNewSpecialist({
+        name: '',
+        specialty: '',
+        practice_name: '',
+        phone: '',
+        email: '',
+        address: '',
+        fax: '',
+        accepts_new_patients: true,
+        insurance_networks: '',
+        notes: ''
+      });
+      setShowSpecialistForm(false);
+    } catch (error) {
+      console.error('Failed to create specialist:', error);
+    }
+  };
+
+  const updateReferralStatus = async (referralId, newStatus) => {
+    try {
+      await axios.put(`${API}/referrals/${referralId}/status`, { status: newStatus });
+      setReferrals(referrals.map(ref => 
+        ref.id === referralId ? { ...ref, status: newStatus } : ref
+      ));
+    } catch (error) {
+      console.error('Failed to update referral status:', error);
+    }
+  };
+
+  const renderOverview = () => {
+    const stats = {
+      total: referrals.length,
+      pending: referrals.filter(ref => ref.status === 'pending').length,
+      scheduled: referrals.filter(ref => ref.status === 'scheduled').length,
+      completed: referrals.filter(ref => ref.status === 'completed').length,
+      urgent: referrals.filter(ref => ref.urgency === 'urgent').length,
+      activeSpecialists: specialists.filter(spec => spec.accepts_new_patients).length
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-2xl font-bold text-white">{stats.total}</div>
+            <div className="text-blue-200 text-sm">Total Referrals</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-2xl font-bold text-yellow-400">{stats.pending}</div>
+            <div className="text-blue-200 text-sm">Pending</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-2xl font-bold text-blue-400">{stats.scheduled}</div>
+            <div className="text-blue-200 text-sm">Scheduled</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-2xl font-bold text-green-400">{stats.completed}</div>
+            <div className="text-blue-200 text-sm">Completed</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-2xl font-bold text-red-400">{stats.urgent}</div>
+            <div className="text-blue-200 text-sm">Urgent</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-2xl font-bold text-purple-400">{stats.activeSpecialists}</div>
+            <div className="text-blue-200 text-sm">Active Specialists</div>
+          </div>
+        </div>
+
+        {/* Recent Referrals */}
+        <div className="bg-white/5 border border-white/10 rounded-lg">
+          <div className="p-4 border-b border-white/10">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-medium text-white">Recent Referrals</h3>
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+              >
+                + Create Referral
+              </button>
+            </div>
+          </div>
+          
+          {loading ? (
+            <div className="text-center text-blue-200 py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+              Loading referrals...
+            </div>
+          ) : (
+            <div className="p-4">
+              {referrals.length > 0 ? (
+                <div className="space-y-4">
+                  {referrals.map((referral) => (
+                    <div
+                      key={referral.id}
+                      className="bg-white/5 border border-white/10 rounded-lg p-4 hover:bg-white/10 transition-colors"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3">
+                            <div>
+                              <div className="text-white font-medium">
+                                {referral.referral_number}
+                              </div>
+                              <div className="text-blue-200 text-sm">
+                                {referral.patient_name} → {referral.specialist_name}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div>
+                              <div className="text-blue-200 text-xs">Specialty</div>
+                              <div className="text-white text-sm">{referral.specialty}</div>
+                            </div>
+                            <div>
+                              <div className="text-blue-200 text-xs">Reason</div>
+                              <div className="text-white text-sm">{referral.reason}</div>
+                            </div>
+                            <div>
+                              <div className="text-blue-200 text-xs">Status</div>
+                              <div className={`text-sm capitalize ${
+                                referral.status === 'completed' ? 'text-green-400' :
+                                referral.status === 'scheduled' ? 'text-blue-400' :
+                                referral.status === 'pending' ? 'text-yellow-400' :
+                                'text-red-400'
+                              }`}>
+                                {referral.status}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-blue-200 text-xs">Urgency</div>
+                              <div className={`text-sm capitalize ${
+                                referral.urgency === 'urgent' ? 'text-red-400' :
+                                referral.urgency === 'stat' ? 'text-red-500' :
+                                'text-white'
+                              }`}>
+                                {referral.urgency}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-blue-200 text-xs">Appointment</div>
+                              <div className="text-white text-sm">{referral.appointment_date || 'Not scheduled'}</div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => setSelectedReferral(referral)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                          >
+                            View
+                          </button>
+                          {referral.status === 'pending' && (
+                            <button
+                              onClick={() => updateReferralStatus(referral.id, 'scheduled')}
+                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                            >
+                              Schedule
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-blue-200 py-8">
+                  No referrals found. Click "Create Referral" to get started.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSpecialistNetwork = () => (
+    <div className="space-y-6">
+      <div className="bg-white/5 border border-white/10 rounded-lg">
+        <div className="p-4 border-b border-white/10">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-medium text-white">Specialist Network</h3>
+            <button
+              onClick={() => setShowSpecialistForm(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+            >
+              + Add Specialist
+            </button>
+          </div>
+        </div>
+        
+        <div className="p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {specialists.map((specialist) => (
+              <div
+                key={specialist.id}
+                className="bg-white/5 border border-white/10 rounded-lg p-4"
+              >
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <div className="text-white font-medium">{specialist.name}</div>
+                    <div className="text-blue-200 text-sm">{specialist.specialty}</div>
+                  </div>
+                  <div className={`px-2 py-1 rounded text-xs ${
+                    specialist.accepts_new_patients 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-red-600 text-white'
+                  }`}>
+                    {specialist.accepts_new_patients ? 'Accepting' : 'Full'}
+                  </div>
+                </div>
+                
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <div className="text-blue-200">Practice</div>
+                    <div className="text-white">{specialist.practice_name}</div>
+                  </div>
+                  <div>
+                    <div className="text-blue-200">Phone</div>
+                    <div className="text-white">{specialist.phone}</div>
+                  </div>
+                  <div>
+                    <div className="text-blue-200">Email</div>
+                    <div className="text-white">{specialist.email}</div>
+                  </div>
+                  {specialist.rating && (
+                    <div>
+                      <div className="text-blue-200">Rating</div>
+                      <div className="text-yellow-400">{'★'.repeat(Math.floor(specialist.rating))} {specialist.rating}</div>
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-4 flex space-x-2">
+                  <button
+                    onClick={() => {
+                      setNewReferral({...newReferral, specialist_id: specialist.id});
+                      setShowCreateForm(true);
+                    }}
+                    className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                  >
+                    Refer Patient
+                  </button>
+                  <button className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm">
+                    Contact
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderReferralDetail = () => {
+    if (!selectedReferral) return null;
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h3 className="text-2xl font-bold text-white">{selectedReferral.referral_number}</h3>
+              <div className="text-blue-200">{selectedReferral.patient_name} → {selectedReferral.specialist_name}</div>
+            </div>
+            <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+              selectedReferral.status === 'completed' ? 'bg-green-600 text-white' :
+              selectedReferral.status === 'scheduled' ? 'bg-blue-600 text-white' :
+              selectedReferral.status === 'pending' ? 'bg-yellow-600 text-white' :
+              'bg-red-600 text-white'
+            }`}>
+              {selectedReferral.status.toUpperCase()}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div>
+              <div className="text-blue-200 text-sm">Specialty</div>
+              <div className="text-white font-medium">{selectedReferral.specialty}</div>
+            </div>
+            <div>
+              <div className="text-blue-200 text-sm">Urgency</div>
+              <div className={`font-medium ${
+                selectedReferral.urgency === 'urgent' ? 'text-red-400' :
+                selectedReferral.urgency === 'stat' ? 'text-red-500' :
+                'text-white'
+              }`}>
+                {selectedReferral.urgency.toUpperCase()}
+              </div>
+            </div>
+            <div>
+              <div className="text-blue-200 text-sm">Date Created</div>
+              <div className="text-white font-medium">{selectedReferral.date_created}</div>
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-6">
+            <h4 className="text-lg font-medium text-white mb-3">Referral Details</h4>
+            <div className="space-y-3">
+              <div>
+                <div className="text-blue-200 text-sm">Reason for Referral</div>
+                <div className="text-white">{selectedReferral.reason}</div>
+              </div>
+              {selectedReferral.appointment_date && (
+                <div>
+                  <div className="text-blue-200 text-sm">Appointment Date</div>
+                  <div className="text-white">{selectedReferral.appointment_date}</div>
+                </div>
+              )}
+              <div>
+                <div className="text-blue-200 text-sm">Insurance Status</div>
+                <div className={`capitalize ${
+                  selectedReferral.insurance_status === 'approved' ? 'text-green-400' :
+                  selectedReferral.insurance_status === 'pending' ? 'text-yellow-400' :
+                  'text-red-400'
+                }`}>
+                  {selectedReferral.insurance_status}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex space-x-4">
+            <button
+              onClick={() => window.print()}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+            >
+              🖨️ Print Referral Letter
+            </button>
+            <button
+              onClick={() => updateReferralStatus(selectedReferral.id, 'completed')}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg"
+            >
+              ✅ Mark Complete
+            </button>
+            <button
+              onClick={() => setSelectedReferral(null)}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg"
+            >
+              Back to List
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderCreateReferralForm = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto">
+        <h3 className="text-lg font-medium text-white mb-6">Create New Referral</h3>
+        <form onSubmit={handleCreateReferral} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Patient Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Patient</label>
+              <select
+                required
+                value={newReferral.patient_id}
+                onChange={(e) => setNewReferral({...newReferral, patient_id: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              >
+                <option value="">Select Patient</option>
+                {patients.map((patient) => (
+                  <option key={patient.id} value={patient.id}>
+                    {patient.name ? `${patient.name.given?.[0]} ${patient.name.family}` : `Patient ${patient.id}`}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Specialist Selection */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Specialist</label>
+              <select
+                required
+                value={newReferral.specialist_id}
+                onChange={(e) => setNewReferral({...newReferral, specialist_id: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              >
+                <option value="">Select Specialist</option>
+                {specialists.filter(s => s.accepts_new_patients).map((specialist) => (
+                  <option key={specialist.id} value={specialist.id}>
+                    {specialist.name} - {specialist.specialty}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Urgency */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Urgency</label>
+              <select
+                value={newReferral.urgency}
+                onChange={(e) => setNewReferral({...newReferral, urgency: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              >
+                <option value="routine">Routine</option>
+                <option value="urgent">Urgent</option>
+                <option value="stat">STAT</option>
+              </select>
+            </div>
+
+            {/* Preferred Date */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Preferred Appointment Date</label>
+              <input
+                type="date"
+                value={newReferral.preferred_appointment_date}
+                onChange={(e) => setNewReferral({...newReferral, preferred_appointment_date: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              />
+            </div>
+          </div>
+
+          {/* Reason for Referral */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Reason for Referral</label>
+            <input
+              type="text"
+              required
+              value={newReferral.reason}
+              onChange={(e) => setNewReferral({...newReferral, reason: e.target.value})}
+              placeholder="Brief description of why patient needs specialist care"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+            />
+          </div>
+
+          {/* Clinical Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Clinical Notes</label>
+            <textarea
+              value={newReferral.clinical_notes}
+              onChange={(e) => setNewReferral({...newReferral, clinical_notes: e.target.value})}
+              rows={4}
+              placeholder="Detailed clinical information for the specialist"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Patient Symptoms */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Patient Symptoms</label>
+              <textarea
+                value={newReferral.patient_symptoms}
+                onChange={(e) => setNewReferral({...newReferral, patient_symptoms: e.target.value})}
+                rows={3}
+                placeholder="Current symptoms and duration"
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              />
+            </div>
+
+            {/* Relevant History */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Relevant History</label>
+              <textarea
+                value={newReferral.relevant_history}
+                onChange={(e) => setNewReferral({...newReferral, relevant_history: e.target.value})}
+                rows={3}
+                placeholder="Relevant medical history"
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              />
+            </div>
+          </div>
+
+          {/* Current Medications */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Current Medications</label>
+            <textarea
+              value={newReferral.current_medications}
+              onChange={(e) => setNewReferral({...newReferral, current_medications: e.target.value})}
+              rows={3}
+              placeholder="List current medications and dosages"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+            />
+          </div>
+
+          {/* Insurance Authorization */}
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="auth_required"
+              checked={newReferral.insurance_authorization_required}
+              onChange={(e) => setNewReferral({...newReferral, insurance_authorization_required: e.target.checked})}
+              className="w-4 h-4"
+            />
+            <label htmlFor="auth_required" className="text-gray-300">
+              Insurance authorization required
+            </label>
+          </div>
+          
+          <div className="flex space-x-4 pt-4">
+            <button
+              type="submit"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
+            >
+              Create Referral
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreateForm(false)}
+              className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 rounded-lg font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  const renderAddSpecialistForm = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+        <h3 className="text-lg font-medium text-white mb-6">Add New Specialist</h3>
+        <form onSubmit={handleCreateSpecialist} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Full Name</label>
+              <input
+                type="text"
+                required
+                value={newSpecialist.name}
+                onChange={(e) => setNewSpecialist({...newSpecialist, name: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Specialty</label>
+              <input
+                type="text"
+                required
+                value={newSpecialist.specialty}
+                onChange={(e) => setNewSpecialist({...newSpecialist, specialty: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Practice Name</label>
+            <input
+              type="text"
+              value={newSpecialist.practice_name}
+              onChange={(e) => setNewSpecialist({...newSpecialist, practice_name: e.target.value})}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Phone</label>
+              <input
+                type="tel"
+                required
+                value={newSpecialist.phone}
+                onChange={(e) => setNewSpecialist({...newSpecialist, phone: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Email</label>
+              <input
+                type="email"
+                value={newSpecialist.email}
+                onChange={(e) => setNewSpecialist({...newSpecialist, email: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Address</label>
+            <textarea
+              value={newSpecialist.address}
+              onChange={(e) => setNewSpecialist({...newSpecialist, address: e.target.value})}
+              rows={2}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+            />
+          </div>
+          
+          <div className="flex items-center space-x-3">
+            <input
+              type="checkbox"
+              id="accepts_new"
+              checked={newSpecialist.accepts_new_patients}
+              onChange={(e) => setNewSpecialist({...newSpecialist, accepts_new_patients: e.target.checked})}
+              className="w-4 h-4"
+            />
+            <label htmlFor="accepts_new" className="text-gray-300">
+              Currently accepting new patients
+            </label>
+          </div>
+          
+          <div className="flex space-x-4 pt-4">
+            <button
+              type="submit"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg"
+            >
+              Add Specialist
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSpecialistForm(false)}
+              className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">Referral Management</h2>
+        <button
+          onClick={() => setActiveModule('dashboard')}
+          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'overview', name: 'Overview', icon: '📊' },
+            { id: 'specialists', name: 'Specialist Network', icon: '👨‍⚕️' },
+            { id: 'detail', name: 'Referral Detail', icon: '📋', disabled: !selectedReferral }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => !tab.disabled && setActiveTab(tab.id)}
+              disabled={tab.disabled}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeTab === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : tab.disabled
+                  ? 'border-transparent text-gray-500 cursor-not-allowed'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && renderOverview()}
+      {activeTab === 'specialists' && renderSpecialistNetwork()}
+      {activeTab === 'detail' && renderReferralDetail()}
+
+      {/* Modals */}
+      {showCreateForm && renderCreateReferralForm()}
+      {showSpecialistForm && renderAddSpecialistForm()}
+    </div>
+  );
+};
+
 // Employees Module - Comprehensive Employee Management System
 const EmployeesModule = ({ setActiveModule }) => {
   const [employees, setEmployees] = useState([]);
