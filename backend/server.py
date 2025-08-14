@@ -9985,6 +9985,18 @@ async def health_check():
 async def root_health_check():
     return {"status": "healthy", "service": "ClinicHub API"}
 
+# Root route for API verification
+@app.get("/")
+async def root():
+    return {
+        "message": "ClinicHub API is running", 
+        "status": "healthy", 
+        "version": "1.0.0",
+        "docs": "/docs",
+        "api_endpoints": "/api",
+        "health": "/health"
+    }
+
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
