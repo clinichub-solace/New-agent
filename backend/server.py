@@ -3470,6 +3470,72 @@ async def update_enhanced_employee(employee_id: str, employee_data: Dict[str, An
         logger.error(f"Error updating employee: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error updating employee: {str(e)}")
 
+# Standard Employee Management Routes (for frontend compatibility)
+@api_router.post("/employees", response_model=EnhancedEmployee)
+async def create_employee(employee_data: EnhancedEmployeeCreate):
+    try:
+        # Generate employee ID
+        count = await db.employees.count_documents({})
+        employee_id = f"EMP-{count + 1:04d}"
+        
+        employee = EnhancedEmployee(
+            employee_id=employee_id,
+            **employee_data.dict()
+        )
+        
+        employee_dict = jsonable_encoder(employee)
+        await db.enhanced_employees.insert_one(employee_dict)
+        return employee
+    except Exception as e:
+        logger.error(f"Error creating employee: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating employee: {str(e)}")
+
+@api_router.get("/employees", response_model=List[EnhancedEmployee])
+async def get_employees():
+    employees = await db.enhanced_employees.find({"is_active": True}).to_list(1000)
+    return [EnhancedEmployee(**employee) for employee in employees]
+
+@api_router.get("/employees/{employee_id}", response_model=EnhancedEmployee)
+async def get_employee(employee_id: str):
+    employee = await db.enhanced_employees.find_one({"id": employee_id}, {"_id": 0})
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    return EnhancedEmployee(**employee)
+
+@api_router.put("/employees/{employee_id}")
+async def update_employee(employee_id: str, employee_data: Dict[str, Any]):
+    try:
+        employee_data["updated_at"] = datetime.utcnow()
+        result = await db.enhanced_employees.update_one(
+            {"id": employee_id},
+            {"$set": jsonable_encoder(employee_data)}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        return {"message": "Employee updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating employee: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error updating employee: {str(e)}")
+
+@api_router.delete("/employees/{employee_id}")
+async def delete_employee(employee_id: str):
+    try:
+        # Soft delete by setting is_active to False
+        result = await db.enhanced_employees.update_one(
+            {"id": employee_id},
+            {"$set": {"is_active": False, "updated_at": datetime.utcnow()}}
+        )
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        return {"message": "Employee deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting employee: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error deleting employee: {str(e)}")
+
 # Employee Documents Management
 @api_router.post("/employee-documents", response_model=EmployeeDocument)
 async def create_employee_document(document_data: EmployeeDocumentCreate):
