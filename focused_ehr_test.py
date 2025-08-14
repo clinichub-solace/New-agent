@@ -17,10 +17,14 @@ def test_authentication():
     print("\n=== AUTHENTICATION TEST ===")
     
     try:
-        # Initialize admin
+        # Try to initialize admin (may already exist)
         response = requests.post(f"{API_URL}/auth/init-admin")
-        response.raise_for_status()
-        print("✅ Admin initialization: SUCCESS")
+        if response.status_code == 200:
+            print("✅ Admin initialization: SUCCESS")
+        elif response.status_code == 400 and "already exists" in response.text:
+            print("✅ Admin already exists: SUCCESS")
+        else:
+            response.raise_for_status()
         
         # Login
         response = requests.post(f"{API_URL}/auth/login", json={"username": "admin", "password": "admin123"})
