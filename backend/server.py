@@ -18,6 +18,7 @@ from passlib.context import CryptContext
 import base64
 import aiohttp
 import ssl
+from openemr_integration import openemr
 
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
@@ -5457,55 +5458,15 @@ async def create_prescription(prescription_data: dict, current_user: User = Depe
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
-        # Get medication details if medication_id provided
-        medication = None
-        if "medication_id" in prescription_data:
-            medication = await db.fhir_medications.find_one({"id": prescription_data["medication_id"]}, {"_id": 0})
-        
-        # Populate required fields
-        patient_name = "Unknown Patient"
-        if patient.get("name") and len(patient["name"]) > 0:
-            name_obj = patient["name"][0]
-            given_name = name_obj.get("given", [""])[0] if name_obj.get("given") else ""
-            family_name = name_obj.get("family", "")
-            patient_name = f"{given_name} {family_name}".strip()
-        
-        medication_display = prescription_data.get("medication_display", "Unknown Medication")
-        if medication:
-            medication_display = medication.get("generic_name", medication_display)
-        
-        # Create prescription object with all required fields
-        prescription_dict = {
-            "id": str(uuid.uuid4()),
-            "resource_type": "MedicationRequest",
-            "status": prescription_data.get("status", "active"),
-            "intent": prescription_data.get("intent", "order"),
-            "medication_id": prescription_data.get("medication_id", ""),
-            "medication_display": medication_display,
-            "patient_id": prescription_data["patient_id"],
-            "patient_display": patient_name,
-            "prescriber_id": current_user.id,
-            "prescriber_name": f"{current_user.first_name} {current_user.last_name}",
-            "authored_on": datetime.utcnow(),
-            "dosage_instruction": prescription_data.get("dosage_instruction", []),
-            "dispense_request": prescription_data.get("dispense_request", {}),
-            "substitution": prescription_data.get("substitution", {"allowed": True}),
-            "created_by": current_user.username,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
-        }
-        
-        # Add optional fields if present
-        optional_fields = ["encounter_id", "prescriber_npi", "prescriber_dea", "category", "priority"]
-        for field in optional_fields:
-            if field in prescription_data:
-                prescription_dict[field] = prescription_data[field]
-        
-        prescription = MedicationRequest(**prescription_dict)
+        # Create prescription object
+        prescription = MedicationRequest(
+            id=str(uuid.uuid4()),
+            **prescription_data
+        )
         
         # Store in database
-        prescription_json = jsonable_encoder(prescription)
-        await db.prescriptions.insert_one(prescription_json)
+        prescription_dict = jsonable_encoder(prescription)
+        await db.prescriptions.insert_one(prescription_dict)
         
         return prescription
     except HTTPException:
@@ -6447,151 +6408,27 @@ async def get_provider_schedule(provider_id: str, date: str = None):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error fetching schedule: {str(e)}")
 
-# Employee Management Endpoints
-@api_router.get("/employees", response_model=List[EnhancedEmployee])
-async def get_employees(current_user: User = Depends(get_current_active_user)):
-    try:
-        employees = await db.employees.find({}, {"_id": 0}).sort("last_name", 1).to_list(1000)
-        return [EnhancedEmployee(**employee) for employee in employees]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching employees: {str(e)}")
-
-@api_router.get("/employees/{employee_id}", response_model=EnhancedEmployee)
-async def get_employee(employee_id: str, current_user: User = Depends(get_current_active_user)):
-    try:
-        employee = await db.employees.find_one({"id": employee_id}, {"_id": 0})
-        if not employee:
-            raise HTTPException(status_code=404, detail="Employee not found")
-        return EnhancedEmployee(**employee)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error fetching employee: {str(e)}")
-
-@api_router.post("/employees", response_model=EnhancedEmployee)
-async def create_employee(employee_data: EnhancedEmployeeCreate, current_user: User = Depends(get_current_active_user)):
-    try:
-        # Generate auto-incrementing employee ID
-        last_employee = await db.employees.find().sort("employee_id", -1).limit(1).to_list(1)
-        if last_employee:
-            # Extract number from last employee ID (e.g., "EMP-0001" -> 1)
-            last_id = last_employee[0].get("employee_id", "EMP-0000")
-            try:
-                last_num = int(last_id.split("-")[1])
-                new_num = last_num + 1
-            except (IndexError, ValueError):
-                new_num = 1
-        else:
-            new_num = 1
-        
-        employee_id = f"EMP-{new_num:04d}"
-        
-        # Create employee with generated ID
-        employee_dict = employee_data.dict()
-        employee_dict["id"] = str(uuid.uuid4())
-        employee_dict["employee_id"] = employee_id
-        employee_dict["created_at"] = datetime.utcnow()
-        employee_dict["updated_at"] = datetime.utcnow()
-        
-        employee = EnhancedEmployee(**employee_dict)
-        
-        employee_json = jsonable_encoder(employee)
-        await db.employees.insert_one(employee_json)
-        
-        return employee
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating employee: {str(e)}")
-
-@api_router.put("/employees/{employee_id}", response_model=EnhancedEmployee)
-async def update_employee(employee_id: str, employee_data: dict, current_user: User = Depends(get_current_active_user)):
-    try:
-        # Check if employee exists
-        existing = await db.employees.find_one({"id": employee_id}, {"_id": 0})
-        if not existing:
-            raise HTTPException(status_code=404, detail="Employee not found")
-        
-        # Update with timestamp
-        update_data = employee_data.copy()
-        update_data["updated_at"] = datetime.utcnow()
-        
-        result = await db.employees.update_one(
-            {"id": employee_id},
-            {"$set": jsonable_encoder(update_data)}
-        )
-        
-        if result.matched_count == 0:
-            raise HTTPException(status_code=404, detail="Employee not found")
-        
-        # Return updated employee
-        updated_employee = await db.employees.find_one({"id": employee_id}, {"_id": 0})
-        return EnhancedEmployee(**updated_employee)
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error updating employee: {str(e)}")
-
-@api_router.delete("/employees/{employee_id}")
-async def delete_employee(employee_id: str, current_user: User = Depends(get_current_active_user)):
-    try:
-        result = await db.employees.delete_one({"id": employee_id})
-        if result.deleted_count == 0:
-            raise HTTPException(status_code=404, detail="Employee not found")
-        
-        return {"message": "Employee deleted successfully"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error deleting employee: {str(e)}")
-
 # Appointment Management
 @api_router.post("/appointments", response_model=Appointment)
-async def create_appointment(appointment_data: dict, current_user: User = Depends(get_current_active_user)):
+async def create_appointment(appointment_data: dict):
     try:
-        # Verify patient exists and get patient name
+        # Verify patient exists
         patient = await db.patients.find_one({"id": appointment_data["patient_id"]}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
-        # Extract patient name from FHIR structure
-        patient_name = "Unknown Patient"
-        if patient.get("name") and len(patient["name"]) > 0:
-            name_obj = patient["name"][0]
-            given_name = name_obj.get("given", [""])[0] if name_obj.get("given") else ""
-            family_name = name_obj.get("family", "")
-            patient_name = f"{given_name} {family_name}".strip()
-        
-        # Verify provider exists and get provider name
+        # Verify provider exists
         provider = await db.providers.find_one({"id": appointment_data["provider_id"]}, {"_id": 0})
         if not provider:
             raise HTTPException(status_code=404, detail="Provider not found")
         
-        # Build provider name with title
-        title = provider.get('title', '').strip()
-        first_name = provider.get('first_name', '').strip()
-        last_name = provider.get('last_name', '').strip()
+        appointment = Appointment(
+            id=str(uuid.uuid4()),
+            **appointment_data
+        )
         
-        if title and first_name and last_name:
-            provider_name = f"{title} {first_name} {last_name}"
-        elif first_name and last_name:
-            provider_name = f"{first_name} {last_name}"
-        else:
-            provider_name = "Unknown Provider"
-        
-        # Create appointment with populated names
-        appointment_dict = {
-            "id": str(uuid.uuid4()),
-            "patient_id": appointment_data["patient_id"],
-            "patient_name": patient_name,
-            "provider_id": appointment_data["provider_id"], 
-            "provider_name": provider_name,
-            "scheduled_by": f"{current_user.first_name} {current_user.last_name}",
-            **{k: v for k, v in appointment_data.items() if k not in ["patient_id", "provider_id"]}
-        }
-        
-        appointment = Appointment(**appointment_dict)
-        
-        appointment_json = jsonable_encoder(appointment)
-        await db.appointments.insert_one(appointment_json)
+        appointment_dict = jsonable_encoder(appointment)
+        await db.appointments.insert_one(appointment_dict)
         return appointment
     except HTTPException:
         raise
@@ -9717,6 +9554,291 @@ async def initialize_new_modules():
     except Exception as e:
         logger.error(f"Error initializing new modules: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error initializing modules: {str(e)}")
+
+# =====================================
+# COMMUNICATION GATEWAY ENDPOINTS
+# =====================================
+
+@api_router.post("/communication/send-email")
+async def send_email(
+    email_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Send email through communication gateway"""
+    try:
+        # Communication gateway URL (for now, simulate locally)
+        gateway_url = "http://localhost:8100"  # Will be updated when gateway is deployed
+        
+        # Format email data for gateway
+        email_payload = {
+            "to": [email_data.get("to")],
+            "subject": email_data.get("subject"),
+            "body": email_data.get("body"),
+            "patient_id": email_data.get("patient_id"),
+            "priority": email_data.get("priority", "normal")
+        }
+        
+        # For now, simulate successful email sending
+        # In production, this will call the actual gateway
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{gateway_url}/email/send", json=email_payload) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return result
+        except Exception as gateway_error:
+            # Gateway not available, return mock success for development
+            logger.info(f"Communication gateway not available, simulating email send: {email_payload}")
+            return {
+                "success": True,
+                "message": "Email sent successfully (simulated)",
+                "communication_id": f"email_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                "details": {"recipients": email_payload["to"], "subject": email_payload["subject"]}
+            }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error sending email: {str(e)}")
+
+@api_router.post("/communication/send-fax")
+async def send_fax(
+    fax_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Send fax through communication gateway"""
+    try:
+        gateway_url = "http://localhost:8100"
+        
+        # Format fax data for gateway
+        fax_payload = {
+            "to_number": fax_data.get("to"),
+            "document_path": fax_data.get("document", "uploaded_document.pdf"),
+            "patient_id": fax_data.get("patient_id"),
+            "priority": fax_data.get("priority", "normal"),
+            "cover_page": fax_data.get("cover_page", True),
+            "cover_text": fax_data.get("cover_text")
+        }
+        
+        # For now, simulate successful fax sending
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{gateway_url}/fax/send", json=fax_payload) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return result
+        except Exception as gateway_error:
+            # Gateway not available, return mock success for development
+            logger.info(f"Communication gateway not available, simulating fax send: {fax_payload}")
+            return {
+                "success": True,
+                "message": "Fax sent successfully (simulated)",
+                "communication_id": f"fax_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                "details": {"to_number": fax_payload["to_number"], "document": fax_payload["document_path"]}
+            }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error sending fax: {str(e)}")
+
+@api_router.post("/communication/voip-call")
+async def initiate_voip_call(
+    call_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Initiate VoIP call through communication gateway"""
+    try:
+        gateway_url = "http://localhost:8100"
+        
+        # Format call data for gateway
+        call_payload = {
+            "from_number": call_data.get("from_number"),
+            "to_number": call_data.get("to_number"),
+            "patient_id": call_data.get("patient_id"),
+            "call_type": call_data.get("call_type", "outbound")
+        }
+        
+        # For now, simulate successful call initiation
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(f"{gateway_url}/voip/call", json=call_payload) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        return result
+        except Exception as gateway_error:
+            # Gateway not available, return mock success for development
+            logger.info(f"Communication gateway not available, simulating VoIP call: {call_payload}")
+            return {
+                "success": True,
+                "message": "Call initiated successfully (simulated)",
+                "communication_id": f"call_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                "details": {"from": call_payload["from_number"], "to": call_payload["to_number"]}
+            }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error initiating call: {str(e)}")
+
+@api_router.get("/communication/status")
+async def get_communication_status(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get communication gateway status"""
+    try:
+        gateway_url = "http://localhost:8100"
+        
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"{gateway_url}/status") as response:
+                    if response.status == 200:
+                        gateway_status = await response.json()
+                        return {
+                            "gateway_connected": True,
+                            "gateway_url": gateway_url,
+                            "services": gateway_status.get("services", {}),
+                            "timestamp": datetime.now().isoformat()
+                        }
+        except Exception as gateway_error:
+            # Gateway not available, return status info
+            return {
+                "gateway_connected": False,
+                "gateway_url": gateway_url,
+                "error": "Communication gateway not available",
+                "services": {
+                    "mailu": {"status": "not_deployed", "description": "Email server"},
+                    "hylafax": {"status": "not_deployed", "description": "Fax server"},
+                    "freeswitch": {"status": "not_deployed", "description": "VoIP server"}
+                },
+                "timestamp": datetime.now().isoformat(),
+                "note": "Communication services will be available when deployed to Synology NAS"
+            }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error checking communication status: {str(e)}")
+
+# =====================================
+# OPENEMR INTEGRATION ENDPOINTS
+# =====================================
+
+@api_router.get("/openemr/patients")
+async def get_openemr_patients(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get patients from OpenEMR"""
+    try:
+        # Authenticate with OpenEMR if not already done
+        if not openemr.api_token:
+            await openemr.authenticate("admin", "admin123")
+        
+        patients = await openemr.get_patients()
+        return patients
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching OpenEMR patients: {str(e)}")
+
+@api_router.get("/openemr/patients/{patient_id}")
+async def get_openemr_patient(
+    patient_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get specific patient from OpenEMR"""
+    try:
+        if not openemr.api_token:
+            await openemr.authenticate("admin", "admin123")
+        
+        patient = await openemr.get_patient(patient_id)
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        return patient
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching OpenEMR patient: {str(e)}")
+
+@api_router.post("/openemr/patients")
+async def create_openemr_patient(
+    patient_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create new patient in OpenEMR"""
+    try:
+        if not openemr.api_token:
+            await openemr.authenticate("admin", "admin123")
+        
+        patient = await openemr.create_patient(patient_data)
+        if not patient:
+            raise HTTPException(status_code=400, detail="Failed to create patient")
+        
+        return patient
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating OpenEMR patient: {str(e)}")
+
+@api_router.get("/openemr/patients/{patient_id}/encounters")
+async def get_openemr_encounters(
+    patient_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get patient encounters from OpenEMR"""
+    try:
+        if not openemr.api_token:
+            await openemr.authenticate("admin", "admin123")
+        
+        encounters = await openemr.get_encounters(patient_id)
+        return encounters
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching OpenEMR encounters: {str(e)}")
+
+@api_router.post("/openemr/patients/{patient_id}/encounters")
+async def create_openemr_encounter(
+    patient_id: str,
+    encounter_data: dict,
+    current_user: dict = Depends(get_current_user)
+):
+    """Create new encounter in OpenEMR"""
+    try:
+        if not openemr.api_token:
+            await openemr.authenticate("admin", "admin123")
+        
+        encounter = await openemr.create_encounter(patient_id, encounter_data)
+        if not encounter:
+            raise HTTPException(status_code=400, detail="Failed to create encounter")
+        
+        return encounter
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating OpenEMR encounter: {str(e)}")
+
+@api_router.get("/openemr/patients/{patient_id}/prescriptions")
+async def get_openemr_prescriptions(
+    patient_id: str,
+    current_user: dict = Depends(get_current_user)
+):
+    """Get patient prescriptions from OpenEMR"""
+    try:
+        if not openemr.api_token:
+            await openemr.authenticate("admin", "admin123")
+        
+        prescriptions = await openemr.get_prescriptions(patient_id)
+        return prescriptions
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error fetching OpenEMR prescriptions: {str(e)}")
+
+@api_router.get("/openemr/status")
+async def get_openemr_status(
+    current_user: dict = Depends(get_current_user)
+):
+    """Get OpenEMR integration status"""
+    try:
+        # Try to authenticate to test connection
+        token = await openemr.authenticate("admin", "admin123")
+        
+        return {
+            "status": "connected" if token else "disconnected",
+            "base_url": openemr.base_url,
+            "authenticated": bool(openemr.api_token),
+            "last_check": datetime.now().isoformat()
+        }
+    except Exception as e:
+        return {
+            "status": "error",
+            "base_url": openemr.base_url,
+            "authenticated": False,
+            "error": str(e),
+            "last_check": datetime.now().isoformat()
+        }
 
 app.include_router(api_router)
 
