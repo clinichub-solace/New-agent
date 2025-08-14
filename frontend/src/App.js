@@ -2,13 +2,15 @@ import React, { useState, useEffect, createContext, useContext } from "react";
 import "./App.css";
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+// Force correct backend URL since environment variables aren't loading properly
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://192.168.0.243:8001';
 const API = `${BACKEND_URL}/api`;
 
 console.log('Environment check:', {
   REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL,
   BACKEND_URL,
-  API
+  API,
+  FORCED_URL: 'http://192.168.0.243:8001'
 });
 
 // Authentication Context
