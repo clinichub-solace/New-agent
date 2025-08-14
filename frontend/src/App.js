@@ -1379,14 +1379,39 @@ function AppContent() {
   return user ? <Dashboard /> : <LoginPage />;
 }
 
-// Invoices/Receipts Module
+// Comprehensive Invoices/Receipts Module with SOAP Integration
 const InvoicesModule = ({ setActiveModule }) => {
   const [invoices, setInvoices] = useState([]);
   const [selectedInvoice, setSelectedInvoice] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [patients, setPatients] = useState([]);
+  const [inventory, setInventory] = useState([]);
+  const [newInvoice, setNewInvoice] = useState({
+    patient_id: '',
+    description: '',
+    items: [{
+      description: '',
+      quantity: 1,
+      unit_price: 0,
+      inventory_item_id: null,
+      is_service: true
+    }],
+    notes: '',
+    due_days: 30
+  });
+  const [paymentData, setPaymentData] = useState({
+    amount: 0,
+    payment_method: 'cash',
+    notes: ''
+  });
 
   useEffect(() => {
     fetchInvoices();
+    fetchPatients();
+    fetchInventory();
   }, []);
 
   const fetchInvoices = async () => {
@@ -1401,76 +1426,644 @@ const InvoicesModule = ({ setActiveModule }) => {
     }
   };
 
-  const viewInvoice = (invoice) => {
-    setSelectedInvoice(invoice);
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/patients`);
+      setPatients(response.data);
+    } catch (error) {
+      console.error('Failed to fetch patients:', error);
+    }
   };
 
-  if (selectedInvoice) {
+  const fetchInventory = async () => {
+    try {
+      const response = await axios.get(`${API}/inventory`);
+      setInventory(response.data);
+    } catch (error) {
+      console.error('Failed to fetch inventory:', error);
+    }
+  };
+
+  const calculateInvoiceTotal = (items) => {
+    return items.reduce((total, item) => total + (item.quantity * item.unit_price), 0).toFixed(2);
+  };
+
+  const handleCreateInvoice = async (e) => {
+    e.preventDefault();
+    try {
+      const invoiceData = {
+        ...newInvoice,
+        total_amount: calculateInvoiceTotal(newInvoice.items),
+        status: 'pending',
+        issue_date: new Date().toISOString().split('T')[0],
+        due_date: new Date(Date.now() + newInvoice.due_days * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+      };
+      
+      const response = await axios.post(`${API}/invoices`, invoiceData);
+      setInvoices([response.data, ...invoices]);
+      setNewInvoice({
+        patient_id: '',
+        description: '',
+        items: [{
+          description: '',
+          quantity: 1,
+          unit_price: 0,
+          inventory_item_id: null,
+          is_service: true
+        }],
+        notes: '',
+        due_days: 30
+      });
+      setShowCreateForm(false);
+    } catch (error) {
+      console.error('Failed to create invoice:', error);
+    }
+  };
+
+  const handlePayment = async (e) => {
+    e.preventDefault();
+    if (!selectedInvoice) return;
+    
+    try {
+      // Process payment
+      const response = await axios.post(`${API}/invoices/${selectedInvoice.id}/payment`, paymentData);
+      
+      // Update invoice status
+      const updatedInvoices = invoices.map(inv => 
+        inv.id === selectedInvoice.id 
+          ? { ...inv, status: 'paid', paid_date: new Date().toISOString().split('T')[0] }
+          : inv
+      );
+      setInvoices(updatedInvoices);
+      
+      // Deduct inventory for non-service items
+      const inventoryUpdates = selectedInvoice.items
+        .filter(item => !item.is_service && item.inventory_item_id)
+        .map(item => ({
+          item_id: item.inventory_item_id,
+          quantity_used: item.quantity
+        }));
+      
+      if (inventoryUpdates.length > 0) {
+        await axios.post(`${API}/inventory/deduct-batch`, { updates: inventoryUpdates });
+      }
+      
+      setPaymentData({ amount: 0, payment_method: 'cash', notes: '' });
+      setShowPaymentForm(false);
+      setSelectedInvoice(null);
+    } catch (error) {
+      console.error('Failed to process payment:', error);
+    }
+  };
+
+  const addInvoiceItem = () => {
+    setNewInvoice({
+      ...newInvoice,
+      items: [...newInvoice.items, {
+        description: '',
+        quantity: 1,
+        unit_price: 0,
+        inventory_item_id: null,
+        is_service: true
+      }]
+    });
+  };
+
+  const removeInvoiceItem = (index) => {
+    const updatedItems = newInvoice.items.filter((_, i) => i !== index);
+    setNewInvoice({ ...newInvoice, items: updatedItems });
+  };
+
+  const updateInvoiceItem = (index, field, value) => {
+    const updatedItems = newInvoice.items.map((item, i) => 
+      i === index ? { ...item, [field]: value } : item
+    );
+    setNewInvoice({ ...newInvoice, items: updatedItems });
+  };
+
+  const generateSOAPInvoice = async (patientId, planItems) => {
+    // Generate invoice from SOAP note plan section
+    const soapInvoiceItems = planItems.map(planItem => ({
+      description: planItem.description,
+      quantity: planItem.quantity || 1,
+      unit_price: planItem.estimated_cost || 0,
+      inventory_item_id: planItem.inventory_item_id || null,
+      is_service: !planItem.inventory_item_id
+    }));
+
+    setNewInvoice({
+      patient_id: patientId,
+      description: 'Generated from SOAP Note Plan',
+      items: soapInvoiceItems,
+      notes: 'Auto-generated from treatment plan',
+      due_days: 30
+    });
+    setShowCreateForm(true);
+  };
+
+  const renderOverview = () => {
+    const stats = {
+      total: invoices.length,
+      pending: invoices.filter(inv => inv.status === 'pending').length,
+      paid: invoices.filter(inv => inv.status === 'paid').length,
+      overdue: invoices.filter(inv => {
+        const dueDate = new Date(inv.due_date);
+        const today = new Date();
+        return inv.status === 'pending' && dueDate < today;
+      }).length,
+      totalRevenue: invoices
+        .filter(inv => inv.status === 'paid')
+        .reduce((sum, inv) => sum + parseFloat(inv.total_amount), 0),
+      pendingRevenue: invoices
+        .filter(inv => inv.status === 'pending')
+        .reduce((sum, inv) => sum + parseFloat(inv.total_amount), 0)
+    };
+
     return (
-      <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-white">Invoice Details</h2>
-          <button
-            onClick={() => setSelectedInvoice(null)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-          >
-            Back to List
-          </button>
-        </div>
-        
-        <div className="space-y-4">
+      <div className="space-y-6">
+        {/* Statistics */}
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
           <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-            <h3 className="text-lg font-medium text-white mb-4">Invoice #{selectedInvoice.invoice_number}</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <span className="text-blue-200">Status:</span>
-                <span className="text-white ml-2 capitalize">{selectedInvoice.status}</span>
-              </div>
-              <div>
-                <span className="text-blue-200">Issue Date:</span>
-                <span className="text-white ml-2">{selectedInvoice.issue_date}</span>
-              </div>
-              <div>
-                <span className="text-blue-200">Due Date:</span>
-                <span className="text-white ml-2">{selectedInvoice.due_date || 'N/A'}</span>
-              </div>
-              <div>
-                <span className="text-blue-200">Total Amount:</span>
-                <span className="text-white ml-2 font-bold">${selectedInvoice.total_amount}</span>
-              </div>
+            <div className="text-2xl font-bold text-white">{stats.total}</div>
+            <div className="text-blue-200 text-sm">Total Invoices</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-2xl font-bold text-yellow-400">{stats.pending}</div>
+            <div className="text-blue-200 text-sm">Pending</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-2xl font-bold text-green-400">{stats.paid}</div>
+            <div className="text-blue-200 text-sm">Paid</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-2xl font-bold text-red-400">{stats.overdue}</div>
+            <div className="text-blue-200 text-sm">Overdue</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-2xl font-bold text-green-400">${stats.totalRevenue.toFixed(2)}</div>
+            <div className="text-blue-200 text-sm">Total Revenue</div>
+          </div>
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="text-2xl font-bold text-yellow-400">${stats.pendingRevenue.toFixed(2)}</div>
+            <div className="text-blue-200 text-sm">Pending Revenue</div>
+          </div>
+        </div>
+
+        {/* Recent Invoices */}
+        <div className="bg-white/5 border border-white/10 rounded-lg">
+          <div className="p-4 border-b border-white/10">
+            <div className="flex justify-between items-center">
+              <h3 className="text-lg font-medium text-white">Recent Invoices</h3>
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+              >
+                + Create Invoice
+              </button>
+            </div>
+          </div>
+          
+          {loading ? (
+            <div className="text-center text-blue-200 py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+              Loading invoices...
+            </div>
+          ) : (
+            <div className="p-4">
+              {invoices.length > 0 ? (
+                <div className="space-y-4">
+                  {invoices.slice(0, 10).map((invoice) => (
+                    <div
+                      key={invoice.id}
+                      className="bg-white/5 border border-white/10 rounded-lg p-4 hover:bg-white/10 transition-colors"
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center space-x-3">
+                            <div>
+                              <div className="text-white font-medium">
+                                Invoice #{invoice.invoice_number}
+                              </div>
+                              <div className="text-blue-200 text-sm">
+                                Patient: {invoice.patient_name || 'N/A'}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div>
+                              <div className="text-blue-200 text-xs">Amount</div>
+                              <div className="text-white text-sm font-bold">${invoice.total_amount}</div>
+                            </div>
+                            <div>
+                              <div className="text-blue-200 text-xs">Status</div>
+                              <div className={`text-sm capitalize ${
+                                invoice.status === 'paid' ? 'text-green-400' :
+                                invoice.status === 'pending' ? 'text-yellow-400' :
+                                'text-red-400'
+                              }`}>
+                                {invoice.status}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-blue-200 text-xs">Issue Date</div>
+                              <div className="text-white text-sm">{invoice.issue_date}</div>
+                            </div>
+                            <div>
+                              <div className="text-blue-200 text-xs">Due Date</div>
+                              <div className="text-white text-sm">{invoice.due_date || 'N/A'}</div>
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex space-x-2">
+                          <button
+                            onClick={() => setSelectedInvoice(invoice)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                          >
+                            View
+                          </button>
+                          {invoice.status === 'pending' && (
+                            <button
+                              onClick={() => {
+                                setSelectedInvoice(invoice);
+                                setPaymentData({ 
+                                  ...paymentData, 
+                                  amount: parseFloat(invoice.total_amount) 
+                                });
+                                setShowPaymentForm(true);
+                              }}
+                              className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                            >
+                              Pay
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center text-blue-200 py-8">
+                  No invoices found. Click "Create Invoice" to get started.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderInvoiceDetail = () => {
+    if (!selectedInvoice) return null;
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <div className="flex justify-between items-start mb-6">
+            <div>
+              <h3 className="text-2xl font-bold text-white">Invoice #{selectedInvoice.invoice_number}</h3>
+              <div className="text-blue-200">Patient: {selectedInvoice.patient_name || 'N/A'}</div>
+            </div>
+            <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+              selectedInvoice.status === 'paid' ? 'bg-green-600 text-white' :
+              selectedInvoice.status === 'pending' ? 'bg-yellow-600 text-white' :
+              'bg-red-600 text-white'
+            }`}>
+              {selectedInvoice.status.toUpperCase()}
             </div>
           </div>
 
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+            <div>
+              <div className="text-blue-200 text-sm">Issue Date</div>
+              <div className="text-white font-medium">{selectedInvoice.issue_date}</div>
+            </div>
+            <div>
+              <div className="text-blue-200 text-sm">Due Date</div>
+              <div className="text-white font-medium">{selectedInvoice.due_date || 'N/A'}</div>
+            </div>
+            <div>
+              <div className="text-blue-200 text-sm">Total Amount</div>
+              <div className="text-white font-bold text-xl">${selectedInvoice.total_amount}</div>
+            </div>
+          </div>
+
+          {/* Invoice Items */}
           <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-            <h4 className="text-lg font-medium text-white mb-3">Items</h4>
-            <div className="space-y-2">
-              {selectedInvoice.items.map((item, index) => (
-                <div key={index} className="flex justify-between items-center p-2 bg-white/5 rounded">
-                  <div>
+            <h4 className="text-lg font-medium text-white mb-4">Items & Services</h4>
+            <div className="space-y-3">
+              {selectedInvoice.items && selectedInvoice.items.map((item, index) => (
+                <div key={index} className="flex justify-between items-center p-3 bg-white/5 rounded">
+                  <div className="flex-1">
                     <div className="text-white font-medium">{item.description}</div>
-                    <div className="text-blue-200 text-sm">Qty: {item.quantity} × ${item.unit_price}</div>
+                    <div className="text-blue-200 text-sm">
+                      {item.is_service ? '🔧 Service' : '📦 Product'} • 
+                      Qty: {item.quantity} × ${item.unit_price}
+                    </div>
                   </div>
-                  <div className="text-white font-bold">${item.total}</div>
+                  <div className="text-white font-bold">${(item.quantity * item.unit_price).toFixed(2)}</div>
                 </div>
               ))}
             </div>
             
             <div className="mt-4 pt-4 border-t border-white/20">
-              <div className="flex justify-between text-lg font-bold text-white">
+              <div className="flex justify-between text-xl font-bold text-white">
                 <span>Total:</span>
                 <span>${selectedInvoice.total_amount}</span>
               </div>
             </div>
           </div>
+
+          {/* Action Buttons */}
+          <div className="flex space-x-4 mt-6">
+            <button
+              onClick={() => window.print()}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg"
+            >
+              🖨️ Print Receipt
+            </button>
+            {selectedInvoice.status === 'pending' && (
+              <button
+                onClick={() => {
+                  setPaymentData({ 
+                    ...paymentData, 
+                    amount: parseFloat(selectedInvoice.total_amount) 
+                  });
+                  setShowPaymentForm(true);
+                }}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg"
+              >
+                💳 Process Payment
+              </button>
+            )}
+            <button
+              onClick={() => setSelectedInvoice(null)}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg"
+            >
+              Back to List
+            </button>
+          </div>
         </div>
       </div>
     );
-  }
+  };
+
+  const renderCreateForm = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-screen overflow-y-auto">
+        <h3 className="text-lg font-medium text-white mb-6">Create New Invoice</h3>
+        <form onSubmit={handleCreateInvoice} className="space-y-6">
+          {/* Patient Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Patient</label>
+            <select
+              required
+              value={newInvoice.patient_id}
+              onChange={(e) => setNewInvoice({...newInvoice, patient_id: e.target.value})}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+            >
+              <option value="">Select Patient</option>
+              {patients.map((patient) => (
+                <option key={patient.id} value={patient.id}>
+                  {patient.name ? patient.name.given?.[0] : ''} {patient.name ? patient.name.family : ''} - {patient.id}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+            <input
+              type="text"
+              required
+              value={newInvoice.description}
+              onChange={(e) => setNewInvoice({...newInvoice, description: e.target.value})}
+              placeholder="Brief description of services/products"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+            />
+          </div>
+
+          {/* Invoice Items */}
+          <div>
+            <div className="flex justify-between items-center mb-4">
+              <label className="block text-sm font-medium text-gray-300">Items & Services</label>
+              <button
+                type="button"
+                onClick={addInvoiceItem}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+              >
+                + Add Item
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {newInvoice.items.map((item, index) => (
+                <div key={index} className="bg-gray-700 p-4 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                    <div className="md:col-span-2">
+                      <label className="block text-xs text-gray-400 mb-1">Description</label>
+                      <input
+                        type="text"
+                        required
+                        value={item.description}
+                        onChange={(e) => updateInvoiceItem(index, 'description', e.target.value)}
+                        className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded text-white text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Quantity</label>
+                      <input
+                        type="number"
+                        min="1"
+                        required
+                        value={item.quantity}
+                        onChange={(e) => updateInvoiceItem(index, 'quantity', parseInt(e.target.value))}
+                        className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded text-white text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-400 mb-1">Unit Price</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        required
+                        value={item.unit_price}
+                        onChange={(e) => updateInvoiceItem(index, 'unit_price', parseFloat(e.target.value))}
+                        className="w-full px-3 py-2 bg-gray-600 border border-gray-500 rounded text-white text-sm"
+                      />
+                    </div>
+                    <div className="flex items-end">
+                      <button
+                        type="button"
+                        onClick={() => removeInvoiceItem(index)}
+                        className="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-3 flex items-center space-x-4">
+                    <label className="flex items-center text-gray-300 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={item.is_service}
+                        onChange={(e) => updateInvoiceItem(index, 'is_service', e.target.checked)}
+                        className="mr-2"
+                      />
+                      Service (no inventory deduction)
+                    </label>
+                    {!item.is_service && (
+                      <select
+                        value={item.inventory_item_id || ''}
+                        onChange={(e) => updateInvoiceItem(index, 'inventory_item_id', e.target.value)}
+                        className="px-3 py-1 bg-gray-600 border border-gray-500 rounded text-white text-sm"
+                      >
+                        <option value="">Select Inventory Item</option>
+                        {inventory.map((invItem) => (
+                          <option key={invItem.id} value={invItem.id}>
+                            {invItem.name} (Stock: {invItem.current_stock})
+                          </option>
+                        ))}
+                      </select>
+                    )}
+                  </div>
+                  
+                  <div className="mt-2 text-right">
+                    <span className="text-gray-300 text-sm">
+                      Subtotal: ${(item.quantity * item.unit_price).toFixed(2)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            
+            <div className="mt-4 text-right">
+              <div className="text-xl font-bold text-white">
+                Total: ${calculateInvoiceTotal(newInvoice.items)}
+              </div>
+            </div>
+          </div>
+
+          {/* Notes and Due Date */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Notes</label>
+              <textarea
+                value={newInvoice.notes}
+                onChange={(e) => setNewInvoice({...newInvoice, notes: e.target.value})}
+                rows={3}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Due Days</label>
+              <select
+                value={newInvoice.due_days}
+                onChange={(e) => setNewInvoice({...newInvoice, due_days: parseInt(e.target.value)})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              >
+                <option value={0}>Due Immediately</option>
+                <option value={15}>15 Days</option>
+                <option value={30}>30 Days</option>
+                <option value={60}>60 Days</option>
+                <option value={90}>90 Days</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="flex space-x-4 pt-4">
+            <button
+              type="submit"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium"
+            >
+              Create Invoice
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowCreateForm(false)}
+              className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-3 rounded-lg font-medium"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+
+  const renderPaymentForm = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+        <h3 className="text-lg font-medium text-white mb-6">
+          Process Payment - Invoice #{selectedInvoice?.invoice_number}
+        </h3>
+        <form onSubmit={handlePayment} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Payment Amount</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              required
+              value={paymentData.amount}
+              onChange={(e) => setPaymentData({...paymentData, amount: parseFloat(e.target.value)})}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+            />
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Payment Method</label>
+            <select
+              value={paymentData.payment_method}
+              onChange={(e) => setPaymentData({...paymentData, payment_method: e.target.value})}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+            >
+              <option value="cash">Cash</option>
+              <option value="card">Credit/Debit Card</option>
+              <option value="check">Check</option>
+              <option value="bank_transfer">Bank Transfer</option>
+              <option value="insurance">Insurance</option>
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-2">Notes</label>
+            <textarea
+              value={paymentData.notes}
+              onChange={(e) => setPaymentData({...paymentData, notes: e.target.value})}
+              rows={3}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+            />
+          </div>
+          
+          <div className="flex space-x-4 pt-4">
+            <button
+              type="submit"
+              className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-lg"
+            >
+              Process Payment
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowPaymentForm(false)}
+              className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 
   return (
     <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-white">Invoices & Receipts</h2>
+        <h2 className="text-xl font-semibold text-white">Invoice Management</h2>
         <button
           onClick={() => setActiveModule('dashboard')}
           className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
@@ -1478,46 +2071,43 @@ const InvoicesModule = ({ setActiveModule }) => {
           Back to Dashboard
         </button>
       </div>
-      
-      {loading ? (
-        <div className="text-center text-blue-200 py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
-          Loading invoices...
-        </div>
-      ) : (
-        <div className="space-y-4">
-          {invoices.length > 0 ? (
-            invoices.map((invoice) => (
-              <div
-                key={invoice.id}
-                className="bg-white/5 border border-white/10 rounded-lg p-4 hover:bg-white/10 transition-colors"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-white font-medium">Invoice #{invoice.invoice_number}</div>
-                    <div className="text-blue-200 text-sm">
-                      Issue Date: {invoice.issue_date} | Status: {invoice.status}
-                    </div>
-                    <div className="text-blue-300 text-sm">Total: ${invoice.total_amount}</div>
-                  </div>
-                  <button
-                    onClick={() => viewInvoice(invoice)}
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
-                  >
-                    View Receipt
-                  </button>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center text-blue-200 py-8">
-              No invoices found
-            </div>
-          )}
-        </div>
-      )}
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'overview', name: 'Overview', icon: '📊' },
+            { id: 'detail', name: 'Invoice Detail', icon: '📋', disabled: !selectedInvoice }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => !tab.disabled && setActiveTab(tab.id)}
+              disabled={tab.disabled}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeTab === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : tab.disabled
+                  ? 'border-transparent text-gray-500 cursor-not-allowed'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'overview' && renderOverview()}
+      {activeTab === 'detail' && renderInvoiceDetail()}
+
+      {/* Modals */}
+      {showCreateForm && renderCreateForm()}
+      {showPaymentForm && renderPaymentForm()}
     </div>
   );
+};
 };
 
 // Employees Module - Comprehensive Employee Management System
