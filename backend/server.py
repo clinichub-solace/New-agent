@@ -5205,6 +5205,39 @@ async def get_patient_soap_notes(patient_id: str):
     notes = await db.soap_notes.find({"patient_id": patient_id}, {"_id": 0}).sort("created_at", -1).to_list(1000)
     return [SOAPNote(**note) for note in notes]
 
+@api_router.get("/soap-notes", response_model=List[SOAPNote])
+async def get_all_soap_notes():
+    """Get all SOAP notes"""
+    notes = await db.soap_notes.find({}, {"_id": 0}).sort("created_at", -1).to_list(1000)
+    return [SOAPNote(**note) for note in notes]
+
+@api_router.get("/soap-notes/{soap_note_id}", response_model=SOAPNote)
+async def get_soap_note(soap_note_id: str):
+    """Get specific SOAP note by ID"""
+    note = await db.soap_notes.find_one({"id": soap_note_id}, {"_id": 0})
+    if not note:
+        raise HTTPException(status_code=404, detail="SOAP note not found")
+    return SOAPNote(**note)
+
+@api_router.put("/soap-notes/{soap_note_id}", response_model=SOAPNote)
+async def update_soap_note(soap_note_id: str, soap_note_data: SOAPNoteCreate, current_user: User = Depends(get_current_active_user)):
+    """Update existing SOAP note"""
+    # Check if SOAP note exists
+    existing_note = await db.soap_notes.find_one({"id": soap_note_id})
+    if not existing_note:
+        raise HTTPException(status_code=404, detail="SOAP note not found")
+    
+    # Update the SOAP note
+    updated_note = SOAPNote(
+        id=soap_note_id,
+        updated_at=datetime.utcnow(),
+        **soap_note_data.dict()
+    )
+    
+    updated_note_dict = jsonable_encoder(updated_note)
+    await db.soap_notes.replace_one({"id": soap_note_id}, updated_note_dict)
+    return updated_note
+
 # Vital Signs
 @api_router.post("/vital-signs", response_model=VitalSigns)
 async def create_vital_signs(vital_signs_data: VitalSignsCreate, current_user: User = Depends(get_current_active_user)):
