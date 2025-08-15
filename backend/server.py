@@ -3463,6 +3463,33 @@ async def get_inventory():
     items = await db.inventory.find().to_list(1000)
     return [InventoryItem(**item) for item in items]
 
+@api_router.get("/inventory/{item_id}", response_model=InventoryItem)
+async def get_inventory_item(item_id: str):
+    """Get specific inventory item by ID"""
+    item = await db.inventory.find_one({"id": item_id}, {"_id": 0})
+    if not item:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+    return InventoryItem(**item)
+
+@api_router.put("/inventory/{item_id}", response_model=InventoryItem)
+async def update_inventory_item(item_id: str, item_data: InventoryItemCreate, current_user: User = Depends(get_current_active_user)):
+    """Update existing inventory item"""
+    # Check if item exists
+    existing_item = await db.inventory.find_one({"id": item_id})
+    if not existing_item:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+    
+    # Update the inventory item
+    updated_item = InventoryItem(
+        id=item_id,
+        updated_at=datetime.utcnow(),
+        **item_data.dict()
+    )
+    
+    updated_item_dict = jsonable_encoder(updated_item)
+    await db.inventory.replace_one({"id": item_id}, updated_item_dict)
+    return updated_item
+
 @api_router.post("/inventory/{item_id}/transaction", response_model=InventoryTransaction)
 async def create_inventory_transaction(item_id: str, transaction: InventoryTransaction):
     try:
