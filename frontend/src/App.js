@@ -3,8 +3,11 @@ import "./App.css";
 import axios from "axios";
 
 // Force correct backend URL since environment variables aren't loading properly
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://192.168.0.243:8001';
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
 const API = `${BACKEND_URL}/api`;
+
+// Add axios timeout to prevent hanging requests
+axios.defaults.timeout = 10000; // 10 second timeout
 
 console.log('Environment check:', {
   REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL,
