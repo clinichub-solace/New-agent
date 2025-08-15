@@ -1563,6 +1563,310 @@ const PatientsModule = () => {
   );
 };
 
+// Inventory Module
+const InventoryModule = ({ setActiveModule }) => {
+  const [inventory, setInventory] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchInventory();
+  }, []);
+
+  const fetchInventory = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/inventory`);
+      setInventory(response.data);
+    } catch (error) {
+      console.error('Failed to fetch inventory:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">Inventory Management</h2>
+        <button
+          onClick={() => setActiveModule('dashboard')}
+          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="text-center text-blue-200 py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+          Loading inventory...
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {inventory.map((item) => (
+            <div key={item.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-white font-medium">{item.name}</div>
+                  <div className="text-blue-200 text-sm">SKU: {item.sku || 'N/A'}</div>
+                  <div className="text-blue-200 text-sm">Category: {item.category}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-white font-medium">Stock: {item.current_stock}</div>
+                  <div className="text-blue-200 text-sm">Min: {item.minimum_stock}</div>
+                  <div className="text-blue-200 text-sm">Cost: ${item.unit_cost}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          {inventory.length === 0 && !loading && (
+            <div className="text-center text-blue-200 py-8">
+              No inventory items found
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Invoices Module
+const InvoicesModule = ({ setActiveModule }) => {
+  const [invoices, setInvoices] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchInvoices();
+  }, []);
+
+  const fetchInvoices = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/invoices`);
+      setInvoices(response.data);
+    } catch (error) {
+      console.error('Failed to fetch invoices:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">Invoice Management</h2>
+        <button
+          onClick={() => setActiveModule('dashboard')}
+          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="text-center text-blue-200 py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+          Loading invoices...
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {invoices.map((invoice) => (
+            <div key={invoice.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-white font-medium">Invoice #{invoice.invoice_number}</div>
+                  <div className="text-blue-200 text-sm">Patient ID: {invoice.patient_id}</div>
+                  <div className="text-blue-200 text-sm">Date: {invoice.issue_date}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-white font-medium">${invoice.total_amount}</div>
+                  <div className={`text-sm px-2 py-1 rounded ${
+                    invoice.status === 'paid' ? 'bg-green-600/20 text-green-200' :
+                    invoice.status === 'pending' ? 'bg-yellow-600/20 text-yellow-200' :
+                    'bg-red-600/20 text-red-200'
+                  }`}>
+                    {invoice.status}
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          {invoices.length === 0 && !loading && (
+            <div className="text-center text-blue-200 py-8">
+              No invoices found
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Employees Module
+const EmployeesModule = ({ setActiveModule }) => {
+  const [employees, setEmployees] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchEmployees();
+  }, []);
+
+  const fetchEmployees = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/employees`);
+      setEmployees(response.data);
+    } catch (error) {
+      console.error('Failed to fetch employees:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">Employee Management</h2>
+        <button
+          onClick={() => setActiveModule('dashboard')}
+          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="text-center text-blue-200 py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+          Loading employees...
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {employees.map((employee) => (
+            <div key={employee.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-white font-medium">{employee.first_name} {employee.last_name}</div>
+                  <div className="text-blue-200 text-sm">ID: {employee.employee_id}</div>
+                  <div className="text-blue-200 text-sm">Role: {employee.role}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-blue-200 text-sm">Dept: {employee.department}</div>
+                  <div className="text-blue-200 text-sm">{employee.email}</div>
+                  <div className="text-blue-200 text-sm">{employee.phone}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          {employees.length === 0 && !loading && (
+            <div className="text-center text-blue-200 py-8">
+              No employees found
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Finance Module
+const FinanceModule = ({ setActiveModule }) => {
+  const [transactions, setTransactions] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetchTransactions();
+  }, []);
+
+  const fetchTransactions = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`${API}/financial-transactions`);
+      setTransactions(response.data);
+    } catch (error) {
+      console.error('Failed to fetch transactions:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">Financial Management</h2>
+        <button
+          onClick={() => setActiveModule('dashboard')}
+          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+
+      {loading ? (
+        <div className="text-center text-blue-200 py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+          Loading transactions...
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {transactions.map((transaction) => (
+            <div key={transaction.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-white font-medium">#{transaction.transaction_number}</div>
+                  <div className="text-blue-200 text-sm">Type: {transaction.transaction_type}</div>
+                  <div className="text-blue-200 text-sm">Date: {transaction.transaction_date}</div>
+                </div>
+                <div className="text-right">
+                  <div className={`text-lg font-medium ${
+                    transaction.transaction_type === 'income' ? 'text-green-400' : 'text-red-400'
+                  }`}>
+                    {transaction.transaction_type === 'income' ? '+' : '-'}${transaction.amount}
+                  </div>
+                  <div className="text-blue-200 text-sm">{transaction.description}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+          
+          {transactions.length === 0 && !loading && (
+            <div className="text-center text-blue-200 py-8">
+              No transactions found
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Referrals Module
+const ReferralsModule = ({ setActiveModule }) => {
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">Referral Management</h2>
+        <button
+          onClick={() => setActiveModule('dashboard')}
+          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+      
+      <div className="text-center text-blue-200 py-8">
+        <div className="text-4xl mb-4">🔗</div>
+        <p className="text-lg">Referral Management</p>
+        <p className="text-sm mt-2">Provider network and referral tracking system</p>
+        <p className="text-xs mt-4 text-blue-300">Module ready for implementation</p>
+      </div>
+    </div>
+  );
+};
+
 // Main App Component
 function App() {
   return (
