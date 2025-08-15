@@ -3479,9 +3479,10 @@ async def update_inventory_item(item_id: str, item_data: InventoryItemCreate, cu
     if not existing_item:
         raise HTTPException(status_code=404, detail="Inventory item not found")
     
-    # Update the inventory item
+    # Update the inventory item while preserving created_at
     updated_item = InventoryItem(
         id=item_id,
+        created_at=existing_item["created_at"],  # Preserve original creation time
         updated_at=datetime.utcnow(),
         **item_data.dict()
     )
