@@ -45,21 +45,29 @@ def test_authentication():
     
     admin_token = None
     
-    # Test 1: Initialize Admin User
+    # Test 1: Initialize Admin User (or verify it exists)
     try:
         url = f"{API_URL}/auth/init-admin"
         response = requests.post(url)
-        response.raise_for_status()
-        result = response.json()
         
-        # Verify admin initialization response
-        assert "message" in result
-        assert "username" in result
-        assert "password" in result
-        assert result["username"] == "admin"
-        assert result["password"] == "admin123"
-        
-        print_test_result("Initialize Admin User", True, result)
+        if response.status_code == 200:
+            result = response.json()
+            # Verify admin initialization response
+            assert "message" in result
+            assert "username" in result
+            assert "password" in result
+            assert result["username"] == "admin"
+            assert result["password"] == "admin123"
+            print_test_result("Initialize Admin User", True, result)
+        elif response.status_code == 400:
+            result = response.json()
+            if "already exists" in result.get("detail", ""):
+                print_test_result("Admin User Already Exists", True, result, "Admin user is already initialized")
+            else:
+                print_test_result("Initialize Admin User", False, result)
+                return None
+        else:
+            response.raise_for_status()
     except Exception as e:
         print_test_result("Initialize Admin User", False, str(e))
         return None
