@@ -307,6 +307,18 @@ class InventoryItem(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+class InventoryItemCreate(BaseModel):
+    name: str
+    category: str
+    sku: Optional[str] = None
+    current_stock: int = 0
+    min_stock_level: int = 0
+    unit_cost: float = 0.0
+    supplier: Optional[str] = None
+    expiry_date: Optional[date] = None
+    location: Optional[str] = None
+    notes: Optional[str] = None
+
 class InventoryTransaction(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     item_id: Optional[str] = None  # Made optional since it's set from URL
