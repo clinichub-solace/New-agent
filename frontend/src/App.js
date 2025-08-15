@@ -3664,6 +3664,22 @@ const EmployeesModule = ({ setActiveModule }) => {
 const InventoryModule = ({ setActiveModule }) => {
   const [inventory, setInventory] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    category: '',
+    sku: '',
+    current_stock: 0,
+    min_stock_level: 0,
+    unit_cost: 0,
+    supplier: '',
+    expiry_date: '',
+    location: '',
+    notes: ''
+  });
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
   useEffect(() => {
     fetchInventory();
@@ -3674,59 +3690,351 @@ const InventoryModule = ({ setActiveModule }) => {
     try {
       const response = await axios.get(`${API}/inventory`);
       setInventory(response.data);
+      setError('');
     } catch (error) {
       console.error('Failed to fetch inventory:', error);
+      setError('Failed to fetch inventory items.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name.includes('stock') || name === 'unit_cost' ? Number(value) : value
+    }));
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      category: '',
+      sku: '',
+      current_stock: 0,
+      min_stock_level: 0,
+      unit_cost: 0,
+      supplier: '',
+      expiry_date: '',
+      location: '',
+      notes: ''
+    });
+    setEditingItem(null);
+    setShowAddForm(false);
+    setError('');
+    setSuccess('');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      let response;
+      if (editingItem) {
+        // Update existing item
+        response = await axios.put(`${API}/inventory/${editingItem.id}`, formData);
+        setSuccess('Inventory item updated successfully!');
+      } else {
+        // Create new item
+        response = await axios.post(`${API}/inventory`, formData);
+        setSuccess('Inventory item added successfully!');
+      }
+      
+      resetForm();
+      fetchInventory(); // Refresh the list
+    } catch (error) {
+      console.error('Failed to save inventory item:', error);
+      setError(error.response?.data?.detail || 'Failed to save inventory item. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (item) => {
+    setFormData({
+      name: item.name || '',
+      category: item.category || '',
+      sku: item.sku || '',
+      current_stock: item.current_stock || 0,
+      min_stock_level: item.min_stock_level || 0,
+      unit_cost: item.unit_cost || 0,
+      supplier: item.supplier || '',
+      expiry_date: item.expiry_date || '',
+      location: item.location || '',
+      notes: item.notes || ''
+    });
+    setEditingItem(item);
+    setShowAddForm(true);
   };
 
   return (
     <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-white">Inventory Management</h2>
-        <button
-          onClick={() => setActiveModule('dashboard')}
-          className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
-        >
-          Back to Dashboard
-        </button>
-      </div>
-      
-      {loading ? (
-        <div className="text-center text-blue-200 py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
-          Loading inventory...
+        <div className="flex space-x-3">
+          <button
+            onClick={() => setShowAddForm(!showAddForm)}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            {showAddForm ? 'Cancel' : 'Add Item'}
+          </button>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Back to Dashboard
+          </button>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {inventory.length > 0 ? (
-            inventory.map((item) => (
-              <div
-                key={item.id}
-                className="bg-white/5 border border-white/10 rounded-lg p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-white font-medium">{item.name}</div>
-                    <div className="text-blue-200 text-sm">SKU: {item.sku || 'N/A'}</div>
-                    <div className="text-blue-300 text-sm">Category: {item.category}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-white font-bold">Stock: {item.current_stock}</div>
-                    <div className="text-blue-300 text-sm">Min: {item.min_stock_level}</div>
-                    <div className="text-blue-300 text-sm">Cost: ${item.unit_cost}</div>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center text-blue-200 py-8">
-              No inventory items found
-            </div>
-          )}
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-3 mb-4">
+          <p className="text-green-200 text-sm">{success}</p>
         </div>
       )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-4">
+          <p className="text-red-200 text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* Add/Edit Item Form */}
+      {showAddForm && (
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6 mb-6">
+          <h3 className="text-lg font-medium text-white mb-4">
+            {editingItem ? 'Edit Inventory Item' : 'Add New Inventory Item'}
+          </h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">Item Name *</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter item name"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">Category *</label>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  required
+                >
+                  <option value="">Select category</option>
+                  <option value="medications">Medications</option>
+                  <option value="supplies">Medical Supplies</option>
+                  <option value="equipment">Equipment</option>
+                  <option value="disposables">Disposables</option>
+                  <option value="office">Office Supplies</option>
+                  <option value="lab">Lab Supplies</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">SKU</label>
+                <input
+                  type="text"
+                  name="sku"
+                  value={formData.sku}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter SKU"
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">Current Stock</label>
+                <input
+                  type="number"
+                  name="current_stock"
+                  value={formData.current_stock}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter current stock"
+                  min="0"
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">Minimum Stock Level</label>
+                <input
+                  type="number"
+                  name="min_stock_level"
+                  value={formData.min_stock_level}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter minimum stock level"
+                  min="0"
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">Unit Cost ($)</label>
+                <input
+                  type="number"
+                  name="unit_cost"
+                  value={formData.unit_cost}
+                  onChange={handleInputChange}
+                  step="0.01"
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter unit cost"
+                  min="0"
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">Supplier</label>
+                <input
+                  type="text"
+                  name="supplier"
+                  value={formData.supplier}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter supplier name"
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">Expiry Date</label>
+                <input
+                  type="date"
+                  name="expiry_date"
+                  value={formData.expiry_date}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">Location</label>
+                <input
+                  type="text"
+                  name="location"
+                  value={formData.location}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter storage location"
+                />
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-blue-200 text-sm font-medium mb-2">Notes</label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  rows={3}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter any additional notes"
+                />
+              </div>
+            </div>
+            
+            <div className="flex space-x-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : (editingItem ? 'Update Item' : 'Add Item')}
+              </button>
+              <button
+                type="button"
+                onClick={resetForm}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+      
+      {/* Inventory List */}
+      <div className="space-y-4">
+        <h3 className="text-lg font-medium text-white">Current Inventory ({inventory.length} items)</h3>
+        
+        {loading && !showAddForm ? (
+          <div className="text-center text-blue-200 py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+            Loading inventory...
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {inventory.length > 0 ? (
+              inventory.map((item) => (
+                <div
+                  key={item.id}
+                  className="bg-white/5 border border-white/10 rounded-lg p-4 hover:bg-white/10 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-3">
+                        <div className="text-white font-medium text-lg">{item.name}</div>
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          item.current_stock <= item.min_stock_level 
+                            ? 'bg-red-600/20 text-red-200 border border-red-600/50' 
+                            : 'bg-green-600/20 text-green-200 border border-green-600/50'
+                        }`}>
+                          {item.current_stock <= item.min_stock_level ? 'Low Stock' : 'In Stock'}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-2 text-sm">
+                        <div>
+                          <span className="text-blue-200">SKU:</span>
+                          <span className="text-white ml-2">{item.sku || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-blue-200">Category:</span>
+                          <span className="text-white ml-2 capitalize">{item.category}</span>
+                        </div>
+                        <div>
+                          <span className="text-blue-200">Supplier:</span>
+                          <span className="text-white ml-2">{item.supplier || 'N/A'}</span>
+                        </div>
+                        <div>
+                          <span className="text-blue-200">Location:</span>
+                          <span className="text-white ml-2">{item.location || 'N/A'}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-6">
+                      <div className="text-right">
+                        <div className="text-white font-bold text-lg">Stock: {item.current_stock}</div>
+                        <div className="text-blue-300 text-sm">Min: {item.min_stock_level}</div>
+                        <div className="text-blue-300 text-sm">Cost: ${item.unit_cost}</div>
+                      </div>
+                      <button
+                        onClick={() => handleEdit(item)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm transition-colors"
+                      >
+                        Edit
+                      </button>
+                    </div>
+                  </div>
+                  {item.notes && (
+                    <div className="mt-2 text-blue-300 text-sm">
+                      <span className="text-blue-200">Notes:</span> {item.notes}
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="text-center text-blue-200 py-8">
+                <div className="text-4xl mb-4">📦</div>
+                <p className="text-lg">No inventory items found</p>
+                <p className="text-sm mt-2">Click "Add Item" to get started</p>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
