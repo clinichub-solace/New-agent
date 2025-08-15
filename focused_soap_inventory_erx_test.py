@@ -415,6 +415,18 @@ def test_erx_functionality(patient_id, admin_token):
     # Test 3: Create Prescription
     if medication_id and patient_id:
         try:
+            # First get medication details for display name
+            med_url = f"{API_URL}/erx/medications"
+            med_response = requests.get(med_url, headers={"Authorization": f"Bearer {admin_token}"})
+            medications = med_response.json()
+            medication_display = medications[0]["generic_name"] if medications else "Unknown Medication"
+            
+            # Get patient details for display name
+            patient_url = f"{API_URL}/patients/{patient_id}"
+            patient_response = requests.get(patient_url, headers={"Authorization": f"Bearer {admin_token}"})
+            patient_data = patient_response.json()
+            patient_display = f"{patient_data['name'][0]['given'][0]} {patient_data['name'][0]['family']}"
+            
             url = f"{API_URL}/prescriptions"
             headers = {"Authorization": f"Bearer {admin_token}"}
             data = {
@@ -422,6 +434,11 @@ def test_erx_functionality(patient_id, admin_token):
                 "patient_id": patient_id,
                 "prescriber_id": "prescriber-456",
                 "prescriber_name": "Dr. Sarah Martinez",
+                
+                # Required fields that were missing
+                "status": "active",
+                "medication_display": medication_display,
+                "patient_display": patient_display,
                 
                 # Dosage Information
                 "dosage_text": "Take 1 tablet by mouth twice daily with meals",
