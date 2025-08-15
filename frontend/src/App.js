@@ -3523,37 +3523,770 @@ const InventoryModule = ({ setActiveModule }) => {
   );
 };
 
-// Finance Module
+// Comprehensive Finance Module - Enterprise Financial Management System
 const FinanceModule = ({ setActiveModule }) => {
+  const [activeTab, setActiveTab] = useState('dashboard');
   const [transactions, setTransactions] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [budgets, setBudgets] = useState([]);
+  const [reports, setReports] = useState({});
   const [loading, setLoading] = useState(false);
+  const [showTransactionForm, setShowTransactionForm] = useState(false);
+  const [showBudgetForm, setShowBudgetForm] = useState(false);
+  const [showReconciliation, setShowReconciliation] = useState(false);
+  const [selectedPeriod, setSelectedPeriod] = useState('current-month');
+  const [newTransaction, setNewTransaction] = useState({
+    description: '',
+    amount: '',
+    transaction_type: 'expense',
+    category: '',
+    account_id: '',
+    payment_method: 'cash',
+    transaction_date: new Date().toISOString().split('T')[0],
+    notes: ''
+  });
+  const [newBudget, setNewBudget] = useState({
+    name: '',
+    category: '',
+    period: 'monthly',
+    budgeted_amount: '',
+    start_date: new Date().toISOString().split('T')[0],
+    end_date: '',
+    notes: ''
+  });
 
   useEffect(() => {
-    fetchTransactions();
-  }, []);
+    fetchFinancialData();
+  }, [selectedPeriod]);
 
-  const fetchTransactions = async () => {
+  const fetchFinancialData = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API}/financial-transactions`);
-      setTransactions(response.data);
+      // Fetch transactions
+      const transactionsResponse = await axios.get(`${API}/financial-transactions`);
+      setTransactions(transactionsResponse.data || []);
+
+      // Mock comprehensive financial data for demo
+      setAccounts([
+        {
+          id: '1',
+          name: 'Operating Account',
+          type: 'checking',
+          balance: 125000.50,
+          bank: 'Chase Bank',
+          account_number: '****1234',
+          is_primary: true
+        },
+        {
+          id: '2', 
+          name: 'Savings Account',
+          type: 'savings',
+          balance: 75000.00,
+          bank: 'Wells Fargo',
+          account_number: '****5678',
+          is_primary: false
+        },
+        {
+          id: '3',
+          name: 'Payroll Account',
+          type: 'checking',
+          balance: 45000.25,
+          bank: 'Bank of America',
+          account_number: '****9012',
+          is_primary: false
+        }
+      ]);
+
+      setBudgets([
+        {
+          id: '1',
+          name: 'Medical Supplies',
+          category: 'supplies',
+          budgeted_amount: 15000,
+          actual_amount: 12500,
+          period: 'monthly',
+          variance: -2500,
+          percentage: 83.3
+        },
+        {
+          id: '2',
+          name: 'Staff Salaries',
+          category: 'payroll',
+          budgeted_amount: 85000,
+          actual_amount: 87200,
+          period: 'monthly',
+          variance: 2200,
+          percentage: 102.6
+        },
+        {
+          id: '3',
+          name: 'Office Rent',
+          category: 'facilities',
+          budgeted_amount: 8000,
+          actual_amount: 8000,
+          period: 'monthly',
+          variance: 0,
+          percentage: 100.0
+        },
+        {
+          id: '4',
+          name: 'Marketing',
+          category: 'marketing',
+          budgeted_amount: 5000,
+          actual_amount: 3200,
+          period: 'monthly',
+          variance: -1800,
+          percentage: 64.0
+        }
+      ]);
+
+      // Calculate financial reports
+      const income = transactionsResponse.data
+        ?.filter(t => t.transaction_type === 'income')
+        .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0) || 0;
+      
+      const expenses = transactionsResponse.data
+        ?.filter(t => t.transaction_type === 'expense')
+        .reduce((sum, t) => sum + parseFloat(t.amount || 0), 0) || 0;
+
+      setReports({
+        profitLoss: {
+          revenue: income + 145000, // Add mock revenue
+          totalRevenue: income + 145000,
+          expenses: expenses + 95000, // Add mock expenses
+          totalExpenses: expenses + 95000,
+          netIncome: (income + 145000) - (expenses + 95000),
+          grossMargin: 0.65,
+          netMargin: 0.28
+        },
+        balanceSheet: {
+          assets: {
+            cash: 245250.75,
+            accountsReceivable: 32500.00,
+            inventory: 18750.25,
+            equipment: 125000.00,
+            total: 421500.00
+          },
+          liabilities: {
+            accountsPayable: 15200.00,
+            payroll: 23500.00,
+            loans: 75000.00,
+            total: 113700.00
+          },
+          equity: 307800.00
+        },
+        cashFlow: {
+          operatingActivities: 42500.00,
+          investingActivities: -15000.00,
+          financingActivities: -8000.00,
+          netCashFlow: 19500.00,
+          beginningCash: 225750.75,
+          endingCash: 245250.75
+        },
+        kpis: {
+          patientVisits: 2150,
+          avgRevenuePerVisit: 128.50,
+          collectionRate: 94.2,
+          operatingMargin: 31.5,
+          daysInAR: 28,
+          costPerPatient: 84.30
+        }
+      });
+
     } catch (error) {
-      console.error('Failed to fetch transactions:', error);
+      console.error('Failed to fetch financial data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const totalIncome = transactions
-    .filter(t => t.transaction_type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
+  const handleCreateTransaction = async (e) => {
+    e.preventDefault();
+    try {
+      const response = await axios.post(`${API}/financial-transactions`, newTransaction);
+      setTransactions([response.data, ...transactions]);
+      setNewTransaction({
+        description: '',
+        amount: '',
+        transaction_type: 'expense',
+        category: '',
+        account_id: '',
+        payment_method: 'cash',
+        transaction_date: new Date().toISOString().split('T')[0],
+        notes: ''
+      });
+      setShowTransactionForm(false);
+      fetchFinancialData(); // Refresh data
+    } catch (error) {
+      console.error('Failed to create transaction:', error);
+    }
+  };
 
-  const totalExpenses = transactions
-    .filter(t => t.transaction_type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+  const renderDashboard = () => (
+    <div className="space-y-6">
+      {/* Key Performance Indicators */}
+      <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
+        <div className="bg-green-600/20 border border-green-400/50 rounded-lg p-4">
+          <div className="text-2xl font-bold text-white">${reports.profitLoss?.totalRevenue?.toLocaleString() || '0'}</div>
+          <div className="text-green-200 text-sm">Total Revenue</div>
+          <div className="text-green-300 text-xs">↗ +12.5% vs last month</div>
+        </div>
+        <div className="bg-red-600/20 border border-red-400/50 rounded-lg p-4">
+          <div className="text-2xl font-bold text-white">${reports.profitLoss?.totalExpenses?.toLocaleString() || '0'}</div>
+          <div className="text-red-200 text-sm">Total Expenses</div>
+          <div className="text-red-300 text-xs">↗ +5.2% vs last month</div>
+        </div>
+        <div className="bg-blue-600/20 border border-blue-400/50 rounded-lg p-4">
+          <div className="text-2xl font-bold text-white">${reports.profitLoss?.netIncome?.toLocaleString() || '0'}</div>
+          <div className="text-blue-200 text-sm">Net Income</div>
+          <div className="text-green-300 text-xs">↗ +18.7% vs last month</div>
+        </div>
+        <div className="bg-purple-600/20 border border-purple-400/50 rounded-lg p-4">
+          <div className="text-2xl font-bold text-white">{reports.kpis?.operatingMargin || '0'}%</div>
+          <div className="text-purple-200 text-sm">Operating Margin</div>
+          <div className="text-green-300 text-xs">↗ +2.1% vs last month</div>
+        </div>
+        <div className="bg-yellow-600/20 border border-yellow-400/50 rounded-lg p-4">
+          <div className="text-2xl font-bold text-white">{reports.kpis?.collectionRate || '0'}%</div>
+          <div className="text-yellow-200 text-sm">Collection Rate</div>
+          <div className="text-green-300 text-xs">↗ +1.8% vs last month</div>
+        </div>
+        <div className="bg-teal-600/20 border border-teal-400/50 rounded-lg p-4">
+          <div className="text-2xl font-bold text-white">${reports.kpis?.avgRevenuePerVisit?.toFixed(2) || '0'}</div>
+          <div className="text-teal-200 text-sm">Avg Revenue/Visit</div>
+          <div className="text-green-300 text-xs">↗ +3.4% vs last month</div>
+        </div>
+      </div>
+
+      {/* Charts and Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Revenue Trend Chart */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-medium text-white mb-4">Revenue Trend (Last 6 Months)</h3>
+          <div className="h-48 flex items-end space-x-2">
+            {[125000, 132000, 128000, 145000, 142000, 155000].map((amount, index) => (
+              <div key={index} className="flex-1 bg-green-500 rounded-t" style={{height: `${(amount/155000)*100}%`}}>
+                <div className="text-xs text-center text-white mt-1">${(amount/1000).toFixed(0)}K</div>
+              </div>
+            ))}
+          </div>
+          <div className="flex justify-between text-xs text-blue-200 mt-2">
+            <span>Jul</span><span>Aug</span><span>Sep</span><span>Oct</span><span>Nov</span><span>Dec</span>
+          </div>
+        </div>
+
+        {/* Expense Breakdown */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-medium text-white mb-4">Expense Breakdown</h3>
+          <div className="space-y-3">
+            {[
+              {name: 'Payroll', amount: 87200, percentage: 45, color: 'bg-red-500'},
+              {name: 'Medical Supplies', amount: 25000, percentage: 26, color: 'bg-orange-500'},
+              {name: 'Facilities', amount: 15000, percentage: 16, color: 'bg-yellow-500'},
+              {name: 'Insurance', amount: 8000, percentage: 8, color: 'bg-purple-500'},
+              {name: 'Other', amount: 5000, percentage: 5, color: 'bg-gray-500'}
+            ].map((expense, index) => (
+              <div key={index} className="flex items-center justify-between">
+                <div className="flex items-center space-x-3">
+                  <div className={`w-3 h-3 rounded-full ${expense.color}`}></div>
+                  <span className="text-white">{expense.name}</span>
+                </div>
+                <div className="text-right">
+                  <div className="text-white font-medium">${expense.amount.toLocaleString()}</div>
+                  <div className="text-blue-200 text-sm">{expense.percentage}%</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Account Balances */}
+      <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-medium text-white">Account Balances</h3>
+          <button
+            onClick={() => setShowReconciliation(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+          >
+            Reconcile Accounts
+          </button>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {accounts.map((account) => (
+            <div key={account.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <div className="text-white font-medium">{account.name}</div>
+                  <div className="text-blue-200 text-sm">{account.bank} {account.account_number}</div>
+                </div>
+                {account.is_primary && (
+                  <span className="bg-blue-600 text-white text-xs px-2 py-1 rounded">Primary</span>
+                )}
+              </div>
+              <div className="text-2xl font-bold text-white">${account.balance.toLocaleString()}</div>
+              <div className="text-blue-200 text-sm capitalize">{account.type} Account</div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderProfitLoss = () => (
+    <div className="space-y-6">
+      <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="text-lg font-medium text-white">Profit & Loss Statement</h3>
+          <select
+            value={selectedPeriod}
+            onChange={(e) => setSelectedPeriod(e.target.value)}
+            className="px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+          >
+            <option value="current-month">Current Month</option>
+            <option value="last-month">Last Month</option>
+            <option value="quarter">This Quarter</option>
+            <option value="year">This Year</option>
+          </select>
+        </div>
+
+        <div className="space-y-6">
+          {/* Revenue Section */}
+          <div>
+            <h4 className="text-white font-medium mb-3">Revenue</h4>
+            <div className="space-y-2 pl-4">
+              <div className="flex justify-between">
+                <span className="text-blue-200">Patient Services</span>
+                <span className="text-white">$125,000.00</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-blue-200">Insurance Reimbursements</span>
+                <span className="text-white">$85,500.00</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-blue-200">Cash Payments</span>
+                <span className="text-white">$28,750.00</span>
+              </div>
+              <div className="flex justify-between border-t border-white/20 pt-2">
+                <span className="text-white font-medium">Total Revenue</span>
+                <span className="text-white font-bold">${reports.profitLoss?.totalRevenue?.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Expenses Section */}
+          <div>
+            <h4 className="text-white font-medium mb-3">Expenses</h4>
+            <div className="space-y-2 pl-4">
+              <div className="flex justify-between">
+                <span className="text-blue-200">Salaries & Benefits</span>
+                <span className="text-white">$87,200.00</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-blue-200">Medical Supplies</span>
+                <span className="text-white">$25,000.00</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-blue-200">Rent & Utilities</span>
+                <span className="text-white">$15,000.00</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-blue-200">Insurance</span>
+                <span className="text-white">$8,000.00</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-blue-200">Equipment Depreciation</span>
+                <span className="text-white">$5,500.00</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-blue-200">Other Operating Expenses</span>
+                <span className="text-white">$12,300.00</span>
+              </div>
+              <div className="flex justify-between border-t border-white/20 pt-2">
+                <span className="text-white font-medium">Total Expenses</span>
+                <span className="text-white font-bold">${reports.profitLoss?.totalExpenses?.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Net Income */}
+          <div className="bg-green-600/20 border border-green-400/50 rounded-lg p-4">
+            <div className="flex justify-between items-center">
+              <span className="text-white font-medium text-lg">Net Income</span>
+              <span className="text-green-400 font-bold text-xl">${reports.profitLoss?.netIncome?.toLocaleString()}</span>
+            </div>
+            <div className="mt-2 text-sm">
+              <div className="flex justify-between text-green-200">
+                <span>Gross Margin: {(reports.profitLoss?.grossMargin * 100)?.toFixed(1)}%</span>
+                <span>Net Margin: {(reports.profitLoss?.netMargin * 100)?.toFixed(1)}%</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderBalanceSheet = () => (
+    <div className="space-y-6">
+      <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+        <h3 className="text-lg font-medium text-white mb-6">Balance Sheet</h3>
+        
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {/* Assets */}
+          <div>
+            <h4 className="text-white font-medium mb-4">Assets</h4>
+            <div className="space-y-3">
+              <div>
+                <div className="text-blue-200 text-sm mb-1">Current Assets</div>
+                <div className="pl-4 space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Cash & Cash Equivalents</span>
+                    <span className="text-white">${reports.balanceSheet?.assets?.cash?.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Accounts Receivable</span>
+                    <span className="text-white">${reports.balanceSheet?.assets?.accountsReceivable?.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Inventory</span>
+                    <span className="text-white">${reports.balanceSheet?.assets?.inventory?.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <div className="text-blue-200 text-sm mb-1">Fixed Assets</div>
+                <div className="pl-4 space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Equipment (Net)</span>
+                    <span className="text-white">${reports.balanceSheet?.assets?.equipment?.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-between border-t border-white/20 pt-2 font-medium">
+                <span className="text-white">Total Assets</span>
+                <span className="text-white">${reports.balanceSheet?.assets?.total?.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Liabilities & Equity */}
+          <div>
+            <h4 className="text-white font-medium mb-4">Liabilities & Equity</h4>
+            <div className="space-y-3">
+              <div>
+                <div className="text-blue-200 text-sm mb-1">Current Liabilities</div>
+                <div className="pl-4 space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Accounts Payable</span>
+                    <span className="text-white">${reports.balanceSheet?.liabilities?.accountsPayable?.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Accrued Payroll</span>
+                    <span className="text-white">${reports.balanceSheet?.liabilities?.payroll?.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div>
+                <div className="text-blue-200 text-sm mb-1">Long-term Liabilities</div>
+                <div className="pl-4 space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Equipment Loans</span>
+                    <span className="text-white">${reports.balanceSheet?.liabilities?.loans?.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-between border-t border-white/20 pt-2">
+                <span className="text-white font-medium">Total Liabilities</span>
+                <span className="text-white">${reports.balanceSheet?.liabilities?.total?.toLocaleString()}</span>
+              </div>
+              
+              <div className="mt-4">
+                <div className="text-blue-200 text-sm mb-1">Equity</div>
+                <div className="pl-4">
+                  <div className="flex justify-between">
+                    <span className="text-gray-300">Owner's Equity</span>
+                    <span className="text-white">${reports.balanceSheet?.equity?.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex justify-between border-t border-white/20 pt-2 font-medium">
+                <span className="text-white">Total Liabilities & Equity</span>
+                <span className="text-white">${(reports.balanceSheet?.liabilities?.total + reports.balanceSheet?.equity)?.toLocaleString()}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderBudgetManagement = () => (
+    <div className="space-y-6">
+      <div className="bg-white/5 border border-white/10 rounded-lg">
+        <div className="p-4 border-b border-white/10">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-medium text-white">Budget Management</h3>
+            <button
+              onClick={() => setShowBudgetForm(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+            >
+              + Create Budget
+            </button>
+          </div>
+        </div>
+        
+        <div className="p-4">
+          <div className="space-y-4">
+            {budgets.map((budget) => (
+              <div key={budget.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <div className="text-white font-medium">{budget.name}</div>
+                    <div className="text-blue-200 text-sm capitalize">{budget.category} • {budget.period}</div>
+                  </div>
+                  <div className={`px-2 py-1 rounded text-xs font-medium ${
+                    budget.percentage <= 100 ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                  }`}>
+                    {budget.percentage}%
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-300">Budget: ${budget.budgeted_amount.toLocaleString()}</span>
+                    <span className="text-gray-300">Actual: ${budget.actual_amount.toLocaleString()}</span>
+                  </div>
+                  
+                  <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full ${
+                        budget.percentage <= 100 ? 'bg-green-500' : 'bg-red-500'
+                      }`}
+                      style={{width: `${Math.min(budget.percentage, 100)}%`}}
+                    ></div>
+                  </div>
+                  
+                  <div className="flex justify-between text-sm">
+                    <span className={`${
+                      budget.variance < 0 ? 'text-green-400' : 'text-red-400'
+                    }`}>
+                      Variance: ${Math.abs(budget.variance).toLocaleString()} {budget.variance < 0 ? 'Under' : 'Over'}
+                    </span>
+                    <span className="text-blue-200">{budget.percentage.toFixed(1)}% of budget used</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderTransactions = () => (
+    <div className="space-y-6">
+      <div className="bg-white/5 border border-white/10 rounded-lg">
+        <div className="p-4 border-b border-white/10">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-medium text-white">Transaction History</h3>
+            <button
+              onClick={() => setShowTransactionForm(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm"
+            >
+              + Add Transaction
+            </button>
+          </div>
+        </div>
+        
+        <div className="p-4">
+          {loading ? (
+            <div className="text-center text-blue-200 py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+              Loading transactions...
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {transactions.length > 0 ? (
+                transactions.map((transaction) => (
+                  <div key={transaction.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="text-white font-medium">{transaction.description}</div>
+                        <div className="text-blue-200 text-sm">
+                          #{transaction.transaction_number} • {transaction.transaction_date}
+                        </div>
+                        <div className="text-blue-300 text-sm">
+                          {transaction.payment_method} • {transaction.category || 'Uncategorized'}
+                        </div>
+                        {transaction.notes && (
+                          <div className="text-gray-400 text-sm mt-1">{transaction.notes}</div>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <div className={`text-lg font-bold ${
+                          transaction.transaction_type === 'income' ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {transaction.transaction_type === 'income' ? '+' : '-'}${parseFloat(transaction.amount || 0).toFixed(2)}
+                        </div>
+                        <div className="text-blue-200 text-sm capitalize">{transaction.transaction_type}</div>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center text-blue-200 py-8">
+                  No transactions found. Click "Add Transaction" to get started.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+
+  const renderTransactionForm = () => (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+        <h3 className="text-lg font-medium text-white mb-6">Add New Transaction</h3>
+        <form onSubmit={handleCreateTransaction} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Description</label>
+              <input
+                type="text"
+                required
+                value={newTransaction.description}
+                onChange={(e) => setNewTransaction({...newTransaction, description: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Amount</label>
+              <input
+                type="number"
+                step="0.01"
+                required
+                value={newTransaction.amount}
+                onChange={(e) => setNewTransaction({...newTransaction, amount: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              />
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Type</label>
+              <select
+                value={newTransaction.transaction_type}
+                onChange={(e) => setNewTransaction({...newTransaction, transaction_type: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              >
+                <option value="income">Income</option>
+                <option value="expense">Expense</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Category</label>
+              <select
+                value={newTransaction.category}
+                onChange={(e) => setNewTransaction({...newTransaction, category: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              >
+                <option value="">Select Category</option>
+                <option value="patient_services">Patient Services</option>
+                <option value="insurance">Insurance Reimbursement</option>
+                <option value="supplies">Medical Supplies</option>
+                <option value="payroll">Payroll</option>
+                <option value="rent">Rent & Utilities</option>
+                <option value="equipment">Equipment</option>
+                <option value="marketing">Marketing</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Payment Method</label>
+              <select
+                value={newTransaction.payment_method}
+                onChange={(e) => setNewTransaction({...newTransaction, payment_method: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              >
+                <option value="cash">Cash</option>
+                <option value="check">Check</option>
+                <option value="credit_card">Credit Card</option>
+                <option value="bank_transfer">Bank Transfer</option>
+                <option value="ach">ACH</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-1">Date</label>
+              <input
+                type="date"
+                value={newTransaction.transaction_date}
+                onChange={(e) => setNewTransaction({...newTransaction, transaction_date: e.target.value})}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              />
+            </div>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Account</label>
+            <select
+              value={newTransaction.account_id}
+              onChange={(e) => setNewTransaction({...newTransaction, account_id: e.target.value})}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+            >
+              <option value="">Select Account</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name} ({account.bank})
+                </option>
+              ))}
+            </select>
+          </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-gray-300 mb-1">Notes</label>
+            <textarea
+              value={newTransaction.notes}
+              onChange={(e) => setNewTransaction({...newTransaction, notes: e.target.value})}
+              rows={3}
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+            />
+          </div>
+          
+          <div className="flex space-x-4 pt-4">
+            <button
+              type="submit"
+              className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg"
+            >
+              Add Transaction
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowTransactionForm(false)}
+              className="flex-1 bg-gray-600 hover:bg-gray-700 text-white py-2 rounded-lg"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
 
   return (
     <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-semibold text-white">Financial Management</h2>
         <button
@@ -3563,62 +4296,42 @@ const FinanceModule = ({ setActiveModule }) => {
           Back to Dashboard
         </button>
       </div>
-      
-      {/* Financial Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-green-600/20 border border-green-400/50 rounded-lg p-4">
-          <div className="text-2xl font-bold text-white">${totalIncome.toFixed(2)}</div>
-          <div className="text-green-200 text-sm">Total Income</div>
-        </div>
-        <div className="bg-red-600/20 border border-red-400/50 rounded-lg p-4">
-          <div className="text-2xl font-bold text-white">${totalExpenses.toFixed(2)}</div>
-          <div className="text-red-200 text-sm">Total Expenses</div>
-        </div>
-        <div className="bg-blue-600/20 border border-blue-400/50 rounded-lg p-4">
-          <div className="text-2xl font-bold text-white">${(totalIncome - totalExpenses).toFixed(2)}</div>
-          <div className="text-blue-200 text-sm">Net Income</div>
-        </div>
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'dashboard', name: 'Dashboard', icon: '📊' },
+            { id: 'profitloss', name: 'P&L Statement', icon: '📈' },
+            { id: 'balancesheet', name: 'Balance Sheet', icon: '⚖️' },
+            { id: 'budgets', name: 'Budget Management', icon: '🎯' },
+            { id: 'transactions', name: 'Transactions', icon: '💳' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeTab === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
       </div>
-      
-      {loading ? (
-        <div className="text-center text-blue-200 py-8">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
-          Loading transactions...
-        </div>
-      ) : (
-        <div className="space-y-4">
-          <h3 className="text-lg font-medium text-white">Recent Transactions</h3>
-          {transactions.length > 0 ? (
-            transactions.slice(0, 10).map((transaction) => (
-              <div
-                key={transaction.id}
-                className="bg-white/5 border border-white/10 rounded-lg p-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-white font-medium">{transaction.description}</div>
-                    <div className="text-blue-200 text-sm">
-                      {transaction.transaction_number} | {transaction.transaction_date}
-                    </div>
-                    <div className="text-blue-300 text-sm capitalize">
-                      {transaction.payment_method} | {transaction.category || 'N/A'}
-                    </div>
-                  </div>
-                  <div className={`text-lg font-bold ${
-                    transaction.transaction_type === 'income' ? 'text-green-400' : 'text-red-400'
-                  }`}>
-                    {transaction.transaction_type === 'income' ? '+' : '-'}${transaction.amount}
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="text-center text-blue-200 py-8">
-              No transactions found
-            </div>
-          )}
-        </div>
-      )}
+
+      {/* Tab Content */}
+      {activeTab === 'dashboard' && renderDashboard()}
+      {activeTab === 'profitloss' && renderProfitLoss()}
+      {activeTab === 'balancesheet' && renderBalanceSheet()}
+      {activeTab === 'budgets' && renderBudgetManagement()}
+      {activeTab === 'transactions' && renderTransactions()}
+
+      {/* Modals */}
+      {showTransactionForm && renderTransactionForm()}
     </div>
   );
 };
