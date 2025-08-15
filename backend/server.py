@@ -5266,9 +5266,10 @@ async def update_soap_note(soap_note_id: str, soap_note_data: SOAPNoteCreate, cu
     if not existing_note:
         raise HTTPException(status_code=404, detail="SOAP note not found")
     
-    # Update the SOAP note
+    # Update the SOAP note while preserving created_at
     updated_note = SOAPNote(
         id=soap_note_id,
+        created_at=existing_note["created_at"],  # Preserve original creation time
         updated_at=datetime.utcnow(),
         **soap_note_data.dict()
     )
