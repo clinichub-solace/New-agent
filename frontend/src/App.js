@@ -1119,60 +1119,47 @@ const CommunicationModule = () => {
   );
 };
 
-// Patients Module (OpenEMR Integration)
+// Patients Module (FHIR-Compliant EHR)
 const PatientsModule = () => {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState('patients');
   const [patients, setPatients] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
-  const [encounters, setEncounters] = useState([]);
-  const [prescriptions, setPrescriptions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [openemrStatus, setOpenemrStatus] = useState(null);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // Form state for adding new patient
+  const [formData, setFormData] = useState({
+    first_name: '',
+    last_name: '',
+    email: '',
+    phone: '',
+    date_of_birth: '',
+    gender: '',
+    address_line1: '',
+    city: '',
+    state: '',
+    zip_code: ''
+  });
 
   useEffect(() => {
-    fetchOpenEMRStatus();
     if (activeTab === 'patients') {
       fetchPatients();
     }
   }, [activeTab]);
 
-  const fetchOpenEMRStatus = async () => {
-    try {
-      const response = await axios.get(`${API}/openemr/status`);
-      setOpenemrStatus(response.data);
-    } catch (error) {
-      console.error('Failed to fetch OpenEMR status:', error);
-    }
-  };
-
   const fetchPatients = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`${API}/openemr/patients`);
+      const response = await axios.get(`${API}/patients`);
       setPatients(response.data);
+      setError('');
     } catch (error) {
       console.error('Failed to fetch patients:', error);
+      setError('Failed to fetch patients. Please try again.');
       setPatients([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchPatientDetails = async (patientId) => {
-    setLoading(true);
-    try {
-      const [encountersRes, prescriptionsRes] = await Promise.all([
-        axios.get(`${API}/openemr/patients/${patientId}/encounters`),
-        axios.get(`${API}/openemr/patients/${patientId}/prescriptions`)
-      ]);
-      
-      setEncounters(encountersRes.data);
-      setPrescriptions(prescriptionsRes.data);
-    } catch (error) {
-      console.error('Failed to fetch patient details:', error);
-      setEncounters([]);
-      setPrescriptions([]);
     } finally {
       setLoading(false);
     }
@@ -1180,26 +1167,254 @@ const PatientsModule = () => {
 
   const handlePatientSelect = (patient) => {
     setSelectedPatient(patient);
-    fetchPatientDetails(patient.id);
+    setActiveTab('details');
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const response = await axios.post(`${API}/patients`, formData);
+      setSuccess('Patient added successfully!');
+      setFormData({
+        first_name: '',
+        last_name: '',
+        email: '',
+        phone: '',
+        date_of_birth: '',
+        gender: '',
+        address_line1: '',
+        city: '',
+        state: '',
+        zip_code: ''
+      });
+      setShowAddForm(false);
+      fetchPatients(); // Refresh the patient list
+    } catch (error) {
+      console.error('Failed to add patient:', error);
+      setError(error.response?.data?.detail || 'Failed to add patient. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getPatientName = (patient) => {
+    if (patient.name && patient.name.length > 0) {
+      const name = patient.name[0];
+      const firstName = name.given && name.given.length > 0 ? name.given[0] : '';
+      const lastName = name.family || '';
+      return `${firstName} ${lastName}`;
+    }
+    return 'Unknown Patient';
+  };
+
+  const getPatientPhone = (patient) => {
+    if (patient.telecom && patient.telecom.length > 0) {
+      const phoneContact = patient.telecom.find(t => t.system === 'phone');
+      return phoneContact ? phoneContact.value : '';
+    }
+    return '';
+  };
+
+  const getPatientEmail = (patient) => {
+    if (patient.telecom && patient.telecom.length > 0) {
+      const emailContact = patient.telecom.find(t => t.system === 'email');
+      return emailContact ? emailContact.value : '';
+    }
+    return '';
+  };
+
+  const getPatientAddress = (patient) => {
+    if (patient.address && patient.address.length > 0) {
+      const addr = patient.address[0];
+      const line = addr.line && addr.line.length > 0 ? addr.line[0] : '';
+      const city = addr.city || '';
+      const state = addr.state || '';
+      const postal = addr.postal_code || '';
+      return `${line}, ${city}, ${state} ${postal}`.replace(/^, |, $/, '');
+    }
+    return '';
   };
 
   return (
     <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-white">Patients/EHR (OpenEMR Integration)</h2>
+        <h2 className="text-xl font-semibold text-white">Patients/EHR Management</h2>
         
-        {/* OpenEMR Status Indicator */}
-        {openemrStatus && (
-          <div className="flex items-center space-x-2">
-            <div className={`w-3 h-3 rounded-full ${
-              openemrStatus.status === 'connected' ? 'bg-green-400' : 'bg-red-400'
-            }`}></div>
-            <span className="text-sm text-blue-200">
-              OpenEMR: {openemrStatus.status}
-            </span>
-          </div>
-        )}
+        <button
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg transition-colors"
+        >
+          {showAddForm ? 'Cancel' : 'Add Patient'}
+        </button>
       </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-500/50 rounded-lg p-3 mb-4">
+          <p className="text-green-200 text-sm">{success}</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-500/50 rounded-lg p-3 mb-4">
+          <p className="text-red-200 text-sm">{error}</p>
+        </div>
+      )}
+
+      {/* Add Patient Form */}
+      {showAddForm && (
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6 mb-6">
+          <h3 className="text-lg font-medium text-white mb-4">Add New Patient</h3>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">First Name *</label>
+                <input
+                  type="text"
+                  name="first_name"
+                  value={formData.first_name}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter first name"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">Last Name *</label>
+                <input
+                  type="text"
+                  name="last_name"
+                  value={formData.last_name}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter last name"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">Email</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={formData.email}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter email address"
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">Phone</label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={formData.phone}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter phone number"
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">Date of Birth</label>
+                <input
+                  type="date"
+                  name="date_of_birth"
+                  value={formData.date_of_birth}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">Gender</label>
+                <select
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-blue-400"
+                >
+                  <option value="">Select gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                  <option value="unknown">Unknown</option>
+                </select>
+              </div>
+              <div className="md:col-span-2">
+                <label className="block text-blue-200 text-sm font-medium mb-2">Address</label>
+                <input
+                  type="text"
+                  name="address_line1"
+                  value={formData.address_line1}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter street address"
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">City</label>
+                <input
+                  type="text"
+                  name="city"
+                  value={formData.city}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter city"
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">State</label>
+                <input
+                  type="text"
+                  name="state"
+                  value={formData.state}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter state"
+                />
+              </div>
+              <div>
+                <label className="block text-blue-200 text-sm font-medium mb-2">ZIP Code</label>
+                <input
+                  type="text"
+                  name="zip_code"
+                  value={formData.zip_code}
+                  onChange={handleInputChange}
+                  className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  placeholder="Enter ZIP code"
+                />
+              </div>
+            </div>
+            
+            <div className="flex space-x-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Adding...' : 'Add Patient'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
       
       <div className="space-y-4">
         {/* Tab Navigation */}
@@ -1212,7 +1427,7 @@ const PatientsModule = () => {
                 : 'text-blue-200 hover:bg-white/10'
             }`}
           >
-            Patient List
+            Patient List ({patients.length})
           </button>
           <button
             onClick={() => setActiveTab('details')}
@@ -1249,18 +1464,18 @@ const PatientsModule = () => {
                       <div className="flex items-center justify-between">
                         <div>
                           <div className="text-white font-medium">
-                            {patient.fname} {patient.lname}
+                            {getPatientName(patient)}
                           </div>
                           <div className="text-blue-200 text-sm">
-                            DOB: {patient.DOB} | {patient.sex}
+                            DOB: {patient.birth_date || 'Not provided'} | {patient.gender || 'Not specified'}
                           </div>
                         </div>
                         <div className="text-blue-300 text-sm">
-                          {patient.phone_home}
+                          {getPatientPhone(patient)}
                         </div>
                       </div>
                       <div className="text-blue-300 text-sm mt-2">
-                        {patient.street}, {patient.city}, {patient.state} {patient.postal_code}
+                        {getPatientAddress(patient) || 'No address provided'}
                       </div>
                     </div>
                   ))}
@@ -1268,7 +1483,9 @@ const PatientsModule = () => {
                 
                 {patients.length === 0 && !loading && (
                   <div className="text-center text-blue-200 py-8">
-                    No patients found in OpenEMR
+                    <div className="text-4xl mb-4">👥</div>
+                    <p className="text-lg">No patients found</p>
+                    <p className="text-sm mt-2">Click "Add Patient" to get started</p>
                   </div>
                 )}
               </>
@@ -1281,72 +1498,63 @@ const PatientsModule = () => {
           <div className="space-y-6">
             {/* Patient Info */}
             <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-              <h3 className="text-lg font-medium text-white mb-4">
-                {selectedPatient.fname} {selectedPatient.lname}
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-medium text-white">
+                  {getPatientName(selectedPatient)}
+                </h3>
+                <div className="text-sm text-blue-200">
+                  Patient ID: {selectedPatient.id}
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-blue-200">Date of Birth:</span>
-                  <span className="text-white ml-2">{selectedPatient.DOB}</span>
+                  <span className="text-white ml-2">{selectedPatient.birth_date || 'Not provided'}</span>
                 </div>
                 <div>
                   <span className="text-blue-200">Gender:</span>
-                  <span className="text-white ml-2">{selectedPatient.sex}</span>
+                  <span className="text-white ml-2">{selectedPatient.gender || 'Not specified'}</span>
                 </div>
                 <div>
                   <span className="text-blue-200">Phone:</span>
-                  <span className="text-white ml-2">{selectedPatient.phone_home}</span>
+                  <span className="text-white ml-2">{getPatientPhone(selectedPatient) || 'Not provided'}</span>
                 </div>
                 <div>
-                  <span className="text-blue-200">Patient ID:</span>
-                  <span className="text-white ml-2">{selectedPatient.id}</span>
+                  <span className="text-blue-200">Email:</span>
+                  <span className="text-white ml-2">{getPatientEmail(selectedPatient) || 'Not provided'}</span>
+                </div>
+                <div className="col-span-2">
+                  <span className="text-blue-200">Address:</span>
+                  <span className="text-white ml-2">{getPatientAddress(selectedPatient) || 'Not provided'}</span>
+                </div>
+                <div>
+                  <span className="text-blue-200">Status:</span>
+                  <span className="text-white ml-2 capitalize">{selectedPatient.status || 'active'}</span>
+                </div>
+                <div>
+                  <span className="text-blue-200">Created:</span>
+                  <span className="text-white ml-2">{new Date(selectedPatient.created_at).toLocaleDateString()}</span>
                 </div>
               </div>
             </div>
 
-            {/* Encounters */}
-            <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-              <h4 className="text-lg font-medium text-white mb-3">Recent Encounters</h4>
-              {loading ? (
-                <div className="text-blue-200 text-sm">Loading encounters...</div>
-              ) : encounters.length > 0 ? (
-                <div className="space-y-2">
-                  {encounters.map((encounter) => (
-                    <div key={encounter.id} className="bg-white/5 rounded-lg p-3">
-                      <div className="text-white font-medium">{encounter.reason}</div>
-                      <div className="text-blue-200 text-sm">
-                        {encounter.date} | Provider: {encounter.provider}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-blue-200 text-sm">No encounters found</div>
-              )}
-            </div>
-
-            {/* Prescriptions */}
-            <div className="bg-white/5 border border-white/10 rounded-lg p-4">
-              <h4 className="text-lg font-medium text-white mb-3">Current Prescriptions</h4>
-              {loading ? (
-                <div className="text-blue-200 text-sm">Loading prescriptions...</div>
-              ) : prescriptions.length > 0 ? (
-                <div className="space-y-2">
-                  {prescriptions.map((prescription) => (
-                    <div key={prescription.id} className="bg-white/5 rounded-lg p-3">
-                      <div className="text-white font-medium">{prescription.drug}</div>
-                      <div className="text-blue-200 text-sm">
-                        {prescription.directions}
-                      </div>
-                      <div className="text-blue-300 text-sm">
-                        Qty: {prescription.quantity} | Refills: {prescription.refills}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-blue-200 text-sm">No prescriptions found</div>
-              )}
+            {/* EHR Integration Notice */}
+            <div className="bg-blue-500/20 border border-blue-500/50 rounded-lg p-4">
+              <h4 className="text-lg font-medium text-white mb-2">📋 Full EHR Features</h4>
+              <p className="text-blue-200 text-sm mb-3">
+                This patient record supports comprehensive EHR functionality including:
+              </p>
+              <div className="grid grid-cols-2 gap-2 text-sm text-blue-300">
+                <div>• Medical History & Allergies</div>
+                <div>• Medications & Prescriptions</div>
+                <div>• Encounters & SOAP Notes</div>
+                <div>• Lab Results & Vital Signs</div>
+                <div>• Diagnoses & Procedures</div>
+                <div>• Documents & Images</div>
+              </div>
+              <p className="text-blue-200 text-xs mt-3">
+                Additional EHR modules can be accessed from the main dashboard or integrated into this view as needed.
+              </p>
             </div>
           </div>
         )}
