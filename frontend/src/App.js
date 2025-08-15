@@ -1130,6 +1130,18 @@ const PatientsModule = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // SOAP Notes state
+  const [soapNotes, setSoapNotes] = useState([]);
+  const [showSoapForm, setShowSoapForm] = useState(false);
+  const [editingSoapNote, setEditingSoapNote] = useState(null);
+  const [soapFormData, setSoapFormData] = useState({
+    subjective: '',
+    objective: '',
+    assessment: '',
+    plan: '',
+    provider: user?.username || 'Dr. Provider'
+  });
+
   // Form state for adding new patient
   const [formData, setFormData] = useState({
     first_name: '',
@@ -1150,6 +1162,12 @@ const PatientsModule = () => {
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    if (selectedPatient && activeTab === 'details') {
+      fetchPatientSoapNotes(selectedPatient.id);
+    }
+  }, [selectedPatient, activeTab]);
+
   const fetchPatients = async () => {
     setLoading(true);
     try {
@@ -1165,6 +1183,16 @@ const PatientsModule = () => {
     }
   };
 
+  const fetchPatientSoapNotes = async (patientId) => {
+    try {
+      const response = await axios.get(`${API}/soap-notes/patient/${patientId}`);
+      setSoapNotes(response.data);
+    } catch (error) {
+      console.error('Failed to fetch SOAP notes:', error);
+      setSoapNotes([]);
+    }
+  };
+
   const handlePatientSelect = (patient) => {
     setSelectedPatient(patient);
     setActiveTab('details');
@@ -1173,6 +1201,14 @@ const PatientsModule = () => {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleSoapInputChange = (e) => {
+    const { name, value } = e.target;
+    setSoapFormData(prev => ({
       ...prev,
       [name]: value
     }));
@@ -1207,6 +1243,72 @@ const PatientsModule = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSoapSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      // First create an encounter if needed
+      const encounterData = {
+        patient_id: selectedPatient.id,
+        encounter_type: 'office_visit',
+        scheduled_date: new Date().toISOString(),
+        provider: soapFormData.provider,
+        chief_complaint: 'SOAP note documentation',
+        reason_for_visit: 'Clinical documentation'
+      };
+
+      const encounterResponse = await axios.post(`${API}/encounters`, encounterData);
+      const encounterId = encounterResponse.data.id;
+
+      // Create SOAP note
+      const soapData = {
+        encounter_id: encounterId,
+        patient_id: selectedPatient.id,
+        ...soapFormData
+      };
+
+      let response;
+      if (editingSoapNote) {
+        response = await axios.put(`${API}/soap-notes/${editingSoapNote.id}`, soapData);
+        setSuccess('SOAP note updated successfully!');
+      } else {
+        response = await axios.post(`${API}/soap-notes`, soapData);
+        setSuccess('SOAP note added successfully!');
+      }
+
+      setSoapFormData({
+        subjective: '',
+        objective: '',
+        assessment: '',
+        plan: '',
+        provider: user?.username || 'Dr. Provider'
+      });
+      setShowSoapForm(false);
+      setEditingSoapNote(null);
+      fetchPatientSoapNotes(selectedPatient.id); // Refresh SOAP notes
+    } catch (error) {
+      console.error('Failed to save SOAP note:', error);
+      setError(error.response?.data?.detail || 'Failed to save SOAP note. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditSoapNote = (soapNote) => {
+    setSoapFormData({
+      subjective: soapNote.subjective || '',
+      objective: soapNote.objective || '',
+      assessment: soapNote.assessment || '',
+      plan: soapNote.plan || '',
+      provider: soapNote.provider || user?.username || 'Dr. Provider'
+    });
+    setEditingSoapNote(soapNote);
+    setShowSoapForm(true);
   };
 
   const getPatientName = (patient) => {
@@ -1438,7 +1540,7 @@ const PatientsModule = () => {
             }`}
             disabled={!selectedPatient}
           >
-            Patient Details
+            Patient Details & SOAP Notes
           </button>
         </div>
 
@@ -1493,7 +1595,7 @@ const PatientsModule = () => {
           </div>
         )}
 
-        {/* Patient Details Tab */}
+        {/* Patient Details & SOAP Notes Tab */}
         {activeTab === 'details' && selectedPatient && (
           <div className="space-y-6">
             {/* Patient Info */}
@@ -1538,23 +1640,162 @@ const PatientsModule = () => {
               </div>
             </div>
 
-            {/* EHR Integration Notice */}
-            <div className="bg-blue-500/20 border border-blue-500/50 rounded-lg p-4">
-              <h4 className="text-lg font-medium text-white mb-2">📋 Full EHR Features</h4>
-              <p className="text-blue-200 text-sm mb-3">
-                This patient record supports comprehensive EHR functionality including:
-              </p>
-              <div className="grid grid-cols-2 gap-2 text-sm text-blue-300">
-                <div>• Medical History & Allergies</div>
-                <div>• Medications & Prescriptions</div>
-                <div>• Encounters & SOAP Notes</div>
-                <div>• Lab Results & Vital Signs</div>
-                <div>• Diagnoses & Procedures</div>
-                <div>• Documents & Images</div>
+            {/* SOAP Notes Section */}
+            <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h4 className="text-lg font-medium text-white">📋 SOAP Notes</h4>
+                <button
+                  onClick={() => setShowSoapForm(!showSoapForm)}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition-colors"
+                >
+                  {showSoapForm ? 'Cancel' : 'Add SOAP Note'}
+                </button>
               </div>
-              <p className="text-blue-200 text-xs mt-3">
-                Additional EHR modules can be accessed from the main dashboard or integrated into this view as needed.
-              </p>
+              
+              {/* SOAP Note Form */}
+              {showSoapForm && (
+                <div className="bg-white/5 border border-white/10 rounded-lg p-4 mb-4">
+                  <h5 className="text-md font-medium text-white mb-3">
+                    {editingSoapNote ? 'Edit SOAP Note' : 'New SOAP Note'}
+                  </h5>
+                  <form onSubmit={handleSoapSubmit} className="space-y-4">
+                    <div>
+                      <label className="block text-blue-200 text-sm font-medium mb-2">Subjective (Patient's complaints and history)</label>
+                      <textarea
+                        name="subjective"
+                        value={soapFormData.subjective}
+                        onChange={handleSoapInputChange}
+                        rows={3}
+                        className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="What the patient reports, symptoms, history..."
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-blue-200 text-sm font-medium mb-2">Objective (Physical examination findings)</label>
+                      <textarea
+                        name="objective"
+                        value={soapFormData.objective}
+                        onChange={handleSoapInputChange}
+                        rows={3}
+                        className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="Vital signs, physical exam findings, lab results..."
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-blue-200 text-sm font-medium mb-2">Assessment (Diagnosis and clinical impression)</label>
+                      <textarea
+                        name="assessment"
+                        value={soapFormData.assessment}
+                        onChange={handleSoapInputChange}
+                        rows={3}
+                        className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="Diagnosis, clinical impression, differential diagnosis..."
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-blue-200 text-sm font-medium mb-2">Plan (Treatment plan and follow-up)</label>
+                      <textarea
+                        name="plan"
+                        value={soapFormData.plan}
+                        onChange={handleSoapInputChange}
+                        rows={3}
+                        className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="Treatment plan, medications, follow-up instructions..."
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-blue-200 text-sm font-medium mb-2">Provider</label>
+                      <input
+                        type="text"
+                        name="provider"
+                        value={soapFormData.provider}
+                        onChange={handleSoapInputChange}
+                        className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                        placeholder="Provider name"
+                        required
+                      />
+                    </div>
+                    <div className="flex space-x-4">
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg transition-colors disabled:opacity-50"
+                      >
+                        {loading ? 'Saving...' : (editingSoapNote ? 'Update SOAP Note' : 'Save SOAP Note')}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowSoapForm(false);
+                          setEditingSoapNote(null);
+                          setSoapFormData({
+                            subjective: '',
+                            objective: '',
+                            assessment: '',
+                            plan: '',
+                            provider: user?.username || 'Dr. Provider'
+                          });
+                        }}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded-lg transition-colors"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              )}
+              
+              {/* SOAP Notes List */}
+              <div className="space-y-3">
+                {soapNotes.length > 0 ? (
+                  soapNotes.map((note) => (
+                    <div key={note.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="text-white font-medium">
+                          SOAP Note - {new Date(note.created_at).toLocaleDateString()}
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-blue-300 text-sm">by {note.provider}</span>
+                          <button
+                            onClick={() => handleEditSoapNote(note)}
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs transition-colors"
+                          >
+                            Edit
+                          </button>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <div className="text-blue-200 font-medium mb-1">Subjective:</div>
+                          <div className="text-white text-sm">{note.subjective}</div>
+                        </div>
+                        <div>
+                          <div className="text-blue-200 font-medium mb-1">Objective:</div>
+                          <div className="text-white text-sm">{note.objective}</div>
+                        </div>
+                        <div>
+                          <div className="text-blue-200 font-medium mb-1">Assessment:</div>
+                          <div className="text-white text-sm">{note.assessment}</div>
+                        </div>
+                        <div>
+                          <div className="text-blue-200 font-medium mb-1">Plan:</div>
+                          <div className="text-white text-sm">{note.plan}</div>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center text-blue-200 py-4">
+                    <div className="text-2xl mb-2">📝</div>
+                    <p>No SOAP notes found for this patient</p>
+                    <p className="text-sm mt-1">Click "Add SOAP Note" to create the first note</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
