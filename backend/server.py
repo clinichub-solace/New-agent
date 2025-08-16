@@ -3488,6 +3488,70 @@ async def get_invoice(invoice_id: str):
         raise HTTPException(status_code=404, detail="Invoice not found")
     return Invoice(**invoice)
 
+@api_router.put("/invoices/{invoice_id}", response_model=Invoice)
+async def update_invoice(invoice_id: str, invoice_data: InvoiceCreate, current_user: User = Depends(get_current_active_user)):
+    """Update existing invoice"""
+    # Check if invoice exists
+    existing_invoice = await db.invoices.find_one({"id": invoice_id})
+    if not existing_invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Calculate totals
+    subtotal = sum(item.quantity * item.unit_price for item in invoice_data.items)
+    tax_amount = subtotal * invoice_data.tax_rate
+    total_amount = subtotal + tax_amount
+    
+    # Set totals in items
+    for item in invoice_data.items:
+        item.total = item.quantity * item.unit_price
+    
+    # Create updated invoice
+    updated_invoice = Invoice(
+        id=invoice_id,
+        invoice_number=existing_invoice["invoice_number"],  # Keep original invoice number
+        patient_id=invoice_data.patient_id,
+        items=invoice_data.items,
+        subtotal=subtotal,
+        tax_rate=invoice_data.tax_rate,
+        tax_amount=tax_amount,
+        total_amount=total_amount,
+        due_date=existing_invoice["issue_date"] + timedelta(days=invoice_data.due_days) if invoice_data.due_days else None,
+        notes=invoice_data.notes,
+        created_at=existing_invoice["created_at"],  # Preserve creation time
+        updated_at=datetime.utcnow()
+    )
+    
+    updated_invoice_dict = jsonable_encoder(updated_invoice)
+    await db.invoices.replace_one({"id": invoice_id}, updated_invoice_dict)
+    return updated_invoice
+
+@api_router.put("/invoices/{invoice_id}/status")
+async def update_invoice_status(invoice_id: str, status_data: Dict[str, str], current_user: User = Depends(get_current_active_user)):
+    """Update invoice status"""
+    # Check if invoice exists
+    existing_invoice = await db.invoices.find_one({"id": invoice_id})
+    if not existing_invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Validate status
+    new_status = status_data.get("status")
+    valid_statuses = ["draft", "sent", "paid", "overdue", "cancelled"]
+    if new_status not in valid_statuses:
+        raise HTTPException(status_code=422, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
+    
+    # Update only the status field
+    result = await db.invoices.update_one(
+        {"id": invoice_id},
+        {"$set": {"status": new_status, "updated_at": jsonable_encoder(datetime.utcnow())}}
+    )
+    
+    if result.modified_count == 0:
+        raise HTTPException(status_code=404, detail="Invoice not found")
+    
+    # Return updated invoice
+    updated_invoice = await db.invoices.find_one({"id": invoice_id}, {"_id": 0})
+    return Invoice(**updated_invoice)
+
 # Inventory Routes
 @api_router.post("/inventory", response_model=InventoryItem)
 async def create_inventory_item(item: InventoryItem):
