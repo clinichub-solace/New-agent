@@ -863,12 +863,11 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Invoice UPDATE endpoint server error fix"
-    - "Check creation validation fix (check_date field)"
-    - "Financial transaction validation improvements"
-  stuck_tasks:
-    - "Invoice UPDATE endpoint (500 server error)"
-    - "Check creation validation (check_date required)"
+    - "SOAP Note Workflow Automation"
+    - "eRx Integration within Patient Chart"
+    - "End-to-End Workflow Testing"
+    - "Module Functionality Verification"
+  stuck_tasks: []
   test_all: false
   test_priority: "high_first"
       - working: false
