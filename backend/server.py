@@ -9654,29 +9654,7 @@ class ClinicalDocument(BaseModel):
     created_at: datetime = Field(default_factory=datetime.now)
     updated_at: datetime = Field(default_factory=datetime.now)
 
-# 6. Telehealth Models
-class TelehealthSession(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    patient_id: str
-    provider_id: str
-    appointment_id: Optional[str] = None
-    session_type: str = "video_call"  # video_call, phone_call, chat
-    scheduled_start: datetime
-    actual_start: Optional[datetime] = None
-    actual_end: Optional[datetime] = None
-    status: TelehealthStatus = TelehealthStatus.SCHEDULED
-    meeting_url: Optional[str] = None
-    meeting_id: Optional[str] = None
-    meeting_password: Optional[str] = None
-    patient_join_url: Optional[str] = None
-    provider_join_url: Optional[str] = None
-    recording_available: bool = False
-    recording_url: Optional[str] = None
-    tech_issues: List[Dict] = []
-    session_notes: Optional[str] = None
-    follow_up_required: bool = False
-    created_at: datetime = Field(default_factory=datetime.now)
-    updated_at: datetime = Field(default_factory=datetime.now)
+# 6. Telehealth Models - Using comprehensive model defined earlier
 
 class TelehealthSettings(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
