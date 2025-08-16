@@ -5850,4 +5850,894 @@ const FinanceModule = ({ setActiveModule }) => {
   );
 };
 
+// Comprehensive Appointment Scheduling Module
+const SchedulingModule = ({ setActiveModule }) => {
+  const { user } = useAuth();
+  const [appointments, setAppointments] = useState([]);
+  const [providers, setProviders] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [waitingList, setWaitingList] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  
+  // View and navigation states
+  const [activeView, setActiveView] = useState('calendar'); // calendar, appointments, waiting-list, providers
+  const [calendarView, setCalendarView] = useState('week'); // day, week, month
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedProvider, setSelectedProvider] = useState('');
+  
+  // Form states
+  const [showAppointmentForm, setShowAppointmentForm] = useState(false);
+  const [showRecurringForm, setShowRecurringForm] = useState(false);
+  const [showWaitingListForm, setShowWaitingListForm] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState(null);
+  
+  // Form data
+  const [appointmentFormData, setAppointmentFormData] = useState({
+    patient_id: '',
+    provider_id: '',
+    appointment_date: new Date().toISOString().split('T')[0],
+    start_time: '09:00',
+    duration_minutes: 30,
+    appointment_type: 'consultation',
+    title: '',
+    description: '',
+    notes: ''
+  });
+  
+  const [recurringFormData, setRecurringFormData] = useState({
+    recurrence_type: 'weekly',
+    recurrence_interval: 1,
+    recurrence_end_date: '',
+    max_occurrences: 12
+  });
+  
+  const [waitingListFormData, setWaitingListFormData] = useState({
+    patient_id: '',
+    provider_id: '',
+    preferred_date: new Date().toISOString().split('T')[0],
+    preferred_time_start: '09:00',
+    preferred_time_end: '17:00',
+    appointment_type: 'consultation',
+    priority: 1,
+    duration_minutes: 30,
+    reason: '',
+    notes: ''
+  });
+  
+  // Available time slots
+  const [availableSlots, setAvailableSlots] = useState([]);
+  const [selectedSlot, setSelectedSlot] = useState(null);
+
+  useEffect(() => {
+    fetchAppointments();
+    fetchProviders();
+    fetchPatients();
+    fetchWaitingList();
+  }, []);
+
+  const fetchAppointments = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API}/appointments`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setAppointments(response.data);
+    } catch (error) {
+      console.error('Failed to fetch appointments:', error);
+      setError('Failed to fetch appointments');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchProviders = async () => {
+    try {
+      const response = await axios.get(`${API}/providers`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setProviders(response.data);
+    } catch (error) {
+      console.error('Failed to fetch providers:', error);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/patients`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setPatients(response.data);
+    } catch (error) {
+      console.error('Failed to fetch patients:', error);
+    }
+  };
+
+  const fetchWaitingList = async () => {
+    try {
+      const response = await axios.get(`${API}/waiting-list`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setWaitingList(response.data);
+    } catch (error) {
+      console.error('Failed to fetch waiting list:', error);
+    }
+  };
+
+  const fetchAvailableSlots = async (providerId, date, duration = 30) => {
+    try {
+      const response = await axios.get(`${API}/appointments/available-slots`, {
+        params: { provider_id: providerId, date, duration_minutes: duration },
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setAvailableSlots(response.data.available_slots || []);
+    } catch (error) {
+      console.error('Failed to fetch available slots:', error);
+      setAvailableSlots([]);
+    }
+  };
+
+  const handleCreateAppointment = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+      
+      // Get patient and provider names
+      const patient = patients.find(p => p.id === appointmentFormData.patient_id);
+      const provider = providers.find(p => p.id === appointmentFormData.provider_id);
+      
+      const appointmentData = {
+        ...appointmentFormData,
+        patient_name: `${patient?.name?.[0]?.given?.[0] || ''} ${patient?.name?.[0]?.family || ''}`.trim(),
+        provider_name: provider?.name || '',
+        scheduled_by: user.username
+      };
+
+      const response = await axios.post(`${API}/appointments`, appointmentData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      setAppointments([...appointments, response.data]);
+      setSuccess('Appointment created successfully!');
+      setShowAppointmentForm(false);
+      resetAppointmentForm();
+      fetchAppointments();
+    } catch (error) {
+      console.error('Failed to create appointment:', error);
+      setError(error.response?.data?.detail || 'Failed to create appointment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCreateRecurringAppointment = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+      
+      const patient = patients.find(p => p.id === appointmentFormData.patient_id);
+      const provider = providers.find(p => p.id === appointmentFormData.provider_id);
+      
+      const recurringData = {
+        appointment: {
+          ...appointmentFormData,
+          patient_name: `${patient?.name?.[0]?.given?.[0] || ''} ${patient?.name?.[0]?.family || ''}`.trim(),
+          provider_name: provider?.name || '',
+          scheduled_by: user.username
+        },
+        ...recurringFormData
+      };
+
+      const response = await axios.post(`${API}/appointments/recurring`, recurringData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      setSuccess(`Created ${response.data.total_appointments} recurring appointments successfully!`);
+      setShowRecurringForm(false);
+      resetAppointmentForm();
+      fetchAppointments();
+    } catch (error) {
+      console.error('Failed to create recurring appointments:', error);
+      setError(error.response?.data?.detail || 'Failed to create recurring appointments');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleAddToWaitingList = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      const response = await axios.post(`${API}/waiting-list`, waitingListFormData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      setWaitingList([...waitingList, response.data]);
+      setSuccess('Added to waiting list successfully!');
+      setShowWaitingListForm(false);
+      resetWaitingListForm();
+    } catch (error) {
+      console.error('Failed to add to waiting list:', error);
+      setError(error.response?.data?.detail || 'Failed to add to waiting list');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateAppointmentStatus = async (appointmentId, status) => {
+    try {
+      const response = await axios.put(`${API}/appointments/${appointmentId}/status`, 
+        { status }, 
+        { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+      );
+      
+      setAppointments(appointments.map(apt => 
+        apt.id === appointmentId ? { ...apt, status } : apt
+      ));
+      setSuccess('Appointment status updated successfully!');
+    } catch (error) {
+      console.error('Failed to update appointment status:', error);
+      setError('Failed to update appointment status');
+    }
+  };
+
+  const resetAppointmentForm = () => {
+    setAppointmentFormData({
+      patient_id: '',
+      provider_id: '',
+      appointment_date: new Date().toISOString().split('T')[0],
+      start_time: '09:00',
+      duration_minutes: 30,
+      appointment_type: 'consultation',
+      title: '',
+      description: '',
+      notes: ''
+    });
+    setAvailableSlots([]);
+    setSelectedSlot(null);
+  };
+
+  const resetWaitingListForm = () => {
+    setWaitingListFormData({
+      patient_id: '',
+      provider_id: '',
+      preferred_date: new Date().toISOString().split('T')[0],
+      preferred_time_start: '09:00',
+      preferred_time_end: '17:00',
+      appointment_type: 'consultation',
+      priority: 1,
+      duration_minutes: 30,
+      reason: '',
+      notes: ''
+    });
+  };
+
+  // Calendar view helpers
+  const getWeekDates = (date) => {
+    const week = [];
+    const startDate = new Date(date);
+    const day = startDate.getDay();
+    const diff = startDate.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+    startDate.setDate(diff);
+
+    for (let i = 0; i < 7; i++) {
+      const currentDate = new Date(startDate);
+      currentDate.setDate(startDate.getDate() + i);
+      week.push(currentDate);
+    }
+    return week;
+  };
+
+  const getAppointmentsForDate = (date) => {
+    const dateStr = date.toISOString().split('T')[0];
+    return appointments.filter(apt => apt.appointment_date === dateStr);
+  };
+
+  const formatTime = (time) => {
+    return new Date(`2000-01-01T${time}`).toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'scheduled': 'bg-blue-100 text-blue-800',
+      'confirmed': 'bg-green-100 text-green-800',
+      'checked_in': 'bg-yellow-100 text-yellow-800',
+      'in_progress': 'bg-purple-100 text-purple-800',
+      'completed': 'bg-gray-100 text-gray-800',
+      'cancelled': 'bg-red-100 text-red-800',
+      'no_show': 'bg-orange-100 text-orange-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const renderCalendarView = () => {
+    if (calendarView === 'week') {
+      const weekDates = getWeekDates(selectedDate);
+      
+      return (
+        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+          <div className="grid grid-cols-8 gap-4">
+            {/* Time column */}
+            <div className="text-sm font-medium text-gray-300">
+              <div className="h-12"></div> {/* Header spacer */}
+              {Array.from({ length: 12 }, (_, i) => (
+                <div key={i} className="h-16 border-b border-white/10 flex items-center">
+                  {formatTime(`${8 + i}:00`)}
+                </div>
+              ))}
+            </div>
+            
+            {/* Day columns */}
+            {weekDates.map((date, dayIndex) => (
+              <div key={dayIndex} className="min-h-0">
+                <div className="h-12 flex flex-col items-center justify-center border-b border-white/10">
+                  <div className="text-sm font-medium text-white">
+                    {date.toLocaleDateString('en-US', { weekday: 'short' })}
+                  </div>
+                  <div className="text-lg text-gray-300">
+                    {date.getDate()}
+                  </div>
+                </div>
+                
+                {/* Appointments for this day */}
+                <div className="relative">
+                  {Array.from({ length: 12 }, (_, i) => (
+                    <div key={i} className="h-16 border-b border-white/10 relative">
+                      {getAppointmentsForDate(date)
+                        .filter(apt => {
+                          const aptHour = parseInt(apt.start_time.split(':')[0]);
+                          return aptHour === 8 + i;
+                        })
+                        .map(appointment => (
+                          <div
+                            key={appointment.id}
+                            className="absolute inset-x-1 bg-blue-500/20 border border-blue-400/50 rounded p-1 cursor-pointer hover:bg-blue-500/30 transition-colors"
+                            style={{ 
+                              height: `${(appointment.duration_minutes / 60) * 64}px`,
+                              top: `${(parseInt(appointment.start_time.split(':')[1]) / 60) * 64}px`
+                            }}
+                            onClick={() => setEditingAppointment(appointment)}
+                          >
+                            <div className="text-xs text-white font-medium truncate">
+                              {appointment.patient_name}
+                            </div>
+                            <div className="text-xs text-blue-200 truncate">
+                              {formatTime(appointment.start_time)}
+                            </div>
+                            <div className="text-xs text-blue-200 truncate">
+                              {appointment.title || appointment.appointment_type}
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+    
+    return <div className="text-white">Other calendar views coming soon...</div>;
+  };
+
+  const renderAppointmentsList = () => {
+    const today = new Date().toISOString().split('T')[0];
+    const todayAppointments = appointments.filter(apt => apt.appointment_date === today);
+    const upcomingAppointments = appointments.filter(apt => apt.appointment_date > today).slice(0, 10);
+    
+    return (
+      <div className="space-y-6">
+        {/* Today's Appointments */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Today's Appointments</h3>
+          {todayAppointments.length === 0 ? (
+            <p className="text-gray-400">No appointments scheduled for today.</p>
+          ) : (
+            <div className="space-y-3">
+              {todayAppointments.map(appointment => (
+                <div key={appointment.id} className="bg-white/5 border border-white/10 rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-white font-medium">{appointment.patient_name}</div>
+                        <span className={`px-2 py-1 rounded text-xs ${getStatusColor(appointment.status)}`}>
+                          {appointment.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        {formatTime(appointment.start_time)} - {appointment.provider_name} - {appointment.appointment_type}
+                      </div>
+                      {appointment.notes && (
+                        <div className="text-sm text-gray-400 mt-1">{appointment.notes}</div>
+                      )}
+                    </div>
+                    <div className="flex space-x-2">
+                      {appointment.status === 'scheduled' && (
+                        <button
+                          onClick={() => handleUpdateAppointmentStatus(appointment.id, 'confirmed')}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Confirm
+                        </button>
+                      )}
+                      {appointment.status === 'confirmed' && (
+                        <button
+                          onClick={() => handleUpdateAppointmentStatus(appointment.id, 'checked_in')}
+                          className="bg-yellow-600 hover:bg-yellow-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Check In
+                        </button>
+                      )}
+                      {appointment.status === 'checked_in' && (
+                        <button
+                          onClick={() => handleUpdateAppointmentStatus(appointment.id, 'completed')}
+                          className="bg-purple-600 hover:bg-purple-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Complete
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Upcoming Appointments */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">Upcoming Appointments</h3>
+          {upcomingAppointments.length === 0 ? (
+            <p className="text-gray-400">No upcoming appointments.</p>
+          ) : (
+            <div className="space-y-3">
+              {upcomingAppointments.map(appointment => (
+                <div key={appointment.id} className="bg-white/5 border border-white/10 rounded p-4 flex items-center justify-between">
+                  <div>
+                    <div className="text-white font-medium">{appointment.patient_name}</div>
+                    <div className="text-sm text-gray-300">
+                      {new Date(appointment.appointment_date).toLocaleDateString()} at {formatTime(appointment.start_time)} - {appointment.provider_name}
+                    </div>
+                  </div>
+                  <span className={`px-2 py-1 rounded text-xs ${getStatusColor(appointment.status)}`}>
+                    {appointment.status.replace('_', ' ')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderWaitingList = () => {
+    const activeEntries = waitingList.filter(entry => entry.is_active);
+    
+    return (
+      <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+        <h3 className="text-lg font-semibold text-white mb-4">Waiting List</h3>
+        {activeEntries.length === 0 ? (
+          <p className="text-gray-400">No patients on waiting list.</p>
+        ) : (
+          <div className="space-y-3">
+            {activeEntries
+              .sort((a, b) => b.priority - a.priority || new Date(a.created_at) - new Date(b.created_at))
+              .map(entry => (
+                <div key={entry.id} className="bg-white/5 border border-white/10 rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-white font-medium">{entry.patient_name}</div>
+                        <span className={`px-2 py-1 rounded text-xs ${
+                          entry.priority === 4 ? 'bg-red-100 text-red-800' :
+                          entry.priority === 3 ? 'bg-orange-100 text-orange-800' :
+                          entry.priority === 2 ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-800'
+                        }`}>
+                          Priority {entry.priority}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        {entry.provider_name} - {entry.appointment_type} - {new Date(entry.preferred_date).toLocaleDateString()}
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1">{entry.reason}</div>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setAppointmentFormData({
+                          ...appointmentFormData,
+                          patient_id: entry.patient_id,
+                          provider_id: entry.provider_id,
+                          appointment_type: entry.appointment_type,
+                          duration_minutes: entry.duration_minutes,
+                          title: entry.reason
+                        });
+                        setShowAppointmentForm(true);
+                      }}
+                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                    >
+                      Schedule
+                    </button>
+                  </div>
+                </div>
+              ))}
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderAppointmentForm = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">
+              {editingAppointment ? 'Edit Appointment' : 'New Appointment'}
+            </h3>
+            <button
+              onClick={() => {
+                setShowAppointmentForm(false);
+                setEditingAppointment(null);
+                resetAppointmentForm();
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={handleCreateAppointment} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Patient</label>
+                <select
+                  value={appointmentFormData.patient_id}
+                  onChange={(e) => setAppointmentFormData({...appointmentFormData, patient_id: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Patient</option>
+                  {patients.map(patient => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.name?.[0]?.given?.[0]} {patient.name?.[0]?.family}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Provider</label>
+                <select
+                  value={appointmentFormData.provider_id}
+                  onChange={(e) => {
+                    setAppointmentFormData({...appointmentFormData, provider_id: e.target.value});
+                    if (e.target.value && appointmentFormData.appointment_date) {
+                      fetchAvailableSlots(e.target.value, appointmentFormData.appointment_date, appointmentFormData.duration_minutes);
+                    }
+                  }}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Provider</option>
+                  {providers.map(provider => (
+                    <option key={provider.id} value={provider.id}>
+                      {provider.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Date</label>
+                <input
+                  type="date"
+                  value={appointmentFormData.appointment_date}
+                  onChange={(e) => {
+                    setAppointmentFormData({...appointmentFormData, appointment_date: e.target.value});
+                    if (appointmentFormData.provider_id && e.target.value) {
+                      fetchAvailableSlots(appointmentFormData.provider_id, e.target.value, appointmentFormData.duration_minutes);
+                    }
+                  }}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Start Time</label>
+                <input
+                  type="time"
+                  value={appointmentFormData.start_time}
+                  onChange={(e) => setAppointmentFormData({...appointmentFormData, start_time: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Duration (min)</label>
+                <select
+                  value={appointmentFormData.duration_minutes}
+                  onChange={(e) => setAppointmentFormData({...appointmentFormData, duration_minutes: parseInt(e.target.value)})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value={15}>15 minutes</option>
+                  <option value={30}>30 minutes</option>
+                  <option value={45}>45 minutes</option>
+                  <option value={60}>1 hour</option>
+                  <option value={90}>1.5 hours</option>
+                  <option value={120}>2 hours</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Appointment Type</label>
+                <select
+                  value={appointmentFormData.appointment_type}
+                  onChange={(e) => setAppointmentFormData({...appointmentFormData, appointment_type: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="consultation">Consultation</option>
+                  <option value="follow_up">Follow Up</option>
+                  <option value="annual_physical">Annual Physical</option>
+                  <option value="vaccination">Vaccination</option>
+                  <option value="procedure">Procedure</option>
+                  <option value="therapy">Therapy</option>
+                  <option value="emergency">Emergency</option>
+                  <option value="telemedicine">Telemedicine</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Title</label>
+                <input
+                  type="text"
+                  value={appointmentFormData.title}
+                  onChange={(e) => setAppointmentFormData({...appointmentFormData, title: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  placeholder="Appointment title"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+              <textarea
+                value={appointmentFormData.description}
+                onChange={(e) => setAppointmentFormData({...appointmentFormData, description: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                rows={3}
+                placeholder="Appointment description"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Notes</label>
+              <textarea
+                value={appointmentFormData.notes}
+                onChange={(e) => setAppointmentFormData({...appointmentFormData, notes: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                rows={2}
+                placeholder="Additional notes"
+              />
+            </div>
+
+            {availableSlots.length > 0 && (
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Available Time Slots</label>
+                <div className="grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
+                  {availableSlots.map((slot, index) => (
+                    <button
+                      key={index}
+                      type="button"
+                      onClick={() => {
+                        setAppointmentFormData({...appointmentFormData, start_time: slot.start_time});
+                        setSelectedSlot(slot);
+                      }}
+                      className={`p-2 rounded text-sm ${
+                        slot.is_available 
+                          ? selectedSlot?.start_time === slot.start_time
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-gray-600 hover:bg-gray-500 text-white'
+                          : 'bg-red-600/20 text-red-400 cursor-not-allowed'
+                      }`}
+                      disabled={!slot.is_available}
+                    >
+                      {formatTime(slot.start_time)}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Creating...' : editingAppointment ? 'Update Appointment' : 'Create Appointment'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowRecurringForm(true)}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded"
+              >
+                Create Recurring
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAppointmentForm(false);
+                  setEditingAppointment(null);
+                  resetAppointmentForm();
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">📅 Appointment Scheduling</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowWaitingListForm(true)}
+            className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg"
+          >
+            Add to Waiting List
+          </button>
+          <button
+            onClick={() => setShowAppointmentForm(true)}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+          >
+            New Appointment
+          </button>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 mb-6">
+          <p className="text-green-300">✅ {success}</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mb-6">
+          <p className="text-red-300">❌ {error}</p>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'calendar', name: 'Calendar View', icon: '📅' },
+            { id: 'appointments', name: 'Appointments', icon: '📋' },
+            { id: 'waiting-list', name: 'Waiting List', icon: '⏰' },
+            { id: 'providers', name: 'Providers', icon: '👨‍⚕️' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeView === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Calendar Controls */}
+      {activeView === 'calendar' && (
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center space-x-4">
+            <button
+              onClick={() => setSelectedDate(new Date(selectedDate.getTime() - 7 * 24 * 60 * 60 * 1000))}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded"
+            >
+              ← Previous Week
+            </button>
+            <div className="text-white font-medium">
+              {selectedDate.toLocaleDateString('en-US', { 
+                month: 'long', 
+                year: 'numeric',
+                day: 'numeric'
+              })}
+            </div>
+            <button
+              onClick={() => setSelectedDate(new Date(selectedDate.getTime() + 7 * 24 * 60 * 60 * 1000))}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded"
+            >
+              Next Week →
+            </button>
+            <button
+              onClick={() => setSelectedDate(new Date())}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded"
+            >
+              Today
+            </button>
+          </div>
+          
+          <div className="flex items-center space-x-2">
+            <select
+              value={selectedProvider}
+              onChange={(e) => setSelectedProvider(e.target.value)}
+              className="bg-gray-700 border border-gray-600 rounded px-3 py-1 text-white text-sm"
+            >
+              <option value="">All Providers</option>
+              {providers.map(provider => (
+                <option key={provider.id} value={provider.id}>
+                  {provider.name}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* Content based on active view */}
+      {activeView === 'calendar' && renderCalendarView()}
+      {activeView === 'appointments' && renderAppointmentsList()}
+      {activeView === 'waiting-list' && renderWaitingList()}
+      {activeView === 'providers' && (
+        <div className="text-white">Provider management coming soon...</div>
+      )}
+
+      {/* Forms */}
+      {showAppointmentForm && renderAppointmentForm()}
+      
+      {/* Loading */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default App;
