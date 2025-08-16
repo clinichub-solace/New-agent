@@ -8415,7 +8415,7 @@ async def create_telehealth_session(session_data: TelehealthSessionCreate, curre
         if not provider:
             raise HTTPException(status_code=404, detail="Provider not found")
         
-        provider_name = provider.get("name", f"{provider.get('first_name', '')} {provider.get('last_name', '')}").strip()
+        provider_name = f"{provider.get('title', 'Dr.')} {provider.get('first_name', '')} {provider.get('last_name', '')}".strip()
         
         # Calculate session end time
         scheduled_end = session_data.scheduled_start + timedelta(minutes=session_data.duration_minutes)
