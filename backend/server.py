@@ -8479,7 +8479,40 @@ async def get_telehealth_sessions(
             }
         
         sessions = await db.telehealth_sessions.find(query, {"_id": 0}).sort("scheduled_start", -1).to_list(100)
-        return [TelehealthSession(**session) for session in sessions]
+        
+        # Populate missing fields for sessions that were created with old model
+        populated_sessions = []
+        for session in sessions:
+            # If missing required fields, populate them
+            if "patient_name" not in session and session.get("patient_id"):
+                patient = await db.patients.find_one({"id": session["patient_id"]}, {"_id": 0})
+                if patient:
+                    session["patient_name"] = f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}"
+                else:
+                    session["patient_name"] = "Unknown Patient"
+            
+            if "provider_name" not in session and session.get("provider_id"):
+                provider = await db.providers.find_one({"id": session["provider_id"]}, {"_id": 0})
+                if provider:
+                    session["provider_name"] = f"{provider.get('title', 'Dr.')} {provider.get('first_name', '')} {provider.get('last_name', '')}".strip()
+                else:
+                    session["provider_name"] = "Unknown Provider"
+            
+            if "title" not in session:
+                session["title"] = f"Telehealth Session - {session.get('session_type', 'consultation').replace('_', ' ').title()}"
+            
+            if "scheduled_end" not in session and session.get("scheduled_start") and session.get("duration_minutes"):
+                scheduled_start = session["scheduled_start"]
+                if isinstance(scheduled_start, str):
+                    scheduled_start = datetime.fromisoformat(scheduled_start.replace('Z', '+00:00'))
+                session["scheduled_end"] = scheduled_start + timedelta(minutes=session.get("duration_minutes", 30))
+            
+            if "created_by" not in session:
+                session["created_by"] = "system"
+            
+            populated_sessions.append(TelehealthSession(**session))
+        
+        return populated_sessions
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving telehealth sessions: {str(e)}")
