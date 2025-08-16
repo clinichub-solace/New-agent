@@ -5440,6 +5440,202 @@ async def create_soap_note(soap_data: SOAPNoteCreate):
     await db.soap_notes.insert_one(soap_dict)
     return soap_note
 
+@api_router.post("/soap-notes/{soap_note_id}/complete")
+async def complete_soap_note(soap_note_id: str, completion_data: Dict[str, Any], current_user: User = Depends(get_current_active_user)):
+    """Complete SOAP note and trigger automatic workflows (receipt generation, inventory updates, etc.)"""
+    
+    # Get the SOAP note
+    soap_note = await db.soap_notes.find_one({"id": soap_note_id}, {"_id": 0})
+    if not soap_note:
+        raise HTTPException(status_code=404, detail="SOAP note not found")
+    
+    # Get patient information for invoice creation
+    patient = await db.patients.find_one({"id": soap_note["patient_id"]}, {"_id": 0})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    # Get encounter information
+    encounter = await db.encounters.find_one({"id": soap_note["encounter_id"]}, {"_id": 0})
+    
+    # Mark SOAP note as completed
+    await db.soap_notes.update_one(
+        {"id": soap_note_id},
+        {"$set": {
+            "status": "completed",
+            "completed_at": jsonable_encoder(datetime.utcnow()),
+            "completed_by": current_user.username,
+            "updated_at": jsonable_encoder(datetime.utcnow())
+        }}
+    )
+    
+    # WORKFLOW 1: Automatic Receipt/Invoice Generation
+    workflow_results = {}
+    
+    # Get billable services from completion data or use default encounter-based billing
+    billable_services = completion_data.get("billable_services", [])
+    
+    # Default billing based on encounter type if no specific services provided
+    if not billable_services and encounter:
+        encounter_type = encounter.get("encounter_type", "consultation")
+        if encounter_type == "annual_physical":
+            billable_services = [
+                {"description": "Annual Physical Examination", "code": "99395", "quantity": 1, "unit_price": 200.00},
+                {"description": "Preventive Care Counseling", "code": "99401", "quantity": 1, "unit_price": 75.00}
+            ]
+        elif encounter_type == "consultation":
+            billable_services = [
+                {"description": "Office Visit - Consultation", "code": "99213", "quantity": 1, "unit_price": 150.00}
+            ]
+        elif encounter_type == "follow_up":
+            billable_services = [
+                {"description": "Follow-up Office Visit", "code": "99212", "quantity": 1, "unit_price": 100.00}
+            ]
+        else:
+            billable_services = [
+                {"description": "Medical Service", "code": "99211", "quantity": 1, "unit_price": 75.00}
+            ]
+    
+    # Create invoice if billable services exist
+    if billable_services:
+        try:
+            # Prepare invoice items
+            invoice_items = []
+            for service in billable_services:
+                item_total = service["quantity"] * service["unit_price"]
+                invoice_items.append({
+                    "description": service["description"],
+                    "quantity": service["quantity"],
+                    "unit_price": service["unit_price"],
+                    "total": item_total
+                })
+            
+            # Calculate totals
+            subtotal = sum(item["total"] for item in invoice_items)
+            tax_rate = 0.08  # 8% default tax rate
+            tax_amount = subtotal * tax_rate
+            total_amount = subtotal + tax_amount
+            
+            # Generate invoice number
+            count = await db.invoices.count_documents({})
+            invoice_number = f"INV-{count + 1001:06d}"
+            
+            # Create invoice
+            invoice = Invoice(
+                invoice_number=invoice_number,
+                patient_id=soap_note["patient_id"],
+                items=invoice_items,
+                subtotal=subtotal,
+                tax_rate=tax_rate,
+                tax_amount=tax_amount,
+                total_amount=total_amount,
+                status="draft",
+                issue_date=date.today(),
+                due_date=date.today() + timedelta(days=30),
+                notes=f"Services rendered during encounter on {encounter.get('scheduled_date', datetime.utcnow().isoformat())}"
+            )
+            
+            invoice_dict = jsonable_encoder(invoice)
+            await db.invoices.insert_one(invoice_dict)
+            
+            workflow_results["invoice_created"] = {
+                "invoice_id": invoice.id,
+                "invoice_number": invoice.invoice_number,
+                "total_amount": invoice.total_amount,
+                "status": "created"
+            }
+            
+        except Exception as e:
+            logger.error(f"Error creating invoice from SOAP note: {str(e)}")
+            workflow_results["invoice_created"] = {"status": "error", "message": str(e)}
+    
+    # WORKFLOW 2: Inventory Updates (if medications were prescribed/dispensed)
+    prescribed_medications = completion_data.get("prescribed_medications", [])
+    if prescribed_medications:
+        try:
+            inventory_updates = []
+            for med in prescribed_medications:
+                # Find inventory item by medication name/SKU
+                inventory_item = await db.inventory.find_one({
+                    "$or": [
+                        {"name": {"$regex": med.get("medication_name", ""), "$options": "i"}},
+                        {"sku": med.get("sku", "")}
+                    ]
+                }, {"_id": 0})
+                
+                if inventory_item:
+                    # Update stock (subtract dispensed quantity)
+                    dispensed_qty = med.get("quantity_dispensed", 1)
+                    new_stock = inventory_item["current_stock"] - dispensed_qty
+                    
+                    await db.inventory.update_one(
+                        {"id": inventory_item["id"]},
+                        {"$set": {"current_stock": new_stock, "updated_at": jsonable_encoder(datetime.utcnow())}}
+                    )
+                    
+                    # Create inventory transaction
+                    transaction = InventoryTransaction(
+                        item_id=inventory_item["id"],
+                        transaction_type="out",
+                        quantity=dispensed_qty,
+                        reason="dispensed_to_patient",
+                        notes=f"Dispensed to {patient['name'][0]['given'][0]} {patient['name'][0]['family']} - SOAP note {soap_note_id}",
+                        created_by=current_user.username
+                    )
+                    
+                    transaction_dict = jsonable_encoder(transaction)
+                    await db.inventory_transactions.insert_one(transaction_dict)
+                    
+                    inventory_updates.append({
+                        "item_id": inventory_item["id"],
+                        "item_name": inventory_item["name"],
+                        "previous_stock": inventory_item["current_stock"],
+                        "new_stock": new_stock,
+                        "dispensed_quantity": dispensed_qty
+                    })
+            
+            workflow_results["inventory_updated"] = inventory_updates
+            
+        except Exception as e:
+            logger.error(f"Error updating inventory from SOAP note: {str(e)}")
+            workflow_results["inventory_updated"] = {"status": "error", "message": str(e)}
+    
+    # WORKFLOW 3: Staff Activity Tracking
+    try:
+        # Record staff activity
+        activity_log = {
+            "id": str(uuid.uuid4()),
+            "staff_id": current_user.id if hasattr(current_user, 'id') else current_user.username,
+            "staff_name": getattr(current_user, 'full_name', current_user.username),
+            "activity_type": "soap_note_completion",
+            "patient_id": soap_note["patient_id"],
+            "encounter_id": soap_note["encounter_id"],
+            "soap_note_id": soap_note_id,
+            "activity_description": f"Completed SOAP note for {patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
+            "duration_minutes": completion_data.get("session_duration", 30),
+            "timestamp": jsonable_encoder(datetime.utcnow())
+        }
+        
+        await db.staff_activities.insert_one(activity_log)
+        workflow_results["activity_logged"] = {
+            "activity_id": activity_log["id"],
+            "status": "logged"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error logging staff activity: {str(e)}")
+        workflow_results["activity_logged"] = {"status": "error", "message": str(e)}
+    
+    # Get updated SOAP note
+    updated_soap_note = await db.soap_notes.find_one({"id": soap_note_id}, {"_id": 0})
+    
+    return {
+        "message": "SOAP note completed successfully",
+        "soap_note": SOAPNote(**updated_soap_note),
+        "automated_workflows": workflow_results,
+        "billable_services_processed": len(billable_services),
+        "inventory_items_updated": len(prescribed_medications) if prescribed_medications else 0
+    }
+
 @api_router.get("/soap-notes/encounter/{encounter_id}", response_model=List[SOAPNote])
 async def get_encounter_soap_notes(encounter_id: str):
     notes = await db.soap_notes.find({"encounter_id": encounter_id}).to_list(1000)
