@@ -211,6 +211,8 @@ const Dashboard = () => {
     switch (activeModule) {
       case 'patients':
         return <PatientsModule />;
+      case 'scheduling':
+        return <SchedulingModule setActiveModule={setActiveModule} />;
       case 'invoices':
         return <InvoicesModule setActiveModule={setActiveModule} />;
       case 'system-settings':
