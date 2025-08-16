@@ -7729,7 +7729,7 @@ async def prescribe_medication_from_chart(
             refills=prescription_data.get("refills", 0),
             indication=prescription_data.get("indication", ""),
             created_by=current_user.username,
-            status="active"
+            status=PrescriptionStatus.ACTIVE
         )
         
         prescription_dict = jsonable_encoder(prescription)
