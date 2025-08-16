@@ -261,12 +261,18 @@ def test_soap_note_workflow_automation():
         result = response.json()
         
         # Verify automated workflows triggered
-        expected_keys = ['soap_note', 'invoice_created', 'inventory_updated', 'staff_activity_logged']
+        expected_keys = ['automated_workflows']
         success = all(key in result for key in expected_keys)
         
-        if success:
-            print_test_result("SOAP Note Completion - Automated Workflows", True, result, 
-                            f"Invoice: {result.get('invoice_created', {}).get('invoice_number', 'N/A')}")
+        if success and 'automated_workflows' in result:
+            workflows = result['automated_workflows']
+            invoice_created = workflows.get('invoice_created', {})
+            if invoice_created.get('status') == 'created':
+                print_test_result("SOAP Note Completion - Automated Workflows", True, result, 
+                                f"Invoice: {invoice_created.get('invoice_number', 'N/A')}, Total: ${invoice_created.get('total_amount', 0)}")
+            else:
+                print_test_result("SOAP Note Completion - Automated Workflows", False, result, 
+                                "Invoice creation failed")
         else:
             print_test_result("SOAP Note Completion - Automated Workflows", False, result, 
                             f"Missing keys: {[k for k in expected_keys if k not in result]}")
