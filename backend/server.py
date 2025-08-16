@@ -1262,6 +1262,60 @@ class Appointment(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
+# Enhanced Scheduling Models for Advanced Features
+class RecurrenceType(str, Enum):
+    NONE = "none"
+    DAILY = "daily"
+    WEEKLY = "weekly"
+    MONTHLY = "monthly"
+    YEARLY = "yearly"
+
+class AppointmentRecurrence(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    parent_appointment_id: str
+    recurrence_type: RecurrenceType
+    recurrence_interval: int = 1  # Every X days/weeks/months
+    recurrence_end_date: Optional[date] = None
+    max_occurrences: Optional[int] = None
+    days_of_week: Optional[List[int]] = None  # For weekly: [0,2,4] = Mon,Wed,Fri
+    day_of_month: Optional[int] = None  # For monthly: 15 = 15th of month
+    created_instances: List[str] = []  # List of created appointment IDs
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class WaitingListEntry(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    patient_name: str
+    patient_phone: Optional[str] = None
+    patient_email: Optional[str] = None
+    provider_id: str
+    provider_name: str
+    preferred_date: date
+    preferred_time_start: Optional[str] = None  # HH:MM
+    preferred_time_end: Optional[str] = None    # HH:MM
+    appointment_type: AppointmentType
+    priority: int = 1  # 1=low, 2=medium, 3=high, 4=urgent
+    duration_minutes: int = 30
+    reason: str
+    notes: Optional[str] = None
+    is_active: bool = True
+    created_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class AppointmentConflict(BaseModel):
+    conflicting_appointment_id: str
+    conflict_type: str  # "overlap", "double_booking", "provider_unavailable"
+    conflict_message: str
+
+class CalendarView(BaseModel):
+    view_type: str  # "day", "week", "month"
+    start_date: date
+    end_date: date
+    appointments: List[Appointment]
+    providers: List[Provider]
+    available_slots: List[TimeSlot]
+
 # Patient Communications Models
 
 class MessageType(str, Enum):
