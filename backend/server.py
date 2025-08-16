@@ -4520,28 +4520,44 @@ async def get_checks():
     return [Check(**check) for check in checks]
 
 @api_router.put("/checks/{check_id}/status")
-async def update_check_status(check_id: str, status: CheckStatus):
+async def update_check_status(check_id: str, status_data: Dict[str, str], current_user: User = Depends(get_current_active_user)):
+    """Update check status"""
     try:
-        update_data = {"status": status, "updated_at": datetime.utcnow()}
+        # Validate status
+        new_status = status_data.get("status")
+        valid_statuses = ["draft", "printed", "issued", "cleared", "voided"]
+        if new_status not in valid_statuses:
+            raise HTTPException(status_code=422, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
         
-        if status == CheckStatus.PRINTED:
-            update_data["printed_date"] = datetime.utcnow()
-        elif status == CheckStatus.ISSUED:
-            update_data["issued_date"] = datetime.utcnow()
-        elif status == CheckStatus.CASHED:
-            update_data["cashed_date"] = datetime.utcnow()
-        elif status == CheckStatus.VOID:
-            update_data["void_date"] = date.today()
+        # Check if check exists
+        existing_check = await db.checks.find_one({"id": check_id})
+        if not existing_check:
+            raise HTTPException(status_code=404, detail="Check not found")
+        
+        update_data = {"status": new_status, "updated_at": jsonable_encoder(datetime.utcnow())}
+        
+        # Set appropriate date fields based on status
+        if new_status == "printed":
+            update_data["printed_date"] = jsonable_encoder(datetime.utcnow())
+        elif new_status == "issued":
+            update_data["issued_date"] = jsonable_encoder(datetime.utcnow())
+        elif new_status == "cleared":
+            update_data["cleared_date"] = jsonable_encoder(datetime.utcnow())
+        elif new_status == "voided":
+            update_data["void_date"] = jsonable_encoder(date.today())
         
         result = await db.checks.update_one(
             {"id": check_id},
-            {"$set": jsonable_encoder(update_data)}
+            {"$set": update_data}
         )
         
         if result.matched_count == 0:
             raise HTTPException(status_code=404, detail="Check not found")
         
-        return {"message": "Check status updated successfully"}
+        # Return updated check
+        updated_check = await db.checks.find_one({"id": check_id}, {"_id": 0})
+        return Check(**updated_check)
+        
     except HTTPException:
         raise
     except Exception as e:
