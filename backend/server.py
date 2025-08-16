@@ -1270,6 +1270,153 @@ class RecurrenceType(str, Enum):
     MONTHLY = "monthly"
     YEARLY = "yearly"
 
+# Telehealth System Models
+class TelehealthSessionStatus(str, Enum):
+    SCHEDULED = "scheduled"
+    WAITING = "waiting"
+    IN_PROGRESS = "in_progress"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    NO_SHOW = "no_show"
+    TECHNICAL_ISSUES = "technical_issues"
+
+class TelehealthSessionType(str, Enum):
+    VIDEO_CONSULTATION = "video_consultation"
+    AUDIO_ONLY = "audio_only"
+    FOLLOW_UP = "follow_up"
+    THERAPY_SESSION = "therapy_session"
+    GROUP_SESSION = "group_session"
+    EMERGENCY_CONSULT = "emergency_consult"
+
+class TelehealthParticipant(BaseModel):
+    user_id: str
+    user_name: str
+    user_type: str  # "patient", "provider", "observer"
+    joined_at: Optional[datetime] = None
+    left_at: Optional[datetime] = None
+    connection_quality: Optional[str] = None  # "excellent", "good", "fair", "poor"
+    is_video_enabled: bool = True
+    is_audio_enabled: bool = True
+    is_screen_sharing: bool = False
+
+class TelehealthTechnicalSpecs(BaseModel):
+    video_quality: str = "HD"  # "HD", "SD", "Low"
+    audio_quality: str = "High"  # "High", "Medium", "Low"
+    bandwidth_usage: Optional[float] = None  # Mbps
+    connection_type: Optional[str] = None  # "wifi", "cellular", "ethernet"
+    device_type: Optional[str] = None  # "desktop", "mobile", "tablet"
+    browser_info: Optional[str] = None
+
+class TelehealthChatMessage(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    session_id: str
+    sender_id: str
+    sender_name: str
+    sender_type: str  # "patient", "provider", "system"
+    message: str
+    message_type: str = "text"  # "text", "file", "system", "prescription"
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    is_private: bool = False  # For provider-only messages
+    file_url: Optional[str] = None
+
+class TelehealthSession(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    session_number: str = Field(default_factory=lambda: f"TEL-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}")
+    
+    # Core Session Information
+    appointment_id: Optional[str] = None  # Link to scheduled appointment
+    patient_id: str
+    patient_name: str
+    provider_id: str
+    provider_name: str
+    
+    # Session Details
+    session_type: TelehealthSessionType
+    status: TelehealthSessionStatus = TelehealthSessionStatus.SCHEDULED
+    title: str
+    description: Optional[str] = None
+    
+    # Scheduling
+    scheduled_start: datetime
+    scheduled_end: datetime
+    actual_start: Optional[datetime] = None
+    actual_end: Optional[datetime] = None
+    duration_minutes: int = 30
+    
+    # Technical Configuration
+    session_url: Optional[str] = None  # Meeting room URL
+    room_id: Optional[str] = None  # Video conferencing room ID
+    access_code: Optional[str] = None  # Optional meeting passcode
+    recording_enabled: bool = False
+    recording_url: Optional[str] = None
+    
+    # Participants
+    participants: List[TelehealthParticipant] = []
+    max_participants: int = 10
+    
+    # Session Data
+    technical_specs: Optional[TelehealthTechnicalSpecs] = None
+    chat_messages: List[TelehealthChatMessage] = []
+    session_notes: Optional[str] = None
+    provider_notes: Optional[str] = None
+    
+    # Quality and Feedback
+    patient_rating: Optional[int] = None  # 1-5 stars
+    provider_rating: Optional[int] = None
+    technical_issues: List[str] = []
+    
+    # Billing and Documentation
+    billable: bool = True
+    billing_code: Optional[str] = None
+    encounter_id: Optional[str] = None  # Link to created encounter
+    soap_note_id: Optional[str] = None  # Link to SOAP note
+    
+    # Metadata
+    created_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class TelehealthSessionCreate(BaseModel):
+    patient_id: str
+    provider_id: str
+    session_type: TelehealthSessionType
+    title: str
+    description: Optional[str] = None
+    scheduled_start: datetime
+    duration_minutes: int = 30
+    appointment_id: Optional[str] = None
+    recording_enabled: bool = False
+    access_code: Optional[str] = None
+
+class TelehealthSessionUpdate(BaseModel):
+    status: Optional[TelehealthSessionStatus] = None
+    session_notes: Optional[str] = None
+    provider_notes: Optional[str] = None
+    patient_rating: Optional[int] = None
+    provider_rating: Optional[int] = None
+    technical_issues: Optional[List[str]] = None
+
+class TelehealthWaitingRoom(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    session_id: str
+    patient_id: str
+    patient_name: str
+    joined_at: datetime = Field(default_factory=datetime.utcnow)
+    pre_session_form_completed: bool = False
+    technical_check_completed: bool = False
+    ready_to_join: bool = False
+    estimated_wait_time: Optional[int] = None  # minutes
+    provider_notified: bool = False
+
+# WebRTC Signaling Models
+class WebRTCSignal(BaseModel):
+    session_id: str
+    from_user_id: str
+    to_user_id: str
+    signal_type: str  # "offer", "answer", "ice-candidate", "join", "leave"
+    signal_data: dict
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+
 class AppointmentRecurrence(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     parent_appointment_id: str
