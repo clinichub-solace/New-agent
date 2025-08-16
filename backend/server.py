@@ -4588,6 +4588,45 @@ async def get_check_print_data(check_id: str):
         logger.error(f"Error getting check print data: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error getting print data: {str(e)}")
 
+@api_router.post("/checks/{check_id}/print")
+async def print_check(check_id: str, current_user: User = Depends(get_current_active_user)):
+    """Print check and update status to printed"""
+    try:
+        # Check if check exists
+        check = await db.checks.find_one({"id": check_id}, {"_id": 0})
+        if not check:
+            raise HTTPException(status_code=404, detail="Check not found")
+        
+        check_obj = Check(**check)
+        
+        # Validate that check can be printed (not already printed or voided)
+        if check_obj.status in ["printed", "issued", "cleared", "voided"]:
+            raise HTTPException(status_code=400, detail=f"Check cannot be printed - current status: {check_obj.status}")
+        
+        # Update check status to printed
+        result = await db.checks.update_one(
+            {"id": check_id},
+            {"$set": {"status": "printed", "updated_at": jsonable_encoder(datetime.utcnow())}}
+        )
+        
+        if result.modified_count == 0:
+            raise HTTPException(status_code=404, detail="Check not found")
+        
+        # Get updated check for response
+        updated_check = await db.checks.find_one({"id": check_id}, {"_id": 0})
+        
+        return {
+            "message": "Check printed successfully",
+            "check": Check(**updated_check),
+            "print_job_id": f"PRINT-{check_id[:8]}-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error printing check: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error printing check: {str(e)}")
+
 # Financial Transactions
 @api_router.post("/financial-transactions", response_model=FinancialTransaction)
 async def create_financial_transaction(transaction_data: FinancialTransactionCreate):
