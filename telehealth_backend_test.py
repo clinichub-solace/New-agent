@@ -336,7 +336,7 @@ def test_session_lifecycle_management(token, session_id):
     except Exception as e:
         print_test_result("Verify Session Status (Completed)", False, error_msg=str(e))
 
-def test_waiting_room_system(token, patient_id, patient_name):
+def test_waiting_room_system(token, patient_id, patient_name, provider_id):
     """Test 3: Waiting Room System"""
     print("\n⏳ TEST 3: WAITING ROOM SYSTEM")
     
@@ -349,7 +349,7 @@ def test_waiting_room_system(token, patient_id, patient_name):
         scheduled_start = datetime.now() + timedelta(minutes=30)
         data = {
             "patient_id": patient_id,
-            "provider_id": "test-provider-id",
+            "provider_id": provider_id,  # Use real provider ID
             "session_type": "video_consultation",
             "title": "Waiting Room Test Session",
             "scheduled_start": scheduled_start.isoformat(),
