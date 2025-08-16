@@ -2650,6 +2650,26 @@ async def get_patient(patient_id: str):
         raise HTTPException(status_code=404, detail="Patient not found")
     return Patient(**patient)
 
+@api_router.put("/patients/{patient_id}", response_model=Patient)
+async def update_patient(patient_id: str, patient_data: PatientCreate, current_user: User = Depends(get_current_active_user)):
+    """Update existing patient"""
+    # Check if patient exists
+    existing_patient = await db.patients.find_one({"id": patient_id})
+    if not existing_patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    # Create updated patient while preserving created_at
+    updated_patient = Patient(
+        id=patient_id,
+        created_at=existing_patient["created_at"],  # Preserve original creation time
+        updated_at=datetime.utcnow(),
+        **patient_data.dict()
+    )
+    
+    updated_patient_dict = jsonable_encoder(updated_patient)
+    await db.patients.replace_one({"id": patient_id}, updated_patient_dict)
+    return updated_patient
+
 # Smart Form Routes
 @api_router.post("/forms", response_model=SmartForm)
 async def create_form(form: SmartForm, current_user: User = Depends(get_current_active_user)):
