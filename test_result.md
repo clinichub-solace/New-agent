@@ -803,20 +803,14 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Complete Missing UPDATE Endpoints"
-    - "Patient UPDATE Endpoint Fix"
-    - "SOAP Notes UPDATE Endpoints"
-    - "Inventory UPDATE/DELETE Endpoints"
-    - "Invoice UPDATE/Status Endpoints"
-    - "Financial Transactions UPDATE Endpoints"
-    - "Check Printing Functionality"
+    - "Invoice UPDATE endpoint server error fix"
+    - "Check creation validation fix (check_date field)"
+    - "Financial transaction validation improvements"
   stuck_tasks:
-    - "UPDATE operations failing across modules"
-    - "Prescription creation (500 errors)"
-    - "Referrals endpoints (422/500 errors)"
-    - "Financial reports missing"
-  test_all: true
-  test_priority: "stuck_first"
+    - "Invoice UPDATE endpoint (500 server error)"
+    - "Check creation validation (check_date required)"
+  test_all: false
+  test_priority: "high_first"
       - working: false
         agent: "testing"
         comment: "The Patient Communications System has not been implemented yet. Attempted to test the /api/communications endpoints but received 404 Not Found errors. None of the required endpoints (/api/communications/init-templates, /api/communications/templates, /api/communications/send, /api/communications/messages) have been implemented."
