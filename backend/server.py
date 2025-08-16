@@ -5744,7 +5744,7 @@ async def create_medication(medication_data: MedicationCreate):
 
 @api_router.get("/medications/patient/{patient_id}", response_model=List[Medication])
 async def get_patient_medications(patient_id: str):
-    medications = await db.medications.find({"patient_id": patient_id}).to_list(1000)
+    medications = await db.medications.find({"patient_id": patient_id}, {"_id": 0}).to_list(1000)
     return [Medication(**medication) for medication in medications]
 
 @api_router.put("/medications/{medication_id}/status")
