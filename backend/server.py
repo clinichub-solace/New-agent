@@ -8483,59 +8483,85 @@ async def get_telehealth_sessions(
         # Populate missing fields for sessions that were created with old model
         populated_sessions = []
         for session in sessions:
-            # If missing required fields, populate them
-            if "patient_name" not in session and session.get("patient_id"):
-                patient = await db.patients.find_one({"id": session["patient_id"]}, {"_id": 0})
-                if patient:
-                    session["patient_name"] = f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}"
-                else:
-                    session["patient_name"] = "Unknown Patient"
-            
-            if "provider_name" not in session and session.get("provider_id"):
-                provider = await db.providers.find_one({"id": session["provider_id"]}, {"_id": 0})
-                if provider:
-                    session["provider_name"] = f"{provider.get('title', 'Dr.')} {provider.get('first_name', '')} {provider.get('last_name', '')}".strip()
-                else:
-                    session["provider_name"] = "Unknown Provider"
-            
-            if "title" not in session:
-                session["title"] = f"Telehealth Session - {session.get('session_type', 'consultation').replace('_', ' ').title()}"
-            
-            if "scheduled_end" not in session and session.get("scheduled_start") and session.get("duration_minutes"):
-                scheduled_start = session["scheduled_start"]
-                if isinstance(scheduled_start, str):
-                    # Handle different datetime string formats
-                    try:
-                        scheduled_start = datetime.fromisoformat(scheduled_start.replace('Z', '+00:00'))
-                    except:
-                        scheduled_start = datetime.strptime(scheduled_start, "%Y-%m-%dT%H:%M:%S.%f")
-                elif not isinstance(scheduled_start, datetime):
-                    scheduled_start = datetime.utcnow()
-                session["scheduled_end"] = scheduled_start + timedelta(minutes=session.get("duration_minutes", 30))
-            
-            # Ensure all required fields have default values
-            if "duration_minutes" not in session:
-                session["duration_minutes"] = 30
-            if "session_type" not in session:
-                session["session_type"] = "video_consultation"
-            if "status" not in session:
-                session["status"] = "scheduled"
-            if "recording_enabled" not in session:
-                session["recording_enabled"] = False
-            if "billable" not in session:
-                session["billable"] = True
-            if "max_participants" not in session:
-                session["max_participants"] = 10
-            if "participants" not in session:
-                session["participants"] = []
-            if "chat_messages" not in session:
-                session["chat_messages"] = []
-            if "technical_issues" not in session:
-                session["technical_issues"] = []
-            if "created_by" not in session:
-                session["created_by"] = "system"
-            
-            populated_sessions.append(TelehealthSession(**session))
+            try:
+                # If missing required fields, populate them
+                if "patient_name" not in session and session.get("patient_id"):
+                    patient = await db.patients.find_one({"id": session["patient_id"]}, {"_id": 0})
+                    if patient:
+                        session["patient_name"] = f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}"
+                    else:
+                        session["patient_name"] = "Unknown Patient"
+                
+                if "provider_name" not in session and session.get("provider_id"):
+                    provider = await db.providers.find_one({"id": session["provider_id"]}, {"_id": 0})
+                    if provider:
+                        session["provider_name"] = f"{provider.get('title', 'Dr.')} {provider.get('first_name', '')} {provider.get('last_name', '')}".strip()
+                    else:
+                        session["provider_name"] = "Unknown Provider"
+                
+                if "title" not in session:
+                    session["title"] = f"Telehealth Session - {session.get('session_type', 'consultation').replace('_', ' ').title()}"
+                
+                if "scheduled_end" not in session:
+                    if session.get("scheduled_start") and session.get("duration_minutes"):
+                        scheduled_start = session["scheduled_start"]
+                        if isinstance(scheduled_start, str):
+                            # Handle different datetime string formats
+                            try:
+                                scheduled_start = datetime.fromisoformat(scheduled_start.replace('Z', '+00:00'))
+                            except:
+                                try:
+                                    scheduled_start = datetime.strptime(scheduled_start, "%Y-%m-%dT%H:%M:%S.%f")
+                                except:
+                                    scheduled_start = datetime.utcnow()
+                        elif not isinstance(scheduled_start, datetime):
+                            scheduled_start = datetime.utcnow()
+                        session["scheduled_end"] = scheduled_start + timedelta(minutes=session.get("duration_minutes", 30))
+                    else:
+                        # Default to 30 minutes from now if no scheduled_start
+                        session["scheduled_end"] = datetime.utcnow() + timedelta(minutes=30)
+                
+                # Ensure all required fields have default values
+                if "duration_minutes" not in session:
+                    session["duration_minutes"] = 30
+                if "session_type" not in session:
+                    session["session_type"] = "video_consultation"
+                if "status" not in session:
+                    session["status"] = "scheduled"
+                if "recording_enabled" not in session:
+                    session["recording_enabled"] = False
+                if "billable" not in session:
+                    session["billable"] = True
+                if "max_participants" not in session:
+                    session["max_participants"] = 10
+                if "participants" not in session:
+                    session["participants"] = []
+                if "chat_messages" not in session:
+                    session["chat_messages"] = []
+                if "technical_issues" not in session:
+                    session["technical_issues"] = []
+                if "created_by" not in session:
+                    session["created_by"] = "system"
+                
+                # Convert string dates to datetime objects if needed
+                for date_field in ["scheduled_start", "scheduled_end", "actual_start", "actual_end", "created_at", "updated_at"]:
+                    if date_field in session and isinstance(session[date_field], str):
+                        try:
+                            session[date_field] = datetime.fromisoformat(session[date_field].replace('Z', '+00:00'))
+                        except:
+                            try:
+                                session[date_field] = datetime.strptime(session[date_field], "%Y-%m-%dT%H:%M:%S.%f")
+                            except:
+                                if date_field in ["created_at", "updated_at"]:
+                                    session[date_field] = datetime.utcnow()
+                                else:
+                                    session[date_field] = None
+                
+                populated_sessions.append(TelehealthSession(**session))
+            except Exception as e:
+                # Skip sessions that can't be converted
+                print(f"Skipping session {session.get('id', 'unknown')}: {str(e)}")
+                continue
         
         return populated_sessions
         
