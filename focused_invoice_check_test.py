@@ -492,6 +492,7 @@ def main():
     
     results = {
         "invoice_update": test_invoice_update(),
+        "invoice_status_update": test_invoice_status_update(),
         "financial_transaction_update": test_financial_transaction_update(),
         "check_creation": test_check_creation(),
         "check_print": test_check_print(),
