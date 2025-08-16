@@ -3491,6 +3491,14 @@ async def update_inventory_item(item_id: str, item_data: InventoryItemCreate, cu
     await db.inventory.replace_one({"id": item_id}, updated_item_dict)
     return updated_item
 
+@api_router.delete("/inventory/{item_id}")
+async def delete_inventory_item(item_id: str, current_user: User = Depends(get_current_active_user)):
+    """Delete inventory item"""
+    result = await db.inventory.delete_one({"id": item_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="Inventory item not found")
+    return {"message": "Inventory item deleted successfully"}
+
 @api_router.post("/inventory/{item_id}/transaction", response_model=InventoryTransaction)
 async def create_inventory_transaction(item_id: str, transaction: InventoryTransaction):
     try:
