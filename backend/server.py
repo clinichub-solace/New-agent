@@ -8398,6 +8398,425 @@ async def update_prescription_status_from_chart(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error updating prescription status: {str(e)}")
 
+# Telehealth System API Endpoints
+@api_router.post("/telehealth/sessions", response_model=TelehealthSession)
+async def create_telehealth_session(session_data: TelehealthSessionCreate, current_user: User = Depends(get_current_active_user)):
+    """Create a new telehealth session"""
+    try:
+        # Get patient details
+        patient = await db.patients.find_one({"id": session_data.patient_id}, {"_id": 0})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        patient_name = f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}"
+        
+        # Get provider details
+        provider = await db.providers.find_one({"id": session_data.provider_id}, {"_id": 0})
+        if not provider:
+            raise HTTPException(status_code=404, detail="Provider not found")
+        
+        provider_name = provider.get("name", f"{provider.get('first_name', '')} {provider.get('last_name', '')}").strip()
+        
+        # Calculate session end time
+        scheduled_end = session_data.scheduled_start + timedelta(minutes=session_data.duration_minutes)
+        
+        # Generate room ID and session URL
+        room_id = f"room_{session_data.patient_id}_{session_data.provider_id}_{int(datetime.utcnow().timestamp())}"
+        session_url = f"/telehealth/room/{room_id}"
+        
+        # Create session
+        session = TelehealthSession(
+            patient_id=session_data.patient_id,
+            patient_name=patient_name,
+            provider_id=session_data.provider_id,
+            provider_name=provider_name,
+            session_type=session_data.session_type,
+            title=session_data.title,
+            description=session_data.description,
+            scheduled_start=session_data.scheduled_start,
+            scheduled_end=scheduled_end,
+            duration_minutes=session_data.duration_minutes,
+            appointment_id=session_data.appointment_id,
+            room_id=room_id,
+            session_url=session_url,
+            recording_enabled=session_data.recording_enabled,
+            access_code=session_data.access_code,
+            created_by=current_user.username
+        )
+        
+        session_dict = jsonable_encoder(session)
+        await db.telehealth_sessions.insert_one(session_dict)
+        
+        return session
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating telehealth session: {str(e)}")
+
+@api_router.get("/telehealth/sessions", response_model=List[TelehealthSession])
+async def get_telehealth_sessions(
+    patient_id: Optional[str] = None,
+    provider_id: Optional[str] = None,
+    status: Optional[TelehealthSessionStatus] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get telehealth sessions with filtering options"""
+    try:
+        query = {}
+        
+        if patient_id:
+            query["patient_id"] = patient_id
+        if provider_id:
+            query["provider_id"] = provider_id
+        if status:
+            query["status"] = status
+        
+        if start_date and end_date:
+            query["scheduled_start"] = {
+                "$gte": datetime.fromisoformat(start_date),
+                "$lte": datetime.fromisoformat(end_date)
+            }
+        
+        sessions = await db.telehealth_sessions.find(query, {"_id": 0}).sort("scheduled_start", -1).to_list(100)
+        return [TelehealthSession(**session) for session in sessions]
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving telehealth sessions: {str(e)}")
+
+@api_router.get("/telehealth/sessions/{session_id}", response_model=TelehealthSession)
+async def get_telehealth_session(session_id: str, current_user: User = Depends(get_current_active_user)):
+    """Get specific telehealth session"""
+    session = await db.telehealth_sessions.find_one({"id": session_id}, {"_id": 0})
+    if not session:
+        raise HTTPException(status_code=404, detail="Telehealth session not found")
+    return TelehealthSession(**session)
+
+@api_router.put("/telehealth/sessions/{session_id}", response_model=TelehealthSession)
+async def update_telehealth_session(
+    session_id: str, 
+    session_data: TelehealthSessionUpdate, 
+    current_user: User = Depends(get_current_active_user)
+):
+    """Update telehealth session"""
+    try:
+        # Check if session exists
+        existing_session = await db.telehealth_sessions.find_one({"id": session_id})
+        if not existing_session:
+            raise HTTPException(status_code=404, detail="Telehealth session not found")
+        
+        # Prepare update data
+        update_data = {k: v for k, v in session_data.dict().items() if v is not None}
+        update_data["updated_at"] = jsonable_encoder(datetime.utcnow())
+        
+        # Update session
+        result = await db.telehealth_sessions.update_one(
+            {"id": session_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Telehealth session not found")
+        
+        # Return updated session
+        updated_session = await db.telehealth_sessions.find_one({"id": session_id}, {"_id": 0})
+        return TelehealthSession(**updated_session)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating telehealth session: {str(e)}")
+
+@api_router.post("/telehealth/sessions/{session_id}/start")
+async def start_telehealth_session(session_id: str, current_user: User = Depends(get_current_active_user)):
+    """Start a telehealth session"""
+    try:
+        # Check if session exists
+        session = await db.telehealth_sessions.find_one({"id": session_id}, {"_id": 0})
+        if not session:
+            raise HTTPException(status_code=404, detail="Telehealth session not found")
+        
+        # Update session status and start time
+        update_data = {
+            "status": TelehealthSessionStatus.IN_PROGRESS.value,
+            "actual_start": jsonable_encoder(datetime.utcnow()),
+            "updated_at": jsonable_encoder(datetime.utcnow())
+        }
+        
+        await db.telehealth_sessions.update_one(
+            {"id": session_id},
+            {"$set": update_data}
+        )
+        
+        # Create encounter if linked to appointment
+        encounter_id = None
+        if session.get("appointment_id"):
+            try:
+                encounter_data = {
+                    "patient_id": session["patient_id"],
+                    "provider_id": session["provider_id"],
+                    "encounter_type": "telemedicine",
+                    "date": datetime.utcnow().date().isoformat(),
+                    "time": datetime.utcnow().time().isoformat(),
+                    "status": "in_progress",
+                    "location": "Telehealth Session",
+                    "appointment_id": session["appointment_id"],
+                    "telehealth_session_id": session_id
+                }
+                
+                encounter = Encounter(**encounter_data)
+                encounter_dict = jsonable_encoder(encounter)
+                await db.encounters.insert_one(encounter_dict)
+                encounter_id = encounter.id
+                
+                # Link encounter to session
+                await db.telehealth_sessions.update_one(
+                    {"id": session_id},
+                    {"$set": {"encounter_id": encounter_id}}
+                )
+                
+            except Exception as e:
+                logger.warning(f"Could not create encounter for telehealth session: {str(e)}")
+        
+        return {
+            "message": "Telehealth session started successfully",
+            "session_id": session_id,
+            "encounter_id": encounter_id,
+            "room_url": session.get("session_url"),
+            "started_at": datetime.utcnow().isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error starting telehealth session: {str(e)}")
+
+@api_router.post("/telehealth/sessions/{session_id}/end")
+async def end_telehealth_session(session_id: str, session_summary: Dict[str, Any] = None, current_user: User = Depends(get_current_active_user)):
+    """End a telehealth session and finalize documentation"""
+    try:
+        # Check if session exists
+        session = await db.telehealth_sessions.find_one({"id": session_id}, {"_id": 0})
+        if not session:
+            raise HTTPException(status_code=404, detail="Telehealth session not found")
+        
+        # Calculate actual duration
+        actual_start = datetime.fromisoformat(session["actual_start"]) if session.get("actual_start") else datetime.utcnow()
+        actual_end = datetime.utcnow()
+        actual_duration = int((actual_end - actual_start).total_seconds() / 60)
+        
+        # Update session status and end time
+        update_data = {
+            "status": TelehealthSessionStatus.COMPLETED.value,
+            "actual_end": jsonable_encoder(actual_end),
+            "updated_at": jsonable_encoder(datetime.utcnow())
+        }
+        
+        # Add session summary if provided
+        if session_summary:
+            if "session_notes" in session_summary:
+                update_data["session_notes"] = session_summary["session_notes"]
+            if "provider_notes" in session_summary:
+                update_data["provider_notes"] = session_summary["provider_notes"]
+            if "technical_issues" in session_summary:
+                update_data["technical_issues"] = session_summary["technical_issues"]
+        
+        await db.telehealth_sessions.update_one(
+            {"id": session_id},
+            {"$set": update_data}
+        )
+        
+        # Complete associated encounter
+        if session.get("encounter_id"):
+            try:
+                await db.encounters.update_one(
+                    {"id": session["encounter_id"]},
+                    {"$set": {
+                        "status": "completed",
+                        "notes": session_summary.get("session_notes", "Telehealth session completed"),
+                        "updated_at": jsonable_encoder(datetime.utcnow())
+                    }}
+                )
+            except Exception as e:
+                logger.warning(f"Could not complete encounter: {str(e)}")
+        
+        return {
+            "message": "Telehealth session ended successfully",
+            "session_id": session_id,
+            "actual_duration": actual_duration,
+            "ended_at": actual_end.isoformat()
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error ending telehealth session: {str(e)}")
+
+# Waiting Room Management
+@api_router.post("/telehealth/waiting-room/{session_id}")
+async def join_waiting_room(session_id: str, current_user: User = Depends(get_current_active_user)):
+    """Join telehealth waiting room"""
+    try:
+        # Check if session exists
+        session = await db.telehealth_sessions.find_one({"id": session_id}, {"_id": 0})
+        if not session:
+            raise HTTPException(status_code=404, detail="Telehealth session not found")
+        
+        # Get patient details (assuming current user is patient or authorized)
+        patient_id = session["patient_id"]
+        patient_name = session["patient_name"]
+        
+        # Create waiting room entry
+        waiting_entry = TelehealthWaitingRoom(
+            session_id=session_id,
+            patient_id=patient_id,
+            patient_name=patient_name
+        )
+        
+        waiting_dict = jsonable_encoder(waiting_entry)
+        await db.telehealth_waiting_room.insert_one(waiting_dict)
+        
+        # Update session status
+        await db.telehealth_sessions.update_one(
+            {"id": session_id},
+            {"$set": {"status": TelehealthSessionStatus.WAITING.value}}
+        )
+        
+        return {
+            "message": "Joined waiting room successfully",
+            "waiting_entry_id": waiting_entry.id,
+            "estimated_wait_time": 5  # minutes
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error joining waiting room: {str(e)}")
+
+@api_router.get("/telehealth/waiting-room")
+async def get_waiting_room_patients(current_user: User = Depends(get_current_active_user)):
+    """Get patients in waiting room (for providers)"""
+    try:
+        waiting_patients = await db.telehealth_waiting_room.find({}, {"_id": 0}).sort("joined_at", 1).to_list(50)
+        return [TelehealthWaitingRoom(**patient) for patient in waiting_patients]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving waiting room: {str(e)}")
+
+# Chat and Communication
+@api_router.post("/telehealth/sessions/{session_id}/chat")
+async def send_chat_message(
+    session_id: str, 
+    message_data: Dict[str, Any], 
+    current_user: User = Depends(get_current_active_user)
+):
+    """Send chat message during telehealth session"""
+    try:
+        # Create chat message
+        chat_message = TelehealthChatMessage(
+            session_id=session_id,
+            sender_id=current_user.id if hasattr(current_user, 'id') else current_user.username,
+            sender_name=getattr(current_user, 'full_name', current_user.username),
+            sender_type=message_data.get("sender_type", "provider"),
+            message=message_data["message"],
+            message_type=message_data.get("message_type", "text"),
+            is_private=message_data.get("is_private", False)
+        )
+        
+        # Add message to session
+        await db.telehealth_sessions.update_one(
+            {"id": session_id},
+            {"$push": {"chat_messages": jsonable_encoder(chat_message)}}
+        )
+        
+        return chat_message
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error sending chat message: {str(e)}")
+
+@api_router.get("/telehealth/sessions/{session_id}/chat")
+async def get_chat_messages(session_id: str, current_user: User = Depends(get_current_active_user)):
+    """Get chat messages for telehealth session"""
+    try:
+        session = await db.telehealth_sessions.find_one({"id": session_id}, {"_id": 0})
+        if not session:
+            raise HTTPException(status_code=404, detail="Telehealth session not found")
+        
+        messages = session.get("chat_messages", [])
+        return [TelehealthChatMessage(**msg) for msg in messages]
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving chat messages: {str(e)}")
+
+# WebRTC Signaling Support
+@api_router.post("/telehealth/signaling")
+async def handle_webrtc_signal(signal_data: Dict[str, Any], current_user: User = Depends(get_current_active_user)):
+    """Handle WebRTC signaling for video calls"""
+    try:
+        signal = WebRTCSignal(
+            session_id=signal_data["session_id"],
+            from_user_id=signal_data["from_user_id"],
+            to_user_id=signal_data["to_user_id"],
+            signal_type=signal_data["signal_type"],
+            signal_data=signal_data["signal_data"]
+        )
+        
+        # Store signal temporarily for real-time delivery
+        signal_dict = jsonable_encoder(signal)
+        await db.webrtc_signals.insert_one(signal_dict)
+        
+        # In a production system, this would use WebSocket or Server-Sent Events
+        # to deliver the signal to the target user in real-time
+        
+        return {"message": "Signal processed successfully"}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error processing WebRTC signal: {str(e)}")
+
+# Integration with Appointment System
+@api_router.post("/appointments/{appointment_id}/convert-to-telehealth")
+async def convert_appointment_to_telehealth(
+    appointment_id: str, 
+    telehealth_data: Dict[str, Any], 
+    current_user: User = Depends(get_current_active_user)
+):
+    """Convert existing appointment to telehealth session"""
+    try:
+        # Get appointment
+        appointment = await db.appointments.find_one({"id": appointment_id}, {"_id": 0})
+        if not appointment:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        
+        # Create telehealth session from appointment
+        session_data = TelehealthSessionCreate(
+            patient_id=appointment["patient_id"],
+            provider_id=appointment["provider_id"],
+            session_type=TelehealthSessionType(telehealth_data.get("session_type", "video_consultation")),
+            title=f"Telehealth: {appointment.get('reason', appointment.get('appointment_type'))}",
+            description=f"Converted from appointment {appointment['appointment_number']}",
+            scheduled_start=datetime.combine(
+                datetime.fromisoformat(appointment["appointment_date"]).date(),
+                datetime.strptime(appointment["start_time"], "%H:%M").time()
+            ),
+            duration_minutes=appointment.get("duration_minutes", 30),
+            appointment_id=appointment_id,
+            recording_enabled=telehealth_data.get("recording_enabled", False)
+        )
+        
+        # Create the telehealth session
+        session = await create_telehealth_session(session_data, current_user)
+        
+        # Update appointment to indicate it's now a telehealth session
+        await db.appointments.update_one(
+            {"id": appointment_id},
+            {"$set": {
+                "appointment_type": "telemedicine",
+                "location": "Telehealth Session",
+                "telehealth_session_id": session.id,
+                "updated_at": jsonable_encoder(datetime.utcnow())
+            }}
+        )
+        
+        return {
+            "message": "Appointment converted to telehealth session successfully",
+            "session": session,
+            "appointment_updated": True
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error converting appointment to telehealth: {str(e)}")
+
 # Lab Integration API Endpoints
 
 # Lab Tests Management
