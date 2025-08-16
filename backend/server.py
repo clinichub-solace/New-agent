@@ -1408,7 +1408,150 @@ class TelehealthWaitingRoom(BaseModel):
     estimated_wait_time: Optional[int] = None  # minutes
     provider_notified: bool = False
 
-# WebRTC Signaling Models
+# Patient Portal System Models
+class PatientPortalUser(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str  # Link to main patient record
+    username: str
+    email: str
+    password_hash: str
+    is_active: bool = True
+    is_verified: bool = False
+    verification_token: Optional[str] = None
+    reset_token: Optional[str] = None
+    reset_token_expires: Optional[datetime] = None
+    last_login: Optional[datetime] = None
+    login_attempts: int = 0
+    locked_until: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PatientPortalSession(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    session_token: str
+    expires_at: datetime
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PatientMessage(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    provider_id: Optional[str] = None
+    subject: str
+    message: str
+    message_type: str = "general"  # general, appointment, prescription, billing, urgent
+    priority: str = "normal"  # low, normal, high, urgent
+    status: str = "unread"  # unread, read, replied, closed
+    is_patient_sender: bool = True
+    reply_to_message_id: Optional[str] = None
+    attachments: List[str] = []
+    read_at: Optional[datetime] = None
+    replied_at: Optional[datetime] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PatientAppointmentRequest(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    provider_id: Optional[str] = None
+    appointment_type: str
+    preferred_date: date
+    preferred_time: Optional[str] = None
+    alternate_dates: List[date] = []
+    reason: str
+    urgency: str = "routine"  # routine, urgent, emergency
+    status: str = "pending"  # pending, approved, denied, scheduled
+    notes: Optional[str] = None
+    staff_notes: Optional[str] = None
+    processed_by: Optional[str] = None
+    processed_at: Optional[datetime] = None
+    appointment_id: Optional[str] = None  # Link to created appointment
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PrescriptionRefillRequest(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    original_prescription_id: Optional[str] = None
+    medication_name: str
+    dosage: str
+    quantity_requested: int
+    pharmacy_name: Optional[str] = None
+    pharmacy_phone: Optional[str] = None
+    reason: Optional[str] = None
+    urgency: str = "routine"  # routine, urgent
+    status: str = "pending"  # pending, approved, denied, filled
+    provider_id: Optional[str] = None
+    processed_by: Optional[str] = None
+    processed_at: Optional[datetime] = None
+    staff_notes: Optional[str] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PatientPortalActivity(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    activity_type: str  # login, appointment_request, message_sent, bill_viewed, document_downloaded
+    description: str
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    additional_data: Optional[Dict[str, Any]] = None
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PatientPortalPreferences(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    email_notifications: bool = True
+    sms_notifications: bool = False
+    appointment_reminders: bool = True
+    lab_result_notifications: bool = True
+    prescription_reminders: bool = True
+    marketing_communications: bool = False
+    preferred_communication_method: str = "email"  # email, sms, phone, portal
+    language_preference: str = "en"
+    timezone: str = "America/Chicago"
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PatientDocument(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    document_type: str  # lab_result, imaging, form, consent, discharge_summary
+    title: str
+    description: Optional[str] = None
+    file_url: str
+    file_size: Optional[int] = None
+    file_type: str  # pdf, jpg, png, doc
+    is_patient_accessible: bool = True
+    requires_acknowledgment: bool = False
+    acknowledged_at: Optional[datetime] = None
+    uploaded_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+# Patient Portal Authentication Models
+class PatientPortalLogin(BaseModel):
+    username: str
+    password: str
+
+class PatientPortalRegister(BaseModel):
+    patient_id: str
+    username: str
+    email: str
+    password: str
+    confirm_password: str
+    date_of_birth: date  # For verification
+    last_four_ssn: Optional[str] = None  # Additional verification
+
+class PatientPortalPasswordReset(BaseModel):
+    email: str
+
+class PatientPortalPasswordChange(BaseModel):
+    current_password: str
+    new_password: str
+    confirm_password: str
 class WebRTCSignal(BaseModel):
     session_id: str
     from_user_id: str
