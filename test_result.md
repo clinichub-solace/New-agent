@@ -789,20 +789,20 @@ metadata:
 
 test_plan:
   current_focus:
-    - "eRx Functionality"
-    - "eRx Backend System Stability"
+    - "Complete Missing UPDATE Endpoints"
+    - "Patient UPDATE Endpoint Fix"
+    - "SOAP Notes UPDATE Endpoints"
+    - "Inventory UPDATE/DELETE Endpoints"
+    - "Invoice UPDATE/Status Endpoints"
+    - "Financial Transactions UPDATE Endpoints"
+    - "Check Printing Functionality"
   stuck_tasks:
-    - "Referrals Management System"
-    - "Clinical Templates & Protocols System"
-    - "Quality Measures & Reporting System"
-    - "Patient Portal System"
-    - "Document Management System"
-    - "Telehealth Module System"
-    - "Payroll Management System"
-    - "Frontend Code Organization"
-    - "General System Health Check"
-  test_all: false
-  test_priority: "high_first"
+    - "UPDATE operations failing across modules"
+    - "Prescription creation (500 errors)"
+    - "Referrals endpoints (422/500 errors)"
+    - "Financial reports missing"
+  test_all: true
+  test_priority: "stuck_first"
       - working: false
         agent: "testing"
         comment: "The Patient Communications System has not been implemented yet. Attempted to test the /api/communications endpoints but received 404 Not Found errors. None of the required endpoints (/api/communications/init-templates, /api/communications/templates, /api/communications/send, /api/communications/messages) have been implemented."
