@@ -8513,8 +8513,25 @@ async def get_telehealth_sessions(
                     scheduled_start = datetime.utcnow()
                 session["scheduled_end"] = scheduled_start + timedelta(minutes=session.get("duration_minutes", 30))
             
-            if "created_by" not in session:
-                session["created_by"] = "system"
+            # Ensure all required fields have default values
+            if "duration_minutes" not in session:
+                session["duration_minutes"] = 30
+            if "session_type" not in session:
+                session["session_type"] = "video_consultation"
+            if "status" not in session:
+                session["status"] = "scheduled"
+            if "recording_enabled" not in session:
+                session["recording_enabled"] = False
+            if "billable" not in session:
+                session["billable"] = True
+            if "max_participants" not in session:
+                session["max_participants"] = 10
+            if "participants" not in session:
+                session["participants"] = []
+            if "chat_messages" not in session:
+                session["chat_messages"] = []
+            if "technical_issues" not in session:
+                session["technical_issues"] = []
             
             populated_sessions.append(TelehealthSession(**session))
         
