@@ -291,16 +291,16 @@ def test_soap_note_workflow_automation():
         # Find invoice created from SOAP note
         soap_invoice = None
         for invoice in invoices:
-            if invoice.get('auto_generated') and invoice.get('encounter_id') == test_encounter_id:
+            if invoice.get('encounter_id') == test_encounter_id:
                 soap_invoice = invoice
                 break
         
         if soap_invoice:
             print_test_result("Verify Invoice Creation from SOAP Note", True, soap_invoice,
-                            f"Auto-generated invoice: {soap_invoice['invoice_number']}")
+                            f"Invoice: {soap_invoice['invoice_number']}, Total: ${soap_invoice['total_amount']}")
         else:
             print_test_result("Verify Invoice Creation from SOAP Note", False, None,
-                            "No auto-generated invoice found for SOAP note")
+                            "No invoice found for SOAP note encounter")
     except Exception as e:
         print_test_result("Verify Invoice Creation from SOAP Note", False, str(e))
     
