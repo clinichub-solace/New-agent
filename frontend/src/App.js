@@ -1133,16 +1133,82 @@ const PatientsModule = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // SOAP Notes state
+  // EHR Data states
   const [soapNotes, setSoapNotes] = useState([]);
+  const [vitalSigns, setVitalSigns] = useState([]);
+  const [allergies, setAllergies] = useState([]);
+  const [medications, setMedications] = useState([]);
+  const [prescriptions, setPrescriptions] = useState([]);
+  const [medicalHistory, setMedicalHistory] = useState([]);
+
+  // Form states
   const [showSoapForm, setShowSoapForm] = useState(false);
+  const [showVitalsForm, setShowVitalsForm] = useState(false);
+  const [showAllergyForm, setShowAllergyForm] = useState(false);
+  const [showMedicationForm, setShowMedicationForm] = useState(false);
+  const [showPrescriptionForm, setShowPrescriptionForm] = useState(false);
+  const [showHistoryForm, setShowHistoryForm] = useState(false);
+
+  // Editing states
   const [editingSoapNote, setEditingSoapNote] = useState(null);
+  const [editingVitals, setEditingVitals] = useState(null);
+  const [editingAllergy, setEditingAllergy] = useState(null);
+
+  // Form data states
   const [soapFormData, setSoapFormData] = useState({
     subjective: '',
     objective: '',
     assessment: '',
     plan: '',
     provider: user?.username || 'Dr. Provider'
+  });
+
+  const [vitalsFormData, setVitalsFormData] = useState({
+    temperature: '',
+    blood_pressure_systolic: '',
+    blood_pressure_diastolic: '',
+    heart_rate: '',
+    respiratory_rate: '',
+    oxygen_saturation: '',
+    weight: '',
+    height: '',
+    notes: ''
+  });
+
+  const [allergyFormData, setAllergyFormData] = useState({
+    allergen: '',
+    reaction: '',
+    severity: 'mild',
+    onset_date: '',
+    notes: ''
+  });
+
+  const [medicationFormData, setMedicationFormData] = useState({
+    name: '',
+    dosage: '',
+    frequency: '',
+    route: 'oral',
+    start_date: '',
+    end_date: '',
+    prescribing_physician: user?.username || 'Dr. Provider',
+    instructions: ''
+  });
+
+  const [prescriptionFormData, setPrescriptionFormData] = useState({
+    medication_name: '',
+    dosage: '',
+    quantity: '',
+    frequency: '',
+    duration: '',
+    instructions: '',
+    refills: 0
+  });
+
+  const [historyFormData, setHistoryFormData] = useState({
+    condition: '',
+    diagnosis_date: '',
+    status: 'active',
+    notes: ''
   });
 
   // Form state for adding new patient
@@ -1167,7 +1233,7 @@ const PatientsModule = () => {
 
   useEffect(() => {
     if (selectedPatient && activeTab === 'details') {
-      fetchPatientSoapNotes(selectedPatient.id);
+      fetchAllPatientData(selectedPatient.id);
     }
   }, [selectedPatient, activeTab]);
 
@@ -1186,13 +1252,23 @@ const PatientsModule = () => {
     }
   };
 
-  const fetchPatientSoapNotes = async (patientId) => {
+  const fetchAllPatientData = async (patientId) => {
     try {
-      const response = await axios.get(`${API}/soap-notes/patient/${patientId}`);
-      setSoapNotes(response.data);
+      const [soapResponse, vitalsResponse, allergiesResponse, medicationsResponse, prescriptionsResponse] = await Promise.all([
+        axios.get(`${API}/soap-notes/patient/${patientId}`).catch(() => ({ data: [] })),
+        axios.get(`${API}/vital-signs/patient/${patientId}`).catch(() => ({ data: [] })),
+        axios.get(`${API}/allergies/patient/${patientId}`).catch(() => ({ data: [] })),
+        axios.get(`${API}/medications/patient/${patientId}`).catch(() => ({ data: [] })),
+        axios.get(`${API}/patients/${patientId}/prescriptions`).catch(() => ({ data: [] }))
+      ]);
+
+      setSoapNotes(soapResponse.data);
+      setVitalSigns(vitalsResponse.data);
+      setAllergies(allergiesResponse.data);
+      setMedications(medicationsResponse.data);
+      setPrescriptions(prescriptionsResponse.data);
     } catch (error) {
-      console.error('Failed to fetch SOAP notes:', error);
-      setSoapNotes([]);
+      console.error('Failed to fetch patient data:', error);
     }
   };
 
@@ -1212,6 +1288,38 @@ const PatientsModule = () => {
   const handleSoapInputChange = (e) => {
     const { name, value } = e.target;
     setSoapFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleVitalsInputChange = (e) => {
+    const { name, value } = e.target;
+    setVitalsFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleAllergyInputChange = (e) => {
+    const { name, value } = e.target;
+    setAllergyFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleMedicationInputChange = (e) => {
+    const { name, value } = e.target;
+    setMedicationFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handlePrescriptionInputChange = (e) => {
+    const { name, value } = e.target;
+    setPrescriptionFormData(prev => ({
       ...prev,
       [name]: value
     }));
@@ -1248,6 +1356,7 @@ const PatientsModule = () => {
     }
   };
 
+  // SOAP Notes Submit
   const handleSoapSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -1293,10 +1402,161 @@ const PatientsModule = () => {
       });
       setShowSoapForm(false);
       setEditingSoapNote(null);
-      fetchPatientSoapNotes(selectedPatient.id); // Refresh SOAP notes
+      fetchAllPatientData(selectedPatient.id); // Refresh data
     } catch (error) {
       console.error('Failed to save SOAP note:', error);
       setError(error.response?.data?.detail || 'Failed to save SOAP note. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Vitals Submit
+  const handleVitalsSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const vitalsData = {
+        patient_id: selectedPatient.id,
+        ...vitalsFormData,
+        temperature: parseFloat(vitalsFormData.temperature) || 0,
+        blood_pressure_systolic: parseInt(vitalsFormData.blood_pressure_systolic) || 0,
+        blood_pressure_diastolic: parseInt(vitalsFormData.blood_pressure_diastolic) || 0,
+        heart_rate: parseInt(vitalsFormData.heart_rate) || 0,
+        respiratory_rate: parseInt(vitalsFormData.respiratory_rate) || 0,
+        oxygen_saturation: parseFloat(vitalsFormData.oxygen_saturation) || 0,
+        weight: parseFloat(vitalsFormData.weight) || 0,
+        height: parseFloat(vitalsFormData.height) || 0
+      };
+
+      await axios.post(`${API}/vital-signs`, vitalsData);
+      setSuccess('Vital signs added successfully!');
+      
+      setVitalsFormData({
+        temperature: '',
+        blood_pressure_systolic: '',
+        blood_pressure_diastolic: '',
+        heart_rate: '',
+        respiratory_rate: '',
+        oxygen_saturation: '',
+        weight: '',
+        height: '',
+        notes: ''
+      });
+      setShowVitalsForm(false);
+      fetchAllPatientData(selectedPatient.id);
+    } catch (error) {
+      console.error('Failed to save vital signs:', error);
+      setError(error.response?.data?.detail || 'Failed to save vital signs. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Allergy Submit
+  const handleAllergySubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const allergyData = {
+        patient_id: selectedPatient.id,
+        ...allergyFormData
+      };
+
+      await axios.post(`${API}/allergies`, allergyData);
+      setSuccess('Allergy added successfully!');
+      
+      setAllergyFormData({
+        allergen: '',
+        reaction: '',
+        severity: 'mild',
+        onset_date: '',
+        notes: ''
+      });
+      setShowAllergyForm(false);
+      fetchAllPatientData(selectedPatient.id);
+    } catch (error) {
+      console.error('Failed to save allergy:', error);
+      setError(error.response?.data?.detail || 'Failed to save allergy. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Medication Submit
+  const handleMedicationSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const medicationData = {
+        patient_id: selectedPatient.id,
+        ...medicationFormData
+      };
+
+      await axios.post(`${API}/medications`, medicationData);
+      setSuccess('Medication added successfully!');
+      
+      setMedicationFormData({
+        name: '',
+        dosage: '',
+        frequency: '',
+        route: 'oral',
+        start_date: '',
+        end_date: '',
+        prescribing_physician: user?.username || 'Dr. Provider',
+        instructions: ''
+      });
+      setShowMedicationForm(false);
+      fetchAllPatientData(selectedPatient.id);
+    } catch (error) {
+      console.error('Failed to save medication:', error);
+      setError(error.response?.data?.detail || 'Failed to save medication. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Prescription Submit  
+  const handlePrescriptionSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      const prescriptionData = {
+        patient_id: selectedPatient.id,
+        ...prescriptionFormData,
+        quantity: parseInt(prescriptionFormData.quantity) || 0,
+        refills: parseInt(prescriptionFormData.refills) || 0
+      };
+
+      await axios.post(`${API}/prescriptions`, prescriptionData);
+      setSuccess('Prescription created successfully!');
+      
+      setPrescriptionFormData({
+        medication_name: '',
+        dosage: '',
+        quantity: '',
+        frequency: '',
+        duration: '',
+        instructions: '',
+        refills: 0
+      });
+      setShowPrescriptionForm(false);
+      fetchAllPatientData(selectedPatient.id);
+    } catch (error) {
+      console.error('Failed to save prescription:', error);
+      setError(error.response?.data?.detail || 'Failed to save prescription. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -1355,7 +1615,7 @@ const PatientsModule = () => {
   return (
     <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-white">Patients/EHR Management</h2>
+        <h2 className="text-xl font-semibold text-white">Comprehensive EHR System</h2>
         
         <button
           onClick={() => setShowAddForm(!showAddForm)}
@@ -1523,7 +1783,7 @@ const PatientsModule = () => {
       
       <div className="space-y-4">
         {/* Tab Navigation */}
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 flex-wrap">
           <button
             onClick={() => setActiveTab('patients')}
             className={`px-4 py-2 rounded-lg transition-colors ${
@@ -1543,7 +1803,51 @@ const PatientsModule = () => {
             }`}
             disabled={!selectedPatient}
           >
-            Patient Details & SOAP Notes
+            🏥 Patient Chart
+          </button>
+          <button
+            onClick={() => setActiveTab('vitals')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'vitals' 
+                ? 'bg-blue-600 text-white' 
+                : 'text-blue-200 hover:bg-white/10'
+            }`}
+            disabled={!selectedPatient}
+          >
+            📊 Vital Signs
+          </button>
+          <button
+            onClick={() => setActiveTab('medications')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'medications' 
+                ? 'bg-blue-600 text-white' 
+                : 'text-blue-200 hover:bg-white/10'
+            }`}
+            disabled={!selectedPatient}
+          >
+            💊 Medications
+          </button>
+          <button
+            onClick={() => setActiveTab('allergies')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'allergies' 
+                ? 'bg-blue-600 text-white' 
+                : 'text-blue-200 hover:bg-white/10'
+            }`}
+            disabled={!selectedPatient}
+          >
+            ⚠️ Allergies
+          </button>
+          <button
+            onClick={() => setActiveTab('prescriptions')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              activeTab === 'prescriptions' 
+                ? 'bg-blue-600 text-white' 
+                : 'text-blue-200 hover:bg-white/10'
+            }`}
+            disabled={!selectedPatient}
+          >
+            📝 Prescriptions
           </button>
         </div>
 
