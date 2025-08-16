@@ -583,7 +583,16 @@ def test_end_to_end_workflow():
     try:
         url = f"{API_URL}/soap-notes/{e2e_soap_note_id}/complete"
         
-        response = requests.post(url, headers=headers)
+        completion_data = {
+            "billable_services": [
+                {"description": "EKG", "code": "93000", "quantity": 1, "unit_price": 85.00},
+                {"description": "Chest X-ray", "code": "71020", "quantity": 1, "unit_price": 120.00},
+                {"description": "Cardiac Enzymes Panel", "code": "82550", "quantity": 1, "unit_price": 95.00},
+                {"description": "Comprehensive Cardiac Examination", "code": "99213", "quantity": 1, "unit_price": 150.00}
+            ]
+        }
+        
+        response = requests.post(url, json=completion_data, headers=headers)
         response.raise_for_status()
         result = response.json()
         
