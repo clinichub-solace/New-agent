@@ -6742,4 +6742,824 @@ const SchedulingModule = ({ setActiveModule }) => {
   );
 };
 
+// Comprehensive Telehealth Module with Video Conferencing
+const TelehealthModule = ({ setActiveModule }) => {
+  const { user } = useAuth();
+  const [sessions, setSessions] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [providers, setProviders] = useState([]);
+  const [waitingRoom, setWaitingRoom] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  
+  // View and navigation states
+  const [activeView, setActiveView] = useState('dashboard'); // dashboard, sessions, waiting-room, video-call
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [isInCall, setIsInCall] = useState(false);
+  
+  // Form states
+  const [showSessionForm, setShowSessionForm] = useState(false);
+  const [showConvertForm, setShowConvertForm] = useState(false);
+  
+  // Video call states
+  const [localStream, setLocalStream] = useState(null);
+  const [remoteStream, setRemoteStream] = useState(null);
+  const [isVideoEnabled, setIsVideoEnabled] = useState(true);
+  const [isAudioEnabled, setIsAudioEnabled] = useState(true);
+  const [isScreenSharing, setIsScreenSharing] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  const [chatMessages, setChatMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  
+  // Form data
+  const [sessionFormData, setSessionFormData] = useState({
+    patient_id: '',
+    provider_id: '',
+    session_type: 'video_consultation',
+    title: '',
+    description: '',
+    scheduled_start: new Date().toISOString().slice(0, 16),
+    duration_minutes: 30,
+    recording_enabled: false,
+    access_code: ''
+  });
+
+  useEffect(() => {
+    fetchSessions();
+    fetchPatients();
+    fetchProviders();
+    fetchWaitingRoom();
+  }, []);
+
+  const fetchSessions = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API}/telehealth/sessions`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setSessions(response.data);
+    } catch (error) {
+      console.error('Failed to fetch telehealth sessions:', error);
+      setError('Failed to fetch telehealth sessions');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/patients`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setPatients(response.data);
+    } catch (error) {
+      console.error('Failed to fetch patients:', error);
+    }
+  };
+
+  const fetchProviders = async () => {
+    try {
+      const response = await axios.get(`${API}/providers`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setProviders(response.data);
+    } catch (error) {
+      console.error('Failed to fetch providers:', error);
+    }
+  };
+
+  const fetchWaitingRoom = async () => {
+    try {
+      const response = await axios.get(`${API}/telehealth/waiting-room`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setWaitingRoom(response.data);
+    } catch (error) {
+      console.error('Failed to fetch waiting room:', error);
+    }
+  };
+
+  const handleCreateSession = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      const response = await axios.post(`${API}/telehealth/sessions`, sessionFormData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      setSessions([...sessions, response.data]);
+      setSuccess('Telehealth session created successfully!');
+      setShowSessionForm(false);
+      resetSessionForm();
+      fetchSessions();
+    } catch (error) {
+      console.error('Failed to create telehealth session:', error);
+      setError(error.response?.data?.detail || 'Failed to create telehealth session');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStartSession = async (sessionId) => {
+    try {
+      setLoading(true);
+      const response = await axios.post(`${API}/telehealth/sessions/${sessionId}/start`, {}, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      setSuccess('Telehealth session started successfully!');
+      setSelectedSession(sessions.find(s => s.id === sessionId));
+      setActiveView('video-call');
+      await initializeVideoCall();
+      fetchSessions();
+    } catch (error) {
+      console.error('Failed to start telehealth session:', error);
+      setError(error.response?.data?.detail || 'Failed to start telehealth session');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEndSession = async (sessionId, sessionNotes = '') => {
+    try {
+      setLoading(true);
+      const sessionSummary = {
+        session_notes: sessionNotes,
+        provider_notes: `Session completed by ${user.username}`,
+        technical_issues: []
+      };
+
+      await axios.post(`${API}/telehealth/sessions/${sessionId}/end`, sessionSummary, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      setSuccess('Telehealth session ended successfully!');
+      setIsInCall(false);
+      setActiveView('dashboard');
+      await cleanupVideoCall();
+      fetchSessions();
+    } catch (error) {
+      console.error('Failed to end telehealth session:', error);
+      setError(error.response?.data?.detail || 'Failed to end telehealth session');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const initializeVideoCall = async () => {
+    try {
+      // Get user media (camera and microphone)
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+        audio: true
+      });
+      
+      setLocalStream(stream);
+      setIsInCall(true);
+      setConnectionStatus('connected');
+      
+      // In a production system, this would initialize WebRTC peer connection
+      // and handle signaling through the backend WebSocket/SignalR
+      
+    } catch (error) {
+      console.error('Failed to initialize video call:', error);
+      setError('Failed to access camera/microphone. Please check permissions.');
+    }
+  };
+
+  const cleanupVideoCall = async () => {
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      setLocalStream(null);
+    }
+    if (remoteStream) {
+      remoteStream.getTracks().forEach(track => track.stop());
+      setRemoteStream(null);
+    }
+    setIsInCall(false);
+    setConnectionStatus('disconnected');
+  };
+
+  const toggleVideo = () => {
+    if (localStream) {
+      const videoTrack = localStream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsVideoEnabled(videoTrack.enabled);
+      }
+    }
+  };
+
+  const toggleAudio = () => {
+    if (localStream) {
+      const audioTrack = localStream.getAudioTracks()[0];
+      if (audioTrack) {
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsAudioEnabled(audioTrack.enabled);
+      }
+    }
+  };
+
+  const handleScreenShare = async () => {
+    try {
+      if (!isScreenSharing) {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true,
+          audio: true
+        });
+        setIsScreenSharing(true);
+        // In production, replace video track in peer connection
+      } else {
+        setIsScreenSharing(false);
+        // Switch back to camera
+        await initializeVideoCall();
+      }
+    } catch (error) {
+      console.error('Screen sharing failed:', error);
+      setError('Screen sharing failed');
+    }
+  };
+
+  const sendChatMessage = async () => {
+    if (!newMessage.trim() || !selectedSession) return;
+    
+    try {
+      const messageData = {
+        message: newMessage.trim(),
+        sender_type: 'provider',
+        message_type: 'text'
+      };
+
+      await axios.post(`${API}/telehealth/sessions/${selectedSession.id}/chat`, messageData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      setChatMessages([...chatMessages, {
+        id: Date.now(),
+        sender_name: user.username,
+        message: newMessage.trim(),
+        timestamp: new Date(),
+        sender_type: 'provider'
+      }]);
+      setNewMessage('');
+    } catch (error) {
+      console.error('Failed to send chat message:', error);
+    }
+  };
+
+  const resetSessionForm = () => {
+    setSessionFormData({
+      patient_id: '',
+      provider_id: '',
+      session_type: 'video_consultation',
+      title: '',
+      description: '',
+      scheduled_start: new Date().toISOString().slice(0, 16),
+      duration_minutes: 30,
+      recording_enabled: false,
+      access_code: ''
+    });
+  };
+
+  const formatDateTime = (dateString) => {
+    return new Date(dateString).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'scheduled': 'bg-blue-100 text-blue-800',
+      'waiting': 'bg-yellow-100 text-yellow-800',
+      'in_progress': 'bg-green-100 text-green-800',
+      'completed': 'bg-gray-100 text-gray-800',
+      'cancelled': 'bg-red-100 text-red-800',
+      'no_show': 'bg-orange-100 text-orange-800',
+      'technical_issues': 'bg-purple-100 text-purple-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const renderDashboard = () => {
+    const todaySessions = sessions.filter(session => 
+      new Date(session.scheduled_start).toDateString() === new Date().toDateString()
+    );
+    const upcomingSessions = sessions.filter(session => 
+      new Date(session.scheduled_start) > new Date()
+    ).slice(0, 5);
+
+    return (
+      <div className="space-y-6">
+        {/* Today's Sessions */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">📅 Today's Telehealth Sessions</h3>
+          {todaySessions.length === 0 ? (
+            <p className="text-gray-400">No telehealth sessions scheduled for today.</p>
+          ) : (
+            <div className="space-y-3">
+              {todaySessions.map(session => (
+                <div key={session.id} className="bg-white/5 border border-white/10 rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-white font-medium">{session.patient_name}</div>
+                        <span className={`px-2 py-1 rounded text-xs ${getStatusColor(session.status)}`}>
+                          {session.status.replace('_', ' ')}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        {formatDateTime(session.scheduled_start)} - {session.provider_name}
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1">{session.title}</div>
+                    </div>
+                    <div className="flex space-x-2">
+                      {session.status === 'scheduled' && (
+                        <button
+                          onClick={() => handleStartSession(session.id)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
+                        >
+                          🎥 Start Session
+                        </button>
+                      )}
+                      {session.status === 'in_progress' && (
+                        <button
+                          onClick={() => {
+                            setSelectedSession(session);
+                            setActiveView('video-call');
+                          }}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded"
+                        >
+                          💻 Join Session
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{todaySessions.length}</div>
+                <div className="text-sm text-gray-300">Today's Sessions</div>
+              </div>
+              <div className="text-2xl">📅</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">
+                  {sessions.filter(s => s.status === 'in_progress').length}
+                </div>
+                <div className="text-sm text-gray-300">Active Sessions</div>
+              </div>
+              <div className="text-2xl">🔴</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{waitingRoom.length}</div>
+                <div className="text-sm text-gray-300">Waiting Room</div>
+              </div>
+              <div className="text-2xl">⏰</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">
+                  {sessions.filter(s => s.status === 'completed' && 
+                    new Date(s.actual_end).toDateString() === new Date().toDateString()).length}
+                </div>
+                <div className="text-sm text-gray-300">Completed Today</div>
+              </div>
+              <div className="text-2xl">✅</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Upcoming Sessions */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">🔮 Upcoming Sessions</h3>
+          {upcomingSessions.length === 0 ? (
+            <p className="text-gray-400">No upcoming telehealth sessions.</p>
+          ) : (
+            <div className="space-y-3">
+              {upcomingSessions.map(session => (
+                <div key={session.id} className="bg-white/5 border border-white/10 rounded p-4 flex items-center justify-between">
+                  <div>
+                    <div className="text-white font-medium">{session.patient_name}</div>
+                    <div className="text-sm text-gray-300">
+                      {formatDateTime(session.scheduled_start)} - {session.session_type}
+                    </div>
+                  </div>
+                  <span className={`px-2 py-1 rounded text-xs ${getStatusColor(session.status)}`}>
+                    {session.status.replace('_', ' ')}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderVideoCall = () => {
+    if (!selectedSession) return null;
+
+    return (
+      <div className="bg-gray-900 rounded-lg p-4 h-screen">
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-white">
+              <h3 className="text-lg font-semibold">{selectedSession.title}</h3>
+              <p className="text-sm text-gray-300">
+                {selectedSession.patient_name} - {selectedSession.provider_name}
+              </p>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className={`px-3 py-1 rounded text-sm ${
+                connectionStatus === 'connected' ? 'bg-green-500/20 text-green-300' : 'bg-red-500/20 text-red-300'
+              }`}>
+                {connectionStatus === 'connected' ? '🟢 Connected' : '🔴 Disconnected'}
+              </span>
+            </div>
+          </div>
+
+          {/* Video Area */}
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Main Video */}
+            <div className="lg:col-span-2 bg-gray-800 rounded-lg relative">
+              <div className="aspect-video bg-gray-700 rounded-lg flex items-center justify-center">
+                {localStream ? (
+                  <video
+                    ref={(video) => {
+                      if (video && localStream) {
+                        video.srcObject = localStream;
+                      }
+                    }}
+                    autoPlay
+                    muted
+                    className="w-full h-full object-cover rounded-lg"
+                  />
+                ) : (
+                  <div className="text-center text-gray-400">
+                    <div className="text-4xl mb-2">📹</div>
+                    <p>Camera not available</p>
+                  </div>
+                )}
+              </div>
+              
+              {/* Video Controls */}
+              <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 flex space-x-4">
+                <button
+                  onClick={toggleAudio}
+                  className={`p-3 rounded-full ${
+                    isAudioEnabled 
+                      ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                      : 'bg-red-600 hover:bg-red-700 text-white'
+                  }`}
+                >
+                  {isAudioEnabled ? '🎤' : '🔇'}
+                </button>
+                
+                <button
+                  onClick={toggleVideo}
+                  className={`p-3 rounded-full ${
+                    isVideoEnabled 
+                      ? 'bg-gray-600 hover:bg-gray-700 text-white' 
+                      : 'bg-red-600 hover:bg-red-700 text-white'
+                  }`}
+                >
+                  {isVideoEnabled ? '📹' : '📷'}
+                </button>
+                
+                <button
+                  onClick={handleScreenShare}
+                  className={`p-3 rounded-full ${
+                    isScreenSharing 
+                      ? 'bg-blue-600 hover:bg-blue-700 text-white' 
+                      : 'bg-gray-600 hover:bg-gray-700 text-white'
+                  }`}
+                >
+                  🖥️
+                </button>
+                
+                <button
+                  onClick={() => handleEndSession(selectedSession.id)}
+                  className="p-3 rounded-full bg-red-600 hover:bg-red-700 text-white"
+                >
+                  📞
+                </button>
+              </div>
+            </div>
+
+            {/* Chat Panel */}
+            <div className="bg-white/5 border border-white/10 rounded-lg flex flex-col">
+              <div className="p-4 border-b border-white/10">
+                <h4 className="text-white font-medium">💬 Session Chat</h4>
+              </div>
+              
+              <div className="flex-1 p-4 overflow-y-auto space-y-3">
+                {chatMessages.map(message => (
+                  <div key={message.id} className="text-sm">
+                    <div className="text-gray-300 font-medium">{message.sender_name}</div>
+                    <div className="text-white">{message.message}</div>
+                    <div className="text-xs text-gray-400">
+                      {new Date(message.timestamp).toLocaleTimeString()}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="p-4 border-t border-white/10">
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && sendChatMessage()}
+                    placeholder="Type a message..."
+                    className="flex-1 bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm"
+                  />
+                  <button
+                    onClick={sendChatMessage}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm"
+                  >
+                    Send
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderSessionForm = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">🎥 New Telehealth Session</h3>
+            <button
+              onClick={() => {
+                setShowSessionForm(false);
+                resetSessionForm();
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={handleCreateSession} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Patient</label>
+                <select
+                  value={sessionFormData.patient_id}
+                  onChange={(e) => setSessionFormData({...sessionFormData, patient_id: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Patient</option>
+                  {patients.map(patient => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.name?.[0]?.given?.[0]} {patient.name?.[0]?.family}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Provider</label>
+                <select
+                  value={sessionFormData.provider_id}
+                  onChange={(e) => setSessionFormData({...sessionFormData, provider_id: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Provider</option>
+                  {providers.map(provider => (
+                    <option key={provider.id} value={provider.id}>
+                      {provider.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Session Type</label>
+                <select
+                  value={sessionFormData.session_type}
+                  onChange={(e) => setSessionFormData({...sessionFormData, session_type: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="video_consultation">Video Consultation</option>
+                  <option value="audio_only">Audio Only</option>
+                  <option value="follow_up">Follow Up</option>
+                  <option value="therapy_session">Therapy Session</option>
+                  <option value="group_session">Group Session</option>
+                  <option value="emergency_consult">Emergency Consult</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Duration (minutes)</label>
+                <select
+                  value={sessionFormData.duration_minutes}
+                  onChange={(e) => setSessionFormData({...sessionFormData, duration_minutes: parseInt(e.target.value)})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value={15}>15 minutes</option>
+                  <option value={30}>30 minutes</option>
+                  <option value={45}>45 minutes</option>
+                  <option value={60}>1 hour</option>
+                  <option value={90}>1.5 hours</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Scheduled Start</label>
+              <input
+                type="datetime-local"
+                value={sessionFormData.scheduled_start}
+                onChange={(e) => setSessionFormData({...sessionFormData, scheduled_start: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Title</label>
+              <input
+                type="text"
+                value={sessionFormData.title}
+                onChange={(e) => setSessionFormData({...sessionFormData, title: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                placeholder="Session title"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+              <textarea
+                value={sessionFormData.description}
+                onChange={(e) => setSessionFormData({...sessionFormData, description: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                rows={3}
+                placeholder="Session description"
+              />
+            </div>
+
+            <div className="flex items-center space-x-4">
+              <label className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  checked={sessionFormData.recording_enabled}
+                  onChange={(e) => setSessionFormData({...sessionFormData, recording_enabled: e.target.checked})}
+                  className="rounded"
+                />
+                <span className="text-gray-300">Enable Recording</span>
+              </label>
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Creating...' : 'Create Session'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSessionForm(false);
+                  resetSessionForm();
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">💻 Telehealth System</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowSessionForm(true)}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+          >
+            🎥 New Session
+          </button>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 mb-6">
+          <p className="text-green-300">✅ {success}</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mb-6">
+          <p className="text-red-300">❌ {error}</p>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      {activeView !== 'video-call' && (
+        <div className="border-b border-white/20 mb-6">
+          <nav className="flex space-x-8">
+            {[
+              { id: 'dashboard', name: 'Dashboard', icon: '📊' },
+              { id: 'sessions', name: 'All Sessions', icon: '📋' },
+              { id: 'waiting-room', name: 'Waiting Room', icon: '⏰' },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveView(tab.id)}
+                className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                  activeView === tab.id
+                    ? 'border-blue-400 text-blue-400'
+                    : 'border-transparent text-gray-300 hover:text-white'
+                }`}
+              >
+                <span>{tab.icon}</span>
+                <span>{tab.name}</span>
+              </button>
+            ))}
+          </nav>
+        </div>
+      )}
+
+      {/* Content based on active view */}
+      {activeView === 'dashboard' && renderDashboard()}
+      {activeView === 'sessions' && (
+        <div className="text-white">Sessions list view coming soon...</div>
+      )}
+      {activeView === 'waiting-room' && (
+        <div className="text-white">Waiting room management coming soon...</div>
+      )}
+      {activeView === 'video-call' && renderVideoCall()}
+
+      {/* Forms */}
+      {showSessionForm && renderSessionForm()}
+      
+      {/* Loading */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default App;
