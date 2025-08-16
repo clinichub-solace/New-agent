@@ -3506,6 +3506,17 @@ async def update_invoice(invoice_id: str, invoice_data: InvoiceCreate, current_u
         item.total = item.quantity * item.unit_price
     
     # Create updated invoice
+    # Get issue_date from existing invoice and handle conversion
+    existing_issue_date = existing_invoice.get("issue_date")
+    if isinstance(existing_issue_date, str):
+        # Convert string to date object
+        from datetime import datetime as dt
+        existing_issue_date = dt.fromisoformat(existing_issue_date).date()
+    elif isinstance(existing_issue_date, datetime):
+        existing_issue_date = existing_issue_date.date()
+    elif existing_issue_date is None:
+        existing_issue_date = date.today()
+    
     updated_invoice = Invoice(
         id=invoice_id,
         invoice_number=existing_invoice["invoice_number"],  # Keep original invoice number
@@ -3515,7 +3526,8 @@ async def update_invoice(invoice_id: str, invoice_data: InvoiceCreate, current_u
         tax_rate=invoice_data.tax_rate,
         tax_amount=tax_amount,
         total_amount=total_amount,
-        due_date=existing_invoice["issue_date"] + timedelta(days=invoice_data.due_days) if invoice_data.due_days else None,
+        issue_date=existing_issue_date,  # Preserve original issue date
+        due_date=existing_issue_date + timedelta(days=invoice_data.due_days) if invoice_data.due_days else None,
         notes=invoice_data.notes,
         created_at=existing_invoice["created_at"],  # Preserve creation time
         updated_at=datetime.utcnow()
