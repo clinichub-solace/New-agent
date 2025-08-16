@@ -7229,6 +7229,356 @@ async def cancel_appointment(appointment_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error cancelling appointment: {str(e)}")
 
+# Enhanced Appointment Management Endpoints
+@api_router.put("/appointments/{appointment_id}", response_model=Appointment)
+async def update_appointment(appointment_id: str, appointment_data: dict, current_user: User = Depends(get_current_active_user)):
+    """Update appointment details with conflict checking"""
+    try:
+        # Check if appointment exists
+        existing_appointment = await db.appointments.find_one({"id": appointment_id})
+        if not existing_appointment:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        
+        # If changing date/time, check for conflicts
+        if "appointment_date" in appointment_data or "start_time" in appointment_data:
+            new_date = appointment_data.get("appointment_date", existing_appointment["appointment_date"])
+            new_start_time = appointment_data.get("start_time", existing_appointment["start_time"])
+            provider_id = existing_appointment["provider_id"]
+            duration = appointment_data.get("duration_minutes", existing_appointment["duration_minutes"])
+            
+            # Check for conflicts (excluding current appointment)
+            conflicts = await check_appointment_conflicts(provider_id, new_date, new_start_time, duration, exclude_appointment_id=appointment_id)
+            if conflicts:
+                return {"conflicts": conflicts, "message": "Appointment conflicts detected. Please resolve or force update."}
+        
+        # Update appointment
+        update_data = {**appointment_data, "updated_at": jsonable_encoder(datetime.utcnow())}
+        result = await db.appointments.update_one(
+            {"id": appointment_id},
+            {"$set": update_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Appointment not found")
+        
+        # Get updated appointment
+        updated_appointment = await db.appointments.find_one({"id": appointment_id}, {"_id": 0})
+        return Appointment(**updated_appointment)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating appointment: {str(e)}")
+
+async def check_appointment_conflicts(provider_id: str, appointment_date: date, start_time: str, duration_minutes: int, exclude_appointment_id: str = None):
+    """Check for appointment conflicts"""
+    try:
+        # Convert times for comparison
+        from datetime import datetime, timedelta
+        
+        # Parse start time
+        start_hour, start_min = map(int, start_time.split(':'))
+        appointment_start = datetime.combine(appointment_date, datetime.min.time().replace(hour=start_hour, minute=start_min))
+        appointment_end = appointment_start + timedelta(minutes=duration_minutes)
+        
+        # Query for overlapping appointments
+        query = {
+            "provider_id": provider_id,
+            "appointment_date": jsonable_encoder(appointment_date),
+            "status": {"$nin": ["cancelled", "no_show"]}
+        }
+        
+        if exclude_appointment_id:
+            query["id"] = {"$ne": exclude_appointment_id}
+        
+        existing_appointments = await db.appointments.find(query, {"_id": 0}).to_list(100)
+        
+        conflicts = []
+        for existing in existing_appointments:
+            # Parse existing appointment times
+            existing_start_hour, existing_start_min = map(int, existing["start_time"].split(':'))
+            existing_start = datetime.combine(appointment_date, datetime.min.time().replace(hour=existing_start_hour, minute=existing_start_min))
+            existing_end = existing_start + timedelta(minutes=existing["duration_minutes"])
+            
+            # Check for overlap
+            if (appointment_start < existing_end and appointment_end > existing_start):
+                conflicts.append(AppointmentConflict(
+                    conflicting_appointment_id=existing["id"],
+                    conflict_type="overlap",
+                    conflict_message=f"Overlaps with {existing['patient_name']} at {existing['start_time']}"
+                ))
+        
+        return conflicts
+        
+    except Exception as e:
+        logger.error(f"Error checking conflicts: {str(e)}")
+        return []
+
+@api_router.get("/appointments/available-slots")
+async def get_available_slots(
+    provider_id: str,
+    date: str,  # YYYY-MM-DD
+    duration_minutes: int = 30,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get available time slots for a provider on a specific date"""
+    try:
+        from datetime import datetime, timedelta
+        
+        appointment_date = datetime.strptime(date, "%Y-%m-%d").date()
+        
+        # Get provider schedule for the day
+        day_of_week = appointment_date.weekday()  # 0=Monday
+        provider_schedule = await db.provider_schedules.find_one({
+            "provider_id": provider_id,
+            "day_of_week": day_of_week,
+            "is_available": True
+        })
+        
+        if not provider_schedule:
+            return {"available_slots": [], "message": "Provider not available on this day"}
+        
+        # Parse schedule times
+        schedule_start = datetime.strptime(provider_schedule["start_time"], "%H:%M").time()
+        schedule_end = datetime.strptime(provider_schedule["end_time"], "%H:%M").time()
+        
+        # Generate all possible slots
+        available_slots = []
+        current_time = datetime.combine(appointment_date, schedule_start)
+        end_time = datetime.combine(appointment_date, schedule_end)
+        
+        while current_time + timedelta(minutes=duration_minutes) <= end_time:
+            slot_start = current_time.time().strftime("%H:%M")
+            slot_end = (current_time + timedelta(minutes=duration_minutes)).time().strftime("%H:%M")
+            
+            # Check if slot is available (no conflicting appointments)
+            conflicts = await check_appointment_conflicts(provider_id, appointment_date, slot_start, duration_minutes)
+            
+            available_slots.append(TimeSlot(
+                date=appointment_date,
+                start_time=slot_start,
+                end_time=slot_end,
+                provider_id=provider_id,
+                provider_name=provider_schedule.get("provider_name", ""),
+                is_available=len(conflicts) == 0,
+                duration_minutes=duration_minutes
+            ))
+            
+            current_time += timedelta(minutes=duration_minutes)
+        
+        return {"available_slots": [slot.dict() for slot in available_slots]}
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting available slots: {str(e)}")
+
+# Recurring Appointments
+@api_router.post("/appointments/recurring")
+async def create_recurring_appointment(recurrence_data: dict, current_user: User = Depends(get_current_active_user)):
+    """Create recurring appointments"""
+    try:
+        from datetime import datetime, timedelta
+        
+        base_appointment_data = recurrence_data["appointment"]
+        recurrence_type = recurrence_data.get("recurrence_type", "weekly")
+        recurrence_interval = recurrence_data.get("recurrence_interval", 1)
+        recurrence_end_date = recurrence_data.get("recurrence_end_date")
+        max_occurrences = recurrence_data.get("max_occurrences", 12)
+        
+        # Parse dates
+        start_date = datetime.strptime(base_appointment_data["appointment_date"], "%Y-%m-%d").date()
+        if recurrence_end_date:
+            end_date = datetime.strptime(recurrence_end_date, "%Y-%m-%d").date()
+        else:
+            end_date = start_date + timedelta(days=365)  # Default 1 year
+        
+        # Create parent appointment
+        parent_appointment = Appointment(
+            **base_appointment_data,
+            scheduled_by=current_user.username,
+            is_recurring=True
+        )
+        parent_dict = jsonable_encoder(parent_appointment)
+        await db.appointments.insert_one(parent_dict)
+        
+        # Create recurrence record
+        recurrence_record = AppointmentRecurrence(
+            parent_appointment_id=parent_appointment.id,
+            recurrence_type=RecurrenceType(recurrence_type),
+            recurrence_interval=recurrence_interval,
+            recurrence_end_date=end_date,
+            max_occurrences=max_occurrences
+        )
+        recurrence_dict = jsonable_encoder(recurrence_record)
+        await db.appointment_recurrences.insert_one(recurrence_dict)
+        
+        # Generate recurring appointments
+        created_appointments = [parent_appointment.id]
+        current_date = start_date
+        occurrence_count = 1
+        
+        while occurrence_count < max_occurrences and current_date <= end_date:
+            # Calculate next occurrence
+            if recurrence_type == "daily":
+                current_date += timedelta(days=recurrence_interval)
+            elif recurrence_type == "weekly":
+                current_date += timedelta(weeks=recurrence_interval)
+            elif recurrence_type == "monthly":
+                # Add months (approximation)
+                current_date = current_date.replace(month=current_date.month + recurrence_interval if current_date.month + recurrence_interval <= 12 else current_date.month + recurrence_interval - 12, year=current_date.year + (current_date.month + recurrence_interval - 1) // 12)
+            
+            if current_date > end_date:
+                break
+            
+            # Create recurring appointment
+            recurring_appointment_data = base_appointment_data.copy()
+            recurring_appointment_data["appointment_date"] = current_date.isoformat()
+            recurring_appointment_data["appointment_number"] = f"APT{current_date.strftime('%Y%m%d')}{str(uuid.uuid4())[:6].upper()}"
+            
+            recurring_appointment = Appointment(
+                **recurring_appointment_data,
+                scheduled_by=current_user.username,
+                is_recurring=True,
+                parent_appointment_id=parent_appointment.id
+            )
+            recurring_dict = jsonable_encoder(recurring_appointment)
+            await db.appointments.insert_one(recurring_dict)
+            
+            created_appointments.append(recurring_appointment.id)
+            occurrence_count += 1
+        
+        # Update recurrence record with created instances
+        await db.appointment_recurrences.update_one(
+            {"parent_appointment_id": parent_appointment.id},
+            {"$set": {"created_instances": created_appointments}}
+        )
+        
+        return {
+            "message": "Recurring appointments created successfully",
+            "parent_appointment_id": parent_appointment.id,
+            "total_appointments": len(created_appointments),
+            "created_appointments": created_appointments
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating recurring appointments: {str(e)}")
+
+# Waiting List Management
+@api_router.post("/waiting-list", response_model=WaitingListEntry)
+async def add_to_waiting_list(waiting_list_data: dict, current_user: User = Depends(get_current_active_user)):
+    """Add patient to waiting list"""
+    try:
+        # Get patient details
+        patient = await db.patients.find_one({"id": waiting_list_data["patient_id"]}, {"_id": 0})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Get provider details
+        provider = await db.providers.find_one({"id": waiting_list_data["provider_id"]}, {"_id": 0})
+        if not provider:
+            raise HTTPException(status_code=404, detail="Provider not found")
+        
+        waiting_entry = WaitingListEntry(
+            patient_id=waiting_list_data["patient_id"],
+            patient_name=f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
+            patient_phone=patient.get("telecom", [{}])[0].get("value"),
+            patient_email=next((t["value"] for t in patient.get("telecom", []) if t.get("system") == "email"), None),
+            provider_id=waiting_list_data["provider_id"],
+            provider_name=provider["name"],
+            preferred_date=datetime.strptime(waiting_list_data["preferred_date"], "%Y-%m-%d").date(),
+            preferred_time_start=waiting_list_data.get("preferred_time_start"),
+            preferred_time_end=waiting_list_data.get("preferred_time_end"),
+            appointment_type=AppointmentType(waiting_list_data["appointment_type"]),
+            priority=waiting_list_data.get("priority", 1),
+            duration_minutes=waiting_list_data.get("duration_minutes", 30),
+            reason=waiting_list_data["reason"],
+            notes=waiting_list_data.get("notes"),
+            created_by=current_user.username
+        )
+        
+        waiting_dict = jsonable_encoder(waiting_entry)
+        await db.waiting_list.insert_one(waiting_dict)
+        
+        return waiting_entry
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error adding to waiting list: {str(e)}")
+
+@api_router.get("/waiting-list", response_model=List[WaitingListEntry])
+async def get_waiting_list(
+    provider_id: str = None,
+    priority: int = None,
+    active_only: bool = True,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get waiting list entries"""
+    try:
+        query = {}
+        if provider_id:
+            query["provider_id"] = provider_id
+        if priority:
+            query["priority"] = priority
+        if active_only:
+            query["is_active"] = True
+        
+        waiting_entries = await db.waiting_list.find(query, {"_id": 0}).sort("priority", -1).sort("created_at", 1).to_list(100)
+        return [WaitingListEntry(**entry) for entry in waiting_entries]
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error getting waiting list: {str(e)}")
+
+@api_router.post("/waiting-list/{entry_id}/convert-to-appointment")
+async def convert_waiting_list_to_appointment(entry_id: str, appointment_data: dict, current_user: User = Depends(get_current_active_user)):
+    """Convert waiting list entry to appointment"""
+    try:
+        # Get waiting list entry
+        waiting_entry = await db.waiting_list.find_one({"id": entry_id}, {"_id": 0})
+        if not waiting_entry:
+            raise HTTPException(status_code=404, detail="Waiting list entry not found")
+        
+        # Create appointment from waiting list entry
+        appointment_creation_data = {
+            "patient_id": waiting_entry["patient_id"],
+            "patient_name": waiting_entry["patient_name"],
+            "provider_id": waiting_entry["provider_id"],
+            "provider_name": waiting_entry["provider_name"],
+            "appointment_date": appointment_data["appointment_date"],
+            "start_time": appointment_data["start_time"],
+            "duration_minutes": waiting_entry["duration_minutes"],
+            "appointment_type": waiting_entry["appointment_type"],
+            "reason": waiting_entry["reason"],
+            "notes": f"Converted from waiting list. Original notes: {waiting_entry.get('notes', '')}",
+            "scheduled_by": current_user.username
+        }
+        
+        # Check for conflicts
+        conflicts = await check_appointment_conflicts(
+            appointment_creation_data["provider_id"],
+            datetime.strptime(appointment_data["appointment_date"], "%Y-%m-%d").date(),
+            appointment_data["start_time"],
+            appointment_creation_data["duration_minutes"]
+        )
+        
+        if conflicts:
+            return {"conflicts": conflicts, "message": "Cannot create appointment due to conflicts"}
+        
+        # Create appointment
+        appointment = Appointment(**appointment_creation_data)
+        appointment_dict = jsonable_encoder(appointment)
+        await db.appointments.insert_one(appointment_dict)
+        
+        # Mark waiting list entry as inactive
+        await db.waiting_list.update_one(
+            {"id": entry_id},
+            {"$set": {"is_active": False, "updated_at": jsonable_encoder(datetime.utcnow())}}
+        )
+        
+        return {
+            "message": "Waiting list entry converted to appointment successfully",
+            "appointment_id": appointment.id,
+            "appointment": appointment
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error converting waiting list entry: {str(e)}")
+
 # Patient Communications System API Endpoints
 
 # Message Templates
