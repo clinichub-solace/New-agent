@@ -8504,7 +8504,13 @@ async def get_telehealth_sessions(
             if "scheduled_end" not in session and session.get("scheduled_start") and session.get("duration_minutes"):
                 scheduled_start = session["scheduled_start"]
                 if isinstance(scheduled_start, str):
-                    scheduled_start = datetime.fromisoformat(scheduled_start.replace('Z', '+00:00'))
+                    # Handle different datetime string formats
+                    try:
+                        scheduled_start = datetime.fromisoformat(scheduled_start.replace('Z', '+00:00'))
+                    except:
+                        scheduled_start = datetime.strptime(scheduled_start, "%Y-%m-%dT%H:%M:%S.%f")
+                elif not isinstance(scheduled_start, datetime):
+                    scheduled_start = datetime.utcnow()
                 session["scheduled_end"] = scheduled_start + timedelta(minutes=session.get("duration_minutes", 30))
             
             if "created_by" not in session:
