@@ -166,18 +166,33 @@ def test_invoice_update():
     """Test Invoice UPDATE endpoint - PUT /api/invoices/{id}"""
     print("\n--- Testing Invoice UPDATE Endpoint ---")
     
-    if not invoice_id:
-        print("❌ Cannot test invoice update without invoice_id")
+    if not invoice_id or not patient_id:
+        print("❌ Cannot test invoice update without invoice_id and patient_id")
         return False
     
     try:
         url = f"{API_URL}/invoices/{invoice_id}"
         
-        # Test updating the invoice with issue_date field fix
+        # The PUT endpoint requires full InvoiceCreate data structure
         update_data = {
-            "status": "sent",
-            "notes": "Updated invoice - testing issue_date field fix",
-            "issue_date": "2025-01-15"  # Testing the specific field mentioned in review
+            "patient_id": patient_id,
+            "items": [
+                {
+                    "description": "Updated Office Visit",
+                    "quantity": 1,
+                    "unit_price": 175.00,
+                    "total": 175.00
+                },
+                {
+                    "description": "Updated Lab Work",
+                    "quantity": 1,
+                    "unit_price": 85.00,
+                    "total": 85.00
+                }
+            ],
+            "tax_rate": 0.08,
+            "due_days": 30,
+            "notes": "Updated invoice - testing issue_date field fix"
         }
         
         response = requests.put(url, json=update_data, headers=get_auth_headers())
@@ -186,8 +201,9 @@ def test_invoice_update():
             result = response.json()
             print_test_result("Invoice UPDATE", True, {
                 "invoice_id": result["id"],
-                "status": result["status"],
+                "invoice_number": result["invoice_number"],
                 "issue_date": result["issue_date"],
+                "total_amount": result["total_amount"],
                 "updated_notes": result["notes"]
             })
             return True
@@ -200,6 +216,43 @@ def test_invoice_update():
         
     except Exception as e:
         print_test_result("Invoice UPDATE", False, error_msg=str(e))
+        return False
+
+def test_invoice_status_update():
+    """Test Invoice Status UPDATE endpoint - PUT /api/invoices/{id}/status"""
+    print("\n--- Testing Invoice Status UPDATE Endpoint ---")
+    
+    if not invoice_id:
+        print("❌ Cannot test invoice status update without invoice_id")
+        return False
+    
+    try:
+        url = f"{API_URL}/invoices/{invoice_id}/status"
+        
+        # Test updating invoice status
+        status_data = {
+            "status": "sent"
+        }
+        
+        response = requests.put(url, json=status_data, headers=get_auth_headers())
+        
+        if response.status_code == 200:
+            result = response.json()
+            print_test_result("Invoice Status UPDATE", True, {
+                "invoice_id": result["id"],
+                "status": result["status"],
+                "updated_at": result.get("updated_at")
+            })
+            return True
+        elif response.status_code == 404:
+            print_test_result("Invoice Status UPDATE", False, error_msg="Not Found - Status UPDATE endpoint missing")
+            return False
+        else:
+            print_test_result("Invoice Status UPDATE", False, error_msg=f"HTTP {response.status_code}: {response.text}")
+            return False
+        
+    except Exception as e:
+        print_test_result("Invoice Status UPDATE", False, error_msg=str(e))
         return False
 
 def create_test_financial_transaction():
