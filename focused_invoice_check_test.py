@@ -302,6 +302,7 @@ def test_financial_transaction_update():
         url = f"{API_URL}/financial-transactions/{financial_transaction_id}"
         
         # The PUT endpoint requires full FinancialTransactionCreate data structure
+        # Only use fields that are in FinancialTransactionCreate model
         update_data = {
             "transaction_type": "income",
             "amount": 250.00,  # Updated amount
@@ -310,8 +311,6 @@ def test_financial_transaction_update():
             "category": "patient_payment",
             "patient_id": patient_id,
             "invoice_id": invoice_id,
-            "reconciled": True,
-            "reconciled_date": "2025-01-15",
             "created_by": "admin"
         }
         
@@ -324,7 +323,7 @@ def test_financial_transaction_update():
                 "transaction_number": result["transaction_number"],
                 "amount": result["amount"],
                 "description": result["description"],
-                "reconciled": result.get("reconciled")
+                "transaction_type": result["transaction_type"]
             })
             return True
         elif response.status_code == 404:
