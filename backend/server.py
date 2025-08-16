@@ -8885,7 +8885,9 @@ async def convert_appointment_to_telehealth(
         
         return {
             "message": "Appointment converted to telehealth session successfully",
-            "session": session,
+            "telehealth_session_id": session.id,
+            "session_number": session.session_number,
+            "session_url": session.session_url,
             "appointment_updated": True
         }
         
