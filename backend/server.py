@@ -1781,6 +1781,9 @@ class SOAPNote(BaseModel):
     assessment: str  # Diagnosis and clinical impressions
     plan: str       # Treatment plan and follow-up
     provider: str
+    status: str = "draft"  # draft, completed, reviewed, signed
+    completed_at: Optional[datetime] = None
+    completed_by: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
