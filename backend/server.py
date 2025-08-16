@@ -7714,7 +7714,7 @@ async def prescribe_medication_from_chart(
         prescription = MedicationRequest(
             prescription_number=prescription_number,
             medication_id=medication_id,
-            medication_display=medication["display_name"],
+            medication_display=medication.get("display_name", medication.get("generic_name", "Unknown Medication")),
             patient_id=patient_id,
             patient_display=f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
             prescriber_id=current_user.username,
