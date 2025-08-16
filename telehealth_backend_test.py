@@ -673,7 +673,7 @@ def main():
     # Run telehealth tests
     session_id = test_telehealth_session_management(token, patient_id, patient_name, provider_id, provider_name)
     test_session_lifecycle_management(token, session_id)
-    test_waiting_room_system(token, patient_id, patient_name)
+    test_waiting_room_system(token, patient_id, patient_name, provider_id)
     test_communication_features(token, session_id)
     test_integration_features(token, patient_id, provider_id)
     test_end_to_end_workflow(token, patient_id, patient_name, provider_id, provider_name)
