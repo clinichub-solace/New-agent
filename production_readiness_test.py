@@ -240,7 +240,23 @@ def test_soap_note_workflow_automation():
     try:
         url = f"{API_URL}/soap-notes/{test_soap_note_id}/complete"
         
-        response = requests.post(url, headers=headers)
+        # Provide completion data with billable services and prescribed medications
+        completion_data = {
+            "billable_services": [
+                {"description": "Hemoglobin A1C", "code": "83036", "quantity": 1, "unit_price": 45.00},
+                {"description": "Lipid Panel", "code": "80061", "quantity": 1, "unit_price": 65.00},
+                {"description": "Diabetic Foot Examination", "code": "G0245", "quantity": 1, "unit_price": 75.00}
+            ],
+            "prescribed_medications": [
+                {
+                    "medication_name": "Glucose Test Strips",
+                    "quantity_dispensed": 1,
+                    "sku": "MED-GLUCOSE-STRIPS"
+                }
+            ]
+        }
+        
+        response = requests.post(url, json=completion_data, headers=headers)
         response.raise_for_status()
         result = response.json()
         
