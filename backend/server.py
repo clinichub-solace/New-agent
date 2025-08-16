@@ -6058,7 +6058,7 @@ async def get_medications(
         if drug_class:
             query["drug_class"] = drug_class
         
-        medications = await db.fhir_medications.find(query).limit(limit).to_list(limit)
+        medications = await db.fhir_medications.find(query, {"_id": 0}).limit(limit).to_list(limit)
         return medications
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving medications: {str(e)}")
