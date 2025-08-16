@@ -353,6 +353,7 @@ def test_check_creation():
             "payee_name": "Medical Supply Company",
             "amount": 500.00,
             "memo": "Medical supplies payment",
+            "check_date": "2025-01-15",  # Provide explicit check_date
             "expense_category": "medical_supplies",
             "created_by": "admin"
         }
@@ -367,7 +368,8 @@ def test_check_creation():
                 "check_number": result["check_number"],
                 "payee_name": result["payee_name"],
                 "amount": result["amount"],
-                "status": result["status"]
+                "status": result["status"],
+                "check_date": result["check_date"]
             })
             return True
         elif response.status_code == 422:
