@@ -2658,13 +2658,30 @@ async def update_patient(patient_id: str, patient_data: PatientCreate, current_u
     if not existing_patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     
-    # Create updated patient while preserving created_at
+    # Convert PatientCreate to FHIR-compliant format (same as create_patient)
     updated_patient = Patient(
         id=patient_id,
         created_at=existing_patient["created_at"],  # Preserve original creation time
         updated_at=datetime.utcnow(),
-        **patient_data.dict()
+        name=[PatientName(
+            family=patient_data.last_name,
+            given=[patient_data.first_name]
+        )],
+        telecom=[
+            PatientTelecom(system="email", value=patient_data.email) if patient_data.email else None,
+            PatientTelecom(system="phone", value=patient_data.phone) if patient_data.phone else None
+        ],
+        gender=patient_data.gender,
+        birth_date=patient_data.date_of_birth,
+        address=[PatientAddress(
+            line=[patient_data.address_line1] if patient_data.address_line1 else [],
+            city=patient_data.city,
+            state=patient_data.state,
+            postal_code=patient_data.zip_code
+        )] if patient_data.address_line1 else []
     )
+    # Filter out None values from telecom
+    updated_patient.telecom = [t for t in updated_patient.telecom if t is not None]
     
     updated_patient_dict = jsonable_encoder(updated_patient)
     await db.patients.replace_one({"id": patient_id}, updated_patient_dict)
