@@ -625,7 +625,7 @@ def test_end_to_end_workflow():
         
         # Now try to prescribe an ACE inhibitor (should trigger allergy alert)
         url = f"{API_URL}/patients/{e2e_patient_id}/erx/prescribe"
-        data = {
+        prescription_data = {
             "medication_id": test_medication_id,
             "prescriber_id": "prescriber-789",
             "prescriber_name": "Dr. Jennifer Wilson",
@@ -647,7 +647,7 @@ def test_end_to_end_workflow():
             "created_by": "admin"
         }
         
-        response = requests.post(url, json=data, headers=headers)
+        response = requests.post(url, json=prescription_data, headers=headers)
         response.raise_for_status()
         result = response.json()
         
