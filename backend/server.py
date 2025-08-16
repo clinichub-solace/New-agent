@@ -5324,6 +5324,21 @@ async def update_soap_note(soap_note_id: str, soap_note_data: SOAPNoteCreate, cu
     await db.soap_notes.replace_one({"id": soap_note_id}, updated_note_dict)
     return updated_note
 
+@api_router.delete("/soap-notes/{soap_note_id}")
+async def delete_soap_note(soap_note_id: str, current_user: User = Depends(get_current_active_user)):
+    """Delete existing SOAP note"""
+    # Check if SOAP note exists
+    existing_note = await db.soap_notes.find_one({"id": soap_note_id})
+    if not existing_note:
+        raise HTTPException(status_code=404, detail="SOAP note not found")
+    
+    # Delete the SOAP note
+    result = await db.soap_notes.delete_one({"id": soap_note_id})
+    if result.deleted_count == 0:
+        raise HTTPException(status_code=404, detail="SOAP note not found")
+    
+    return {"message": "SOAP note deleted successfully", "id": soap_note_id}
+
 # Vital Signs
 @api_router.post("/vital-signs", response_model=VitalSigns)
 async def create_vital_signs(vital_signs_data: VitalSignsCreate, current_user: User = Depends(get_current_active_user)):
