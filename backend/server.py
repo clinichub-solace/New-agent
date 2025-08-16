@@ -8827,8 +8827,50 @@ async def convert_appointment_to_telehealth(
             recording_enabled=telehealth_data.get("recording_enabled", False)
         )
         
-        # Create the telehealth session
-        session = await create_telehealth_session(session_data, current_user)
+        # Create the telehealth session using the same logic as the main endpoint
+        # Get patient details
+        patient = await db.patients.find_one({"id": session_data.patient_id}, {"_id": 0})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        patient_name = f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}"
+        
+        # Get provider details
+        provider = await db.providers.find_one({"id": session_data.provider_id}, {"_id": 0})
+        if not provider:
+            raise HTTPException(status_code=404, detail="Provider not found")
+        
+        provider_name = f"{provider.get('title', 'Dr.')} {provider.get('first_name', '')} {provider.get('last_name', '')}".strip()
+        
+        # Calculate session end time
+        scheduled_end = session_data.scheduled_start + timedelta(minutes=session_data.duration_minutes)
+        
+        # Generate room ID and session URL
+        room_id = f"room_{session_data.patient_id}_{session_data.provider_id}_{int(datetime.utcnow().timestamp())}"
+        session_url = f"/telehealth/room/{room_id}"
+        
+        # Create session
+        session = TelehealthSession(
+            patient_id=session_data.patient_id,
+            patient_name=patient_name,
+            provider_id=session_data.provider_id,
+            provider_name=provider_name,
+            session_type=session_data.session_type,
+            title=session_data.title,
+            description=session_data.description,
+            scheduled_start=session_data.scheduled_start,
+            scheduled_end=scheduled_end,
+            duration_minutes=session_data.duration_minutes,
+            appointment_id=session_data.appointment_id,
+            room_id=room_id,
+            session_url=session_url,
+            recording_enabled=session_data.recording_enabled,
+            access_code=session_data.access_code,
+            created_by=current_user.username
+        )
+        
+        session_dict = jsonable_encoder(session)
+        await db.telehealth_sessions.insert_one(session_dict)
         
         # Update appointment to indicate it's now a telehealth session
         await db.appointments.update_one(
