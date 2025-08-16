@@ -603,13 +603,14 @@ def test_end_to_end_workflow():
         result = response.json()
         
         # Verify automated workflows
-        invoice_created = result.get('invoice_created')
-        if invoice_created:
+        workflows = result.get('automated_workflows', {})
+        invoice_created = workflows.get('invoice_created', {})
+        if invoice_created and invoice_created.get('status') == 'created':
             print_test_result("E2E: Complete SOAP Note → Automated Invoice Creation", True, result,
                             f"Invoice: {invoice_created.get('invoice_number')}, Total: ${invoice_created.get('total_amount', 0)}")
         else:
             print_test_result("E2E: Complete SOAP Note → Automated Invoice Creation", False, result,
-                            "No invoice created automatically")
+                            "Invoice creation failed or not found")
     except Exception as e:
         print_test_result("E2E: Complete SOAP Note → Automated Invoice Creation", False, str(e))
     
