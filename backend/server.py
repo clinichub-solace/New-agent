@@ -7615,6 +7615,226 @@ async def get_formulary(current_user: User = Depends(get_current_active_user)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving formulary: {str(e)}")
 
+# eRx Integration within Patient Chart
+@api_router.get("/patients/{patient_id}/erx/current-medications", response_model=List[Dict[str, Any]])
+async def get_patient_current_medications(patient_id: str, current_user: User = Depends(get_current_active_user)):
+    """Get patient's current medications for eRx prescribing interface"""
+    try:
+        # Get current active medications for the patient
+        medications = await db.medications.find({
+            "patient_id": patient_id,
+            "status": "active"
+        }, {"_id": 0}).sort("start_date", -1).to_list(100)
+        
+        return medications
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving patient medications: {str(e)}")
+
+@api_router.get("/patients/{patient_id}/erx/allergies", response_model=List[Dict[str, Any]])
+async def get_patient_allergies_for_erx(patient_id: str, current_user: User = Depends(get_current_active_user)):
+    """Get patient allergies for drug interaction checking during prescribing"""
+    try:
+        allergies = await db.allergies.find({
+            "patient_id": patient_id,
+            "status": "active"
+        }, {"_id": 0}).sort("created_at", -1).to_list(100)
+        
+        return allergies
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving patient allergies: {str(e)}")
+
+@api_router.post("/patients/{patient_id}/erx/prescribe")
+async def prescribe_medication_from_chart(
+    patient_id: str, 
+    prescription_data: Dict[str, Any], 
+    current_user: User = Depends(get_current_active_user)
+):
+    """Prescribe medication from within patient chart with full interaction checking"""
+    
+    try:
+        # Validate patient exists
+        patient = await db.patients.find_one({"id": patient_id}, {"_id": 0})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Get medication details from FHIR medication database
+        medication_id = prescription_data.get("medication_id")
+        medication = await db.fhir_medications.find_one({"id": medication_id}, {"_id": 0})
+        if not medication:
+            raise HTTPException(status_code=404, detail="Medication not found")
+        
+        # Check for drug allergies
+        patient_allergies = await db.allergies.find({
+            "patient_id": patient_id,
+            "status": "active"
+        }, {"_id": 0}).to_list(100)
+        
+        allergy_alerts = []
+        for allergy in patient_allergies:
+            if medication["generic_name"].lower() in allergy.get("allergen", "").lower():
+                allergy_alerts.append({
+                    "type": "allergy_alert",
+                    "severity": allergy.get("severity", "moderate"),
+                    "message": f"Patient has documented allergy to {allergy['allergen']} - {allergy.get('reaction', '')}"
+                })
+        
+        # Check for drug-drug interactions with current medications
+        current_meds = await db.medications.find({
+            "patient_id": patient_id,
+            "status": "active"
+        }, {"_id": 0}).to_list(100)
+        
+        interaction_alerts = []
+        for current_med in current_meds:
+            # Simple interaction check (in production, use comprehensive drug interaction database)
+            interaction_risk = check_drug_interaction(medication["generic_name"], current_med.get("medication_name", ""))
+            if interaction_risk:
+                interaction_alerts.append({
+                    "type": "drug_interaction",
+                    "severity": interaction_risk["severity"],
+                    "message": f"Potential interaction between {medication['generic_name']} and {current_med['medication_name']}: {interaction_risk['description']}"
+                })
+        
+        # If there are critical alerts, require override confirmation
+        critical_alerts = [alert for alert in (allergy_alerts + interaction_alerts) if alert.get("severity") in ["severe", "critical"]]
+        if critical_alerts and not prescription_data.get("override_alerts", False):
+            return {
+                "status": "alerts_found",
+                "critical_alerts": critical_alerts,
+                "all_alerts": allergy_alerts + interaction_alerts,
+                "requires_override": True,
+                "message": "Critical drug safety alerts found. Please review and confirm to override."
+            }
+        
+        # Generate prescription number
+        count = await db.prescriptions.count_documents({})
+        prescription_number = f"RX{datetime.now().strftime('%Y%m%d')}{count + 1:04d}"
+        
+        # Create prescription
+        prescription = MedicationRequest(
+            prescription_number=prescription_number,
+            medication_id=medication_id,
+            medication_display=medication["display_name"],
+            patient_id=patient_id,
+            patient_display=f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
+            prescriber_id=current_user.username,
+            prescriber_name=getattr(current_user, 'full_name', current_user.username),
+            dosage_text=prescription_data["dosage_text"],
+            dose_quantity=prescription_data.get("dose_quantity", 1.0),
+            dose_unit=prescription_data.get("dose_unit", "tablet"),
+            frequency=prescription_data["frequency"],
+            route=prescription_data.get("route", "oral"),
+            quantity=prescription_data["quantity"],
+            days_supply=prescription_data.get("days_supply", 30),
+            refills=prescription_data.get("refills", 0),
+            indication=prescription_data.get("indication", ""),
+            created_by=current_user.username,
+            status="active"
+        )
+        
+        prescription_dict = jsonable_encoder(prescription)
+        await db.prescriptions.insert_one(prescription_dict)
+        
+        # Add medication to patient's current medications
+        patient_medication = {
+            "id": str(uuid.uuid4()),
+            "patient_id": patient_id,
+            "medication_name": medication["generic_name"],
+            "dosage": prescription_data["dosage_text"],
+            "frequency": prescription_data["frequency"],
+            "route": prescription_data.get("route", "oral"),
+            "start_date": date.today(),
+            "end_date": None,
+            "status": "active",
+            "prescribed_by": current_user.username,
+            "prescription_id": prescription.id,
+            "indication": prescription_data.get("indication", ""),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        
+        patient_medication_dict = jsonable_encoder(patient_medication)
+        await db.medications.insert_one(patient_medication_dict)
+        
+        return {
+            "status": "success",
+            "prescription": prescription,
+            "patient_medication_added": patient_medication["id"],
+            "alerts_reviewed": len(allergy_alerts + interaction_alerts),
+            "critical_alerts_overridden": len(critical_alerts),
+            "message": f"Prescription {prescription_number} created successfully"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error creating prescription: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error creating prescription: {str(e)}")
+
+def check_drug_interaction(drug1: str, drug2: str):
+    """Basic drug interaction checker (in production, use comprehensive database)"""
+    # Simple interaction database - in production, integrate with comprehensive drug interaction API
+    interactions = {
+        ("warfarin", "aspirin"): {"severity": "severe", "description": "Increased bleeding risk"},
+        ("lisinopril", "potassium"): {"severity": "moderate", "description": "Hyperkalemia risk"},
+        ("metformin", "contrast"): {"severity": "moderate", "description": "Lactic acidosis risk"},
+        ("simvastatin", "amlodipine"): {"severity": "mild", "description": "Increased statin levels"},
+    }
+    
+    # Check both directions
+    key1 = (drug1.lower(), drug2.lower())
+    key2 = (drug2.lower(), drug1.lower())
+    
+    return interactions.get(key1) or interactions.get(key2)
+
+@api_router.get("/patients/{patient_id}/erx/prescription-history", response_model=List[Dict[str, Any]])
+async def get_patient_prescription_history(patient_id: str, current_user: User = Depends(get_current_active_user)):
+    """Get complete prescription history for patient within chart context"""
+    try:
+        prescriptions = await db.prescriptions.find({
+            "patient_id": patient_id
+        }, {"_id": 0}).sort("created_at", -1).to_list(100)
+        
+        return prescriptions
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving prescription history: {str(e)}")
+
+@api_router.put("/patients/{patient_id}/erx/prescriptions/{prescription_id}/status")
+async def update_prescription_status_from_chart(
+    patient_id: str,
+    prescription_id: str,
+    status_data: Dict[str, str],
+    current_user: User = Depends(get_current_active_user)
+):
+    """Update prescription status from within patient chart"""
+    try:
+        new_status = status_data.get("status")
+        valid_statuses = ["active", "completed", "cancelled", "discontinued"]
+        
+        if new_status not in valid_statuses:
+            raise HTTPException(status_code=422, detail=f"Invalid status. Must be one of: {', '.join(valid_statuses)}")
+        
+        # Update prescription
+        result = await db.prescriptions.update_one(
+            {"id": prescription_id, "patient_id": patient_id},
+            {"$set": {"status": new_status, "updated_at": jsonable_encoder(datetime.utcnow())}}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Prescription not found")
+        
+        # If discontinuing, also update patient's current medications
+        if new_status in ["cancelled", "discontinued"]:
+            await db.medications.update_one(
+                {"prescription_id": prescription_id, "patient_id": patient_id},
+                {"$set": {"status": "discontinued", "end_date": jsonable_encoder(date.today()), "updated_at": jsonable_encoder(datetime.utcnow())}}
+            )
+        
+        # Get updated prescription
+        updated_prescription = await db.prescriptions.find_one({"id": prescription_id}, {"_id": 0})
+        return MedicationRequest(**updated_prescription)
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating prescription status: {str(e)}")
+
 # Lab Integration API Endpoints
 
 # Lab Tests Management
