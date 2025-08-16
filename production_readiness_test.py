@@ -397,7 +397,7 @@ def test_erx_integration_within_patient_chart():
     # 4. Test POST /api/patients/{id}/erx/prescribe with drug interaction checking
     try:
         url = f"{API_URL}/patients/{test_patient_id}/erx/prescribe"
-        data = {
+        prescription_data = {
             "medication_id": test_medication_id,
             "prescriber_id": "prescriber-456",
             "prescriber_name": "Dr. Sarah Martinez",
@@ -422,7 +422,7 @@ def test_erx_integration_within_patient_chart():
             "created_by": "admin"
         }
         
-        response = requests.post(url, json=data, headers=headers)
+        response = requests.post(url, json=prescription_data, headers=headers)
         response.raise_for_status()
         result = response.json()
         
