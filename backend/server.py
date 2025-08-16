@@ -8532,6 +8532,8 @@ async def get_telehealth_sessions(
                 session["chat_messages"] = []
             if "technical_issues" not in session:
                 session["technical_issues"] = []
+            if "created_by" not in session:
+                session["created_by"] = "system"
             
             populated_sessions.append(TelehealthSession(**session))
         
