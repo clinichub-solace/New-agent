@@ -4635,6 +4635,35 @@ async def get_financial_transactions(
         logger.error(f"Error getting transactions: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error getting transactions: {str(e)}")
 
+@api_router.get("/financial-transactions/{transaction_id}", response_model=FinancialTransaction)
+async def get_financial_transaction(transaction_id: str):
+    """Get specific financial transaction by ID"""
+    transaction = await db.financial_transactions.find_one({"id": transaction_id}, {"_id": 0})
+    if not transaction:
+        raise HTTPException(status_code=404, detail="Financial transaction not found")
+    return FinancialTransaction(**transaction)
+
+@api_router.put("/financial-transactions/{transaction_id}", response_model=FinancialTransaction)
+async def update_financial_transaction(transaction_id: str, transaction_data: FinancialTransactionCreate, current_user: User = Depends(get_current_active_user)):
+    """Update existing financial transaction"""
+    # Check if transaction exists
+    existing_transaction = await db.financial_transactions.find_one({"id": transaction_id})
+    if not existing_transaction:
+        raise HTTPException(status_code=404, detail="Financial transaction not found")
+    
+    # Create updated transaction
+    updated_transaction = FinancialTransaction(
+        id=transaction_id,
+        transaction_number=existing_transaction["transaction_number"],  # Keep original transaction number
+        created_at=existing_transaction["created_at"],  # Preserve creation time
+        updated_at=datetime.utcnow(),
+        **transaction_data.dict()
+    )
+    
+    updated_transaction_dict = jsonable_encoder(updated_transaction)
+    await db.financial_transactions.replace_one({"id": transaction_id}, updated_transaction_dict)
+    return updated_transaction
+
 # Vendor Invoice Management
 @api_router.post("/vendor-invoices", response_model=VendorInvoice)
 async def create_vendor_invoice(invoice_data: VendorInvoiceCreate):
