@@ -301,11 +301,18 @@ def test_financial_transaction_update():
     try:
         url = f"{API_URL}/financial-transactions/{financial_transaction_id}"
         
-        # Test updating the financial transaction
+        # The PUT endpoint requires full FinancialTransactionCreate data structure
         update_data = {
+            "transaction_type": "income",
+            "amount": 250.00,  # Updated amount
+            "payment_method": "credit_card",
             "description": "Updated payment description - testing PUT endpoint",
+            "category": "patient_payment",
+            "patient_id": patient_id,
+            "invoice_id": invoice_id,
             "reconciled": True,
-            "reconciled_date": "2025-01-15"
+            "reconciled_date": "2025-01-15",
+            "created_by": "admin"
         }
         
         response = requests.put(url, json=update_data, headers=get_auth_headers())
@@ -314,9 +321,10 @@ def test_financial_transaction_update():
             result = response.json()
             print_test_result("Financial Transaction UPDATE", True, {
                 "transaction_id": result["id"],
+                "transaction_number": result["transaction_number"],
+                "amount": result["amount"],
                 "description": result["description"],
-                "reconciled": result["reconciled"],
-                "reconciled_date": result.get("reconciled_date")
+                "reconciled": result.get("reconciled")
             })
             return True
         elif response.status_code == 404:
