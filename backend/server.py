@@ -7093,19 +7093,31 @@ async def get_provider_schedule(provider_id: str, date: str = None):
 @api_router.post("/appointments", response_model=Appointment)
 async def create_appointment(appointment_data: dict):
     try:
-        # Verify patient exists
+        # Verify patient exists and get patient name
         patient = await db.patients.find_one({"id": appointment_data["patient_id"]}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
-        # Verify provider exists
+        # Extract patient name from FHIR structure
+        patient_name = f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}"
+        
+        # Verify provider exists and get provider name
         provider = await db.providers.find_one({"id": appointment_data["provider_id"]}, {"_id": 0})
         if not provider:
             raise HTTPException(status_code=404, detail="Provider not found")
         
+        provider_name = provider.get("name", f"{provider.get('first_name', '')} {provider.get('last_name', '')}").strip()
+        
+        # Create appointment with populated names
+        appointment_data_with_names = {
+            **appointment_data,
+            "patient_name": patient_name,
+            "provider_name": provider_name
+        }
+        
         appointment = Appointment(
             id=str(uuid.uuid4()),
-            **appointment_data
+            **appointment_data_with_names
         )
         
         appointment_dict = jsonable_encoder(appointment)
