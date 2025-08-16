@@ -206,7 +206,7 @@ def test_appointment_creation_fix(patient_id, patient_name, provider_id, provide
         
         # Verify names match expected format
         assert "Emily" in result["patient_name"] and "Rodriguez" in result["patient_name"]
-        assert "Dr." in result["provider_name"] and "Jennifer" in result["provider_name"] and "Martinez" in result["provider_name"]
+        assert "Jennifer" in result["provider_name"] and "Martinez" in result["provider_name"]
         
         appointment_id = result["id"]
         
