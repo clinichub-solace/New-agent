@@ -302,11 +302,12 @@ def test_financial_transaction_update():
         url = f"{API_URL}/financial-transactions/{financial_transaction_id}"
         
         # The PUT endpoint requires full FinancialTransactionCreate data structure
-        # Only use fields that are in FinancialTransactionCreate model
+        # Include transaction_date to avoid validation error
         update_data = {
             "transaction_type": "income",
             "amount": 250.00,  # Updated amount
             "payment_method": "credit_card",
+            "transaction_date": "2025-01-15",  # Provide explicit transaction_date
             "description": "Updated payment description - testing PUT endpoint",
             "category": "patient_payment",
             "patient_id": patient_id,
@@ -323,7 +324,8 @@ def test_financial_transaction_update():
                 "transaction_number": result["transaction_number"],
                 "amount": result["amount"],
                 "description": result["description"],
-                "transaction_type": result["transaction_type"]
+                "transaction_type": result["transaction_type"],
+                "transaction_date": result["transaction_date"]
             })
             return True
         elif response.status_code == 404:
