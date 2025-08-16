@@ -11182,33 +11182,6 @@ async def get_user_preferences(user_id: str):
         raise HTTPException(status_code=500, detail=f"Error fetching preferences: {str(e)}")
 
 # Configure logging
-@api_router.post("/telehealth/sessions")
-async def create_telehealth_session(session: TelehealthSession):
-    try:
-        # Generate meeting URL and credentials (using Jitsi as default)
-        meeting_id = f"clinichub-{session.patient_id}-{int(datetime.now().timestamp())}"
-        meeting_url = f"https://meet.jit.si/{meeting_id}"
-        
-        session_dict = session.dict()
-        session_dict["meeting_id"] = meeting_id
-        session_dict["meeting_url"] = meeting_url
-        session_dict["patient_join_url"] = f"{meeting_url}#config.prejoinPageEnabled=false"
-        session_dict["provider_join_url"] = f"{meeting_url}#config.moderator=true"
-        
-        result = await db.telehealth_sessions.insert_one(session_dict)
-        if result.inserted_id:
-            return {
-                "id": session.id, 
-                "message": "Telehealth session created successfully",
-                "meeting_url": meeting_url,
-                "patient_join_url": session_dict["patient_join_url"],
-                "provider_join_url": session_dict["provider_join_url"]
-            }
-        else:
-            raise HTTPException(status_code=500, detail="Failed to create session")
-    except Exception as e:
-        logger.error(f"Error creating telehealth session: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Error creating session: {str(e)}")
 
 @api_router.get("/telehealth/sessions")
 async def get_telehealth_sessions(patient_id: Optional[str] = None, provider_id: Optional[str] = None, status: Optional[str] = None):
