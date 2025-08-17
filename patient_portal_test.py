@@ -36,10 +36,10 @@ def print_test_result(test_name, success, response=None):
 def get_admin_token():
     """Get admin authentication token"""
     try:
-        # Initialize admin user
+        # Try to initialize admin user (ignore if already exists)
         url = f"{API_URL}/auth/init-admin"
         response = requests.post(url)
-        response.raise_for_status()
+        # Don't raise for status here as admin might already exist
         
         # Login as admin
         url = f"{API_URL}/auth/login"
@@ -51,6 +51,9 @@ def get_admin_token():
         return result["access_token"]
     except Exception as e:
         print(f"Error getting admin token: {str(e)}")
+        if 'response' in locals():
+            print(f"Status code: {response.status_code}")
+            print(f"Response text: {response.text}")
         return None
 
 def create_test_patient(admin_token):
