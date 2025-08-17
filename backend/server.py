@@ -1532,7 +1532,220 @@ class PatientDocument(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
-# Patient Portal Authentication Models
+# Lab Orders and Insurance Verification System Models
+
+# Lab Orders Models
+class LabOrderStatus(str, Enum):
+    DRAFT = "draft"
+    ORDERED = "ordered"
+    COLLECTED = "collected"
+    PROCESSING = "processing"
+    COMPLETED = "completed"
+    CANCELLED = "cancelled"
+    RESULTED = "resulted"
+
+class LabOrderPriority(str, Enum):
+    ROUTINE = "routine"
+    URGENT = "urgent"
+    STAT = "stat"
+    ASAP = "asap"
+
+class LabProvider(str, Enum):
+    LABCORP = "labcorp"
+    QUEST = "quest"
+    INTERNAL = "internal"
+    OTHER = "other"
+
+class LabTest(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    test_code: str  # LOINC code
+    test_name: str
+    description: Optional[str] = None
+    category: str  # chemistry, hematology, microbiology, etc.
+    specimen_type: str  # blood, urine, saliva, etc.
+    collection_method: str  # venipuncture, fingerstick, etc.
+    fasting_required: bool = False
+    special_instructions: Optional[str] = None
+    turnaround_time_hours: int = 24
+    reference_ranges: Dict[str, Any] = {}
+    lab_provider: LabProvider = LabProvider.INTERNAL
+    cost: Optional[float] = None
+    cpt_code: Optional[str] = None
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class LabOrderItem(BaseModel):
+    test_id: str
+    test_code: str
+    test_name: str
+    quantity: int = 1
+    specimen_type: str
+    collection_instructions: Optional[str] = None
+    fasting_required: bool = False
+    priority: LabOrderPriority = LabOrderPriority.ROUTINE
+
+class LabOrder(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    order_number: str = Field(default_factory=lambda: f"LAB-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}")
+    
+    # Patient and Provider Information
+    patient_id: str
+    patient_name: str
+    provider_id: str
+    provider_name: str
+    encounter_id: Optional[str] = None
+    
+    # Order Details
+    tests: List[LabOrderItem]
+    priority: LabOrderPriority = LabOrderPriority.ROUTINE
+    clinical_info: Optional[str] = None  # ICD-10 codes, clinical notes
+    diagnosis_codes: List[str] = []
+    
+    # Lab Processing
+    lab_provider: LabProvider = LabProvider.INTERNAL
+    external_order_id: Optional[str] = None  # External lab's order ID
+    specimen_collection_date: Optional[datetime] = None
+    specimen_collected_by: Optional[str] = None
+    
+    # Status and Tracking
+    status: LabOrderStatus = LabOrderStatus.DRAFT
+    ordered_date: Optional[datetime] = None
+    expected_completion: Optional[datetime] = None
+    completed_date: Optional[datetime] = None
+    
+    # Results
+    results_available: bool = False
+    results_reviewed: bool = False
+    results_communicated: bool = False
+    critical_values: bool = False
+    
+    # Billing and Insurance
+    insurance_pre_auth: bool = False
+    estimated_cost: Optional[float] = None
+    actual_cost: Optional[float] = None
+    
+    # Integration Data
+    hl7_message_id: Optional[str] = None
+    external_system_data: Optional[Dict[str, Any]] = None
+    
+    # Metadata
+    ordered_by: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class LabResult(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    lab_order_id: str
+    test_id: str
+    test_code: str  # LOINC code
+    test_name: str
+    
+    # Result Data
+    result_value: Optional[str] = None
+    result_numeric: Optional[float] = None
+    result_unit: Optional[str] = None
+    reference_range: Optional[str] = None
+    abnormal_flag: Optional[str] = None  # H, L, HH, LL, A, AA
+    
+    # Status and Quality
+    result_status: str = "final"  # preliminary, final, corrected, cancelled
+    performed_date: datetime
+    reported_date: datetime
+    critical_value: bool = False
+    
+    # Laboratory Information
+    performing_lab: str
+    lab_provider: LabProvider
+    technician: Optional[str] = None
+    pathologist: Optional[str] = None
+    
+    # Integration Data
+    hl7_segment_data: Optional[Dict[str, Any]] = None
+    external_result_id: Optional[str] = None
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+# Insurance Verification Models
+class InsuranceType(str, Enum):
+    COMMERCIAL = "commercial"
+    MEDICARE = "medicare"
+    MEDICAID = "medicaid"
+    TRICARE = "tricare"
+    WORKERS_COMP = "workers_comp"
+    AUTO_INSURANCE = "auto_insurance"
+    SELF_PAY = "self_pay"
+
+class VerificationStatus(str, Enum):
+    PENDING = "pending"
+    VERIFIED = "verified"
+    DENIED = "denied"
+    EXPIRED = "expired"
+    REQUIRES_AUTH = "requires_auth"
+    ERROR = "error"
+
+class InsurancePlan(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    insurance_company: str
+    plan_name: str
+    plan_type: InsuranceType
+    payer_id: str  # For electronic transactions
+    
+    # Contact Information
+    phone_number: str
+    website: Optional[str] = None
+    claims_address: Optional[str] = None
+    
+    # Network and Coverage
+    network_type: str = "PPO"  # PPO, HMO, EPO, POS
+    requires_referrals: bool = False
+    requires_prior_auth: bool = False
+    
+    # Service Integration
+    eligibility_service_url: Optional[str] = None
+    claims_service_url: Optional[str] = None
+    api_credentials: Optional[Dict[str, str]] = None
+    
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class InsurancePolicy(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    insurance_plan_id: str
+    
+    # Policy Details
+    policy_number: str
+    group_number: Optional[str] = None
+    subscriber_id: str
+    subscriber_name: str
+    relationship_to_subscriber: str = "self"  # self, spouse, child, other
+    
+    # Coverage Dates
+    effective_date: date
+    termination_date: Optional[date] = None
+    
+    # Coverage Details
+    is_primary: bool = True
+    copay_amount: Optional[float] = None
+    deductible_amount: Optional[float] = None
+    deductible_met: Optional[float] = None
+    out_of_pocket_max: Optional[float] = None
+    out_of_pocket_met: Optional[float] = None
+    
+    # Verification Status
+    last_verified: Optional[datetime] = None
+    verification_status: VerificationStatus = VerificationStatus.PENDING
+    verification_notes: Optional[str] = None
+    
+    is_active: bool = True
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class EligibilityVerification(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 class PatientPortalLogin(BaseModel):
     username: str
     password: str
