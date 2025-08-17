@@ -139,7 +139,7 @@ def test_patient_portal_authentication():
     try:
         url = f"{API_URL}/patient-portal/login"
         data = {
-            "username": "emily_rodriguez",
+            "username": username,
             "password": "SecurePass123!"
         }
         
