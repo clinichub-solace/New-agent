@@ -399,11 +399,11 @@ frontend:
 backend:
   - task: "Lab Order Creation Endpoint Duplicate Fix"
     implemented: true
-    working: "NA"
+    working: false
     file: "/app/backend/server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: true
+    needs_retesting: false
     status_history:
       - working: false
         agent: "testing"
@@ -411,6 +411,9 @@ backend:
       - working: "NA"
         agent: "main"
         comment: "Fixed duplicate lab order endpoint by removing the simpler implementation (lines 10734-10761) and keeping the comprehensive one (lines 10224-10279) that includes proper test processing, patient/provider validation, and FHIR compliance."
+      - working: false
+        agent: "testing"
+        comment: "CRITICAL ISSUE IDENTIFIED: Lab order creation still failing with 500 error. Root cause: Endpoint implementation (line 10257) uses LabOrder model fields from line 1588 (tests, diagnosis_codes, patient_name, provider_name) but actual LabOrder class being used is from line 2212 which expects different fields (lab_tests, icd10_codes, order_number, status). This is a model definition conflict - there are two LabOrder classes in the same file and the endpoint implementation doesn't match the active model definition."
 
   - task: "Clinical Templates Module"
     implemented: false
