@@ -10056,6 +10056,568 @@ async def get_patient_activity(session_token: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving activity log: {str(e)}")
 
+# Lab Orders and Insurance Verification API Endpoints
+import asyncio
+import aiohttp
+from typing import Dict, Any, List, Optional
+import json
+
+# External Service Integration Classes
+class LabService:
+    """Base class for lab service integration"""
+    
+    def __init__(self, config: ExternalServiceConfig):
+        self.config = config
+        self.session = None
+    
+    async def create_session(self):
+        if not self.session:
+            timeout = aiohttp.ClientTimeout(total=self.config.timeout_seconds)
+            self.session = aiohttp.ClientSession(timeout=timeout)
+        return self.session
+    
+    async def close_session(self):
+        if self.session:
+            await self.session.close()
+            self.session = None
+    
+    async def submit_order(self, lab_order: LabOrder) -> Dict[str, Any]:
+        """Submit order to external lab - Mock implementation"""
+        # In production, this would make actual API calls to LabCorp, Quest, etc.
+        session = await self.create_session()
+        
+        # Mock response for testing
+        mock_response = {
+            "external_order_id": f"EXT-{lab_order.order_number}",
+            "status": "accepted",
+            "estimated_completion": (datetime.utcnow() + timedelta(days=2)).isoformat(),
+            "specimen_collection_required": True,
+            "collection_locations": [
+                {"name": "Main Lab", "address": "123 Lab St", "phone": "555-0123"}
+            ]
+        }
+        
+        return mock_response
+    
+    async def get_results(self, external_order_id: str) -> List[Dict[str, Any]]:
+        """Get results from external lab - Mock implementation"""
+        # Mock lab results
+        mock_results = [{
+            "test_code": "33747-0",
+            "test_name": "Complete Blood Count",
+            "result_value": "Normal",
+            "result_status": "final",
+            "performed_date": datetime.utcnow().isoformat(),
+            "reported_date": datetime.utcnow().isoformat()
+        }]
+        
+        return mock_results
+
+class InsuranceService:
+    """Base class for insurance verification integration"""
+    
+    def __init__(self, config: ExternalServiceConfig):
+        self.config = config
+        self.session = None
+    
+    async def create_session(self):
+        if not self.session:
+            timeout = aiohttp.ClientTimeout(total=self.config.timeout_seconds)
+            self.session = aiohttp.ClientSession(timeout=timeout)
+        return self.session
+    
+    async def close_session(self):
+        if self.session:
+            await self.session.close()
+            self.session = None
+    
+    async def verify_eligibility(self, patient_id: str, insurance_policy: InsurancePolicy, service_codes: List[str]) -> Dict[str, Any]:
+        """Verify insurance eligibility - Mock implementation"""
+        # In production, this would integrate with Availity, Change Healthcare, etc.
+        
+        # Mock eligibility response
+        mock_response = {
+            "is_covered": True,
+            "coverage_percentage": 80.0,
+            "copay_amount": 25.0,
+            "deductible_remaining": 500.0,
+            "requires_prior_auth": False,
+            "annual_limit": 10000.0,
+            "visits_remaining": 20,
+            "verification_successful": True,
+            "external_transaction_id": f"TXN-{str(uuid.uuid4())[:8]}"
+        }
+        
+        return mock_response
+
+# Lab Orders API Endpoints
+@api_router.get("/lab-tests", response_model=List[LabTest])
+async def get_available_lab_tests(
+    category: Optional[str] = None,
+    lab_provider: Optional[LabProvider] = None,
+    search: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get available lab tests catalog"""
+    try:
+        query = {"is_active": True}
+        
+        if category:
+            query["category"] = category
+        if lab_provider:
+            query["lab_provider"] = lab_provider.value
+        if search:
+            query["$or"] = [
+                {"test_name": {"$regex": search, "$options": "i"}},
+                {"test_code": {"$regex": search, "$options": "i"}},
+                {"description": {"$regex": search, "$options": "i"}}
+            ]
+        
+        # If no tests exist, create some default ones
+        test_count = await db.lab_tests.count_documents({"is_active": True})
+        if test_count == 0:
+            default_tests = [
+                LabTest(
+                    test_code="33747-0",
+                    test_name="Complete Blood Count (CBC)",
+                    description="Comprehensive blood panel",
+                    category="hematology",
+                    specimen_type="blood",
+                    collection_method="venipuncture",
+                    turnaround_time_hours=24,
+                    cpt_code="85025"
+                ),
+                LabTest(
+                    test_code="33743-4",
+                    test_name="Basic Metabolic Panel",
+                    description="Basic chemistry panel",
+                    category="chemistry",
+                    specimen_type="blood",
+                    collection_method="venipuncture",
+                    fasting_required=True,
+                    turnaround_time_hours=12,
+                    cpt_code="80048"
+                ),
+                LabTest(
+                    test_code="33747-1",
+                    test_name="Lipid Panel",
+                    description="Cholesterol and triglycerides",
+                    category="chemistry",
+                    specimen_type="blood",
+                    collection_method="venipuncture",
+                    fasting_required=True,
+                    turnaround_time_hours=24,
+                    cpt_code="80061"
+                )
+            ]
+            
+            for test in default_tests:
+                test_dict = jsonable_encoder(test)
+                await db.lab_tests.insert_one(test_dict)
+        
+        tests = await db.lab_tests.find(query, {"_id": 0}).sort("test_name", 1).to_list(100)
+        return [LabTest(**test) for test in tests]
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving lab tests: {str(e)}")
+
+@api_router.post("/lab-orders", response_model=LabOrder)
+async def create_lab_order(lab_order_data: Dict[str, Any], current_user: User = Depends(get_current_active_user)):
+    """Create new lab order"""
+    try:
+        # Get patient and provider details
+        patient = await db.patients.find_one({"id": lab_order_data["patient_id"]}, {"_id": 0})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        provider = await db.providers.find_one({"id": lab_order_data["provider_id"]}, {"_id": 0})
+        if not provider:
+            raise HTTPException(status_code=404, detail="Provider not found")
+        
+        patient_name = f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}"
+        provider_name = provider.get("name", f"{provider.get('first_name', '')} {provider.get('last_name', '')}").strip()
+        
+        # Create lab order
+        lab_order = LabOrder(
+            patient_id=lab_order_data["patient_id"],
+            patient_name=patient_name,
+            provider_id=lab_order_data["provider_id"],
+            provider_name=provider_name,
+            tests=lab_order_data["tests"],
+            priority=LabOrderPriority(lab_order_data.get("priority", "routine")),
+            clinical_info=lab_order_data.get("clinical_info"),
+            diagnosis_codes=lab_order_data.get("diagnosis_codes", []),
+            lab_provider=LabProvider(lab_order_data.get("lab_provider", "internal")),
+            encounter_id=lab_order_data.get("encounter_id"),
+            ordered_by=current_user.username
+        )
+        
+        lab_order_dict = jsonable_encoder(lab_order)
+        await db.lab_orders.insert_one(lab_order_dict)
+        
+        return lab_order
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating lab order: {str(e)}")
+
+@api_router.get("/lab-orders", response_model=List[LabOrder])
+async def get_lab_orders(
+    patient_id: Optional[str] = None,
+    provider_id: Optional[str] = None,
+    status: Optional[LabOrderStatus] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get lab orders with filtering"""
+    try:
+        query = {}
+        
+        if patient_id:
+            query["patient_id"] = patient_id
+        if provider_id:
+            query["provider_id"] = provider_id
+        if status:
+            query["status"] = status.value
+        
+        if start_date and end_date:
+            query["created_at"] = {
+                "$gte": jsonable_encoder(datetime.fromisoformat(start_date)),
+                "$lte": jsonable_encoder(datetime.fromisoformat(end_date))
+            }
+        
+        orders = await db.lab_orders.find(query, {"_id": 0}).sort("created_at", -1).to_list(100)
+        return [LabOrder(**order) for order in orders]
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving lab orders: {str(e)}")
+
+@api_router.post("/lab-orders/{order_id}/submit")
+async def submit_lab_order(order_id: str, current_user: User = Depends(get_current_active_user)):
+    """Submit lab order to external lab"""
+    try:
+        # Get lab order
+        order = await db.lab_orders.find_one({"id": order_id}, {"_id": 0})
+        if not order:
+            raise HTTPException(status_code=404, detail="Lab order not found")
+        
+        lab_order_obj = LabOrder(**order)
+        
+        # Get external service configuration
+        service_config = ExternalServiceConfig(
+            service_name="mock_lab_service",
+            service_type="lab_orders",
+            base_url="https://api.mocklabservice.com",
+            api_key="mock_key"
+        )
+        
+        # Submit to external lab
+        lab_service = LabService(service_config)
+        try:
+            external_response = await lab_service.submit_order(lab_order_obj)
+            
+            # Update order with external information
+            update_data = {
+                "status": LabOrderStatus.ORDERED.value,
+                "ordered_date": jsonable_encoder(datetime.utcnow()),
+                "external_order_id": external_response.get("external_order_id"),
+                "expected_completion": external_response.get("estimated_completion"),
+                "external_system_data": external_response,
+                "updated_at": jsonable_encoder(datetime.utcnow())
+            }
+            
+            await db.lab_orders.update_one(
+                {"id": order_id},
+                {"$set": update_data}
+            )
+            
+            return {
+                "message": "Lab order submitted successfully",
+                "external_order_id": external_response.get("external_order_id"),
+                "status": "ordered"
+            }
+            
+        finally:
+            await lab_service.close_session()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error submitting lab order: {str(e)}")
+
+@api_router.post("/lab-orders/{order_id}/results")
+async def retrieve_lab_results(order_id: str, current_user: User = Depends(get_current_active_user)):
+    """Retrieve lab results from external lab"""
+    try:
+        # Get lab order
+        order = await db.lab_orders.find_one({"id": order_id}, {"_id": 0})
+        if not order:
+            raise HTTPException(status_code=404, detail="Lab order not found")
+        
+        if not order.get("external_order_id"):
+            raise HTTPException(status_code=400, detail="No external order ID found")
+        
+        # Get results from external lab
+        service_config = ExternalServiceConfig(
+            service_name="mock_lab_service",
+            service_type="lab_orders",
+            base_url="https://api.mocklabservice.com",
+            api_key="mock_key"
+        )
+        
+        lab_service = LabService(service_config)
+        try:
+            external_results = await lab_service.get_results(order["external_order_id"])
+            
+            # Create lab result records
+            created_results = []
+            for result_data in external_results:
+                lab_result = LabResult(
+                    lab_order_id=order_id,
+                    test_id=str(uuid.uuid4()),
+                    test_code=result_data["test_code"],
+                    test_name=result_data["test_name"],
+                    result_value=result_data.get("result_value"),
+                    result_status=result_data.get("result_status", "final"),
+                    performed_date=datetime.fromisoformat(result_data["performed_date"]),
+                    reported_date=datetime.fromisoformat(result_data["reported_date"]),
+                    performing_lab=order.get("lab_provider", "external"),
+                    lab_provider=LabProvider(order.get("lab_provider", "internal"))
+                )
+                
+                result_dict = jsonable_encoder(lab_result)
+                await db.lab_results.insert_one(result_dict)
+                created_results.append(lab_result)
+            
+            # Update order status
+            await db.lab_orders.update_one(
+                {"id": order_id},
+                {"$set": {
+                    "status": LabOrderStatus.RESULTED.value,
+                    "results_available": True,
+                    "completed_date": jsonable_encoder(datetime.utcnow()),
+                    "updated_at": jsonable_encoder(datetime.utcnow())
+                }}
+            )
+            
+            return {
+                "message": "Lab results retrieved successfully",
+                "results_count": len(created_results),
+                "results": [result.dict() for result in created_results]
+            }
+            
+        finally:
+            await lab_service.close_session()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving lab results: {str(e)}")
+
+@api_router.get("/lab-results", response_model=List[LabResult])
+async def get_lab_results(
+    patient_id: Optional[str] = None,
+    lab_order_id: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get lab results"""
+    try:
+        query = {}
+        
+        if lab_order_id:
+            query["lab_order_id"] = lab_order_id
+        elif patient_id:
+            # Get lab orders for patient, then get results
+            lab_orders = await db.lab_orders.find({"patient_id": patient_id}, {"_id": 0}).to_list(100)
+            order_ids = [order["id"] for order in lab_orders]
+            query["lab_order_id"] = {"$in": order_ids}
+        
+        results = await db.lab_results.find(query, {"_id": 0}).sort("reported_date", -1).to_list(100)
+        return [LabResult(**result) for result in results]
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving lab results: {str(e)}")
+
+# Insurance Verification API Endpoints
+@api_router.get("/insurance-plans", response_model=List[InsurancePlan])
+async def get_insurance_plans(current_user: User = Depends(get_current_active_user)):
+    """Get available insurance plans"""
+    try:
+        # Create default insurance plans if none exist
+        plan_count = await db.insurance_plans.count_documents({"is_active": True})
+        if plan_count == 0:
+            default_plans = [
+                InsurancePlan(
+                    insurance_company="Blue Cross Blue Shield",
+                    plan_name="BCBS PPO",
+                    plan_type=InsuranceType.COMMERCIAL,
+                    payer_id="BCBS001",
+                    phone_number="1-800-BCBS-PPO",
+                    network_type="PPO"
+                ),
+                InsurancePlan(
+                    insurance_company="Aetna",
+                    plan_name="Aetna Better Health",
+                    plan_type=InsuranceType.COMMERCIAL,
+                    payer_id="AETNA001",
+                    phone_number="1-800-AETNA",
+                    network_type="HMO",
+                    requires_referrals=True
+                ),
+                InsurancePlan(
+                    insurance_company="Medicare",
+                    plan_name="Medicare Part B",
+                    plan_type=InsuranceType.MEDICARE,
+                    payer_id="MEDICARE",
+                    phone_number="1-800-MEDICARE",
+                    network_type="Medicare"
+                )
+            ]
+            
+            for plan in default_plans:
+                plan_dict = jsonable_encoder(plan)
+                await db.insurance_plans.insert_one(plan_dict)
+        
+        plans = await db.insurance_plans.find({"is_active": True}, {"_id": 0}).sort("insurance_company", 1).to_list(100)
+        return [InsurancePlan(**plan) for plan in plans]
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving insurance plans: {str(e)}")
+
+@api_router.post("/insurance-policies", response_model=InsurancePolicy)
+async def create_insurance_policy(policy_data: Dict[str, Any], current_user: User = Depends(get_current_active_user)):
+    """Create insurance policy for patient"""
+    try:
+        # Verify patient exists
+        patient = await db.patients.find_one({"id": policy_data["patient_id"]}, {"_id": 0})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Verify insurance plan exists
+        plan = await db.insurance_plans.find_one({"id": policy_data["insurance_plan_id"]}, {"_id": 0})
+        if not plan:
+            raise HTTPException(status_code=404, detail="Insurance plan not found")
+        
+        policy = InsurancePolicy(**policy_data)
+        policy_dict = jsonable_encoder(policy)
+        await db.insurance_policies.insert_one(policy_dict)
+        
+        return policy
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating insurance policy: {str(e)}")
+
+@api_router.post("/insurance-verification")
+async def verify_insurance_eligibility(
+    verification_request: InsuranceVerificationRequest,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Verify insurance eligibility"""
+    try:
+        # Get patient and insurance policy
+        patient = await db.patients.find_one({"id": verification_request.patient_id}, {"_id": 0})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        policy = await db.insurance_policies.find_one({"id": verification_request.insurance_policy_id}, {"_id": 0})
+        if not policy:
+            raise HTTPException(status_code=404, detail="Insurance policy not found")
+        
+        policy_obj = InsurancePolicy(**policy)
+        
+        # Get insurance service configuration
+        service_config = ExternalServiceConfig(
+            service_name="mock_insurance_service",
+            service_type="insurance_verification",
+            base_url="https://api.mockinsurance.com",
+            api_key="mock_key"
+        )
+        
+        # Perform eligibility verification
+        insurance_service = InsuranceService(service_config)
+        try:
+            verification_result = await insurance_service.verify_eligibility(
+                verification_request.patient_id,
+                policy_obj,
+                verification_request.service_codes
+            )
+            
+            # Create eligibility verification record
+            eligibility_verification = EligibilityVerification(
+                patient_id=verification_request.patient_id,
+                insurance_policy_id=verification_request.insurance_policy_id,
+                provider_id=verification_request.provider_npi or current_user.username,
+                service_codes=verification_request.service_codes,
+                status=VerificationStatus.VERIFIED if verification_result["verification_successful"] else VerificationStatus.ERROR,
+                is_covered=verification_result.get("is_covered"),
+                coverage_percentage=verification_result.get("coverage_percentage"),
+                copay_amount=verification_result.get("copay_amount"),
+                deductible_remaining=verification_result.get("deductible_remaining"),
+                requires_prior_auth=verification_result.get("requires_prior_auth", False),
+                annual_limit=verification_result.get("annual_limit"),
+                visits_remaining=verification_result.get("visits_remaining"),
+                external_transaction_id=verification_result.get("external_transaction_id"),
+                raw_response_data=verification_result,
+                verified_by=current_user.username
+            )
+            
+            verification_dict = jsonable_encoder(eligibility_verification)
+            await db.eligibility_verifications.insert_one(verification_dict)
+            
+            # Update insurance policy last verified date
+            await db.insurance_policies.update_one(
+                {"id": verification_request.insurance_policy_id},
+                {"$set": {
+                    "last_verified": jsonable_encoder(datetime.utcnow()),
+                    "verification_status": eligibility_verification.status.value,
+                    "updated_at": jsonable_encoder(datetime.utcnow())
+                }}
+            )
+            
+            return {
+                "verification_id": eligibility_verification.id,
+                "status": eligibility_verification.status.value,
+                "is_covered": verification_result.get("is_covered"),
+                "coverage_details": {
+                    "coverage_percentage": verification_result.get("coverage_percentage"),
+                    "copay_amount": verification_result.get("copay_amount"),
+                    "deductible_remaining": verification_result.get("deductible_remaining"),
+                    "requires_prior_auth": verification_result.get("requires_prior_auth"),
+                    "annual_limit": verification_result.get("annual_limit"),
+                    "visits_remaining": verification_result.get("visits_remaining")
+                },
+                "message": "Insurance eligibility verified successfully"
+            }
+            
+        finally:
+            await insurance_service.close_session()
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error verifying insurance eligibility: {str(e)}")
+
+@api_router.get("/insurance-verifications")
+async def get_insurance_verifications(
+    patient_id: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user)
+):
+    """Get insurance verification history"""
+    try:
+        query = {}
+        if patient_id:
+            query["patient_id"] = patient_id
+        
+        verifications = await db.eligibility_verifications.find(query, {"_id": 0}).sort("verification_date", -1).to_list(100)
+        return verifications
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving insurance verifications: {str(e)}")
+
 # Lab Integration API Endpoints
 
 # Lab Tests Management
