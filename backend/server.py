@@ -9088,6 +9088,644 @@ async def convert_appointment_to_telehealth(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error converting appointment to telehealth: {str(e)}")
 
+# Patient Portal System API Endpoints
+import hashlib
+import secrets
+import smtplib
+from email.mime.text import MimeText
+from email.mime.multipart import MimeMultipart
+
+# Patient Portal Authentication
+@api_router.post("/patient-portal/register")
+async def register_patient_portal(registration_data: PatientPortalRegister):
+    """Register a new patient portal account"""
+    try:
+        # Verify patient exists and data matches
+        patient = await db.patients.find_one({"id": registration_data.patient_id}, {"_id": 0})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient record not found")
+        
+        # Verify date of birth matches
+        patient_dob = patient.get("birth_date")
+        if isinstance(patient_dob, str):
+            patient_dob = datetime.fromisoformat(patient_dob).date()
+        
+        if patient_dob != registration_data.date_of_birth:
+            raise HTTPException(status_code=400, detail="Date of birth does not match our records")
+        
+        # Check if username/email already exists
+        existing_user = await db.patient_portal_users.find_one({
+            "$or": [
+                {"username": registration_data.username},
+                {"email": registration_data.email}
+            ]
+        })
+        if existing_user:
+            raise HTTPException(status_code=400, detail="Username or email already exists")
+        
+        # Validate password match
+        if registration_data.password != registration_data.confirm_password:
+            raise HTTPException(status_code=400, detail="Passwords do not match")
+        
+        # Hash password
+        password_hash = hashlib.sha256(registration_data.password.encode()).hexdigest()
+        
+        # Generate verification token
+        verification_token = secrets.token_urlsafe(32)
+        
+        # Create portal user
+        portal_user = PatientPortalUser(
+            patient_id=registration_data.patient_id,
+            username=registration_data.username,
+            email=registration_data.email,
+            password_hash=password_hash,
+            verification_token=verification_token
+        )
+        
+        portal_user_dict = jsonable_encoder(portal_user)
+        await db.patient_portal_users.insert_one(portal_user_dict)
+        
+        # Create default preferences
+        preferences = PatientPortalPreferences(patient_id=registration_data.patient_id)
+        preferences_dict = jsonable_encoder(preferences)
+        await db.patient_portal_preferences.insert_one(preferences_dict)
+        
+        # Log activity
+        activity = PatientPortalActivity(
+            patient_id=registration_data.patient_id,
+            activity_type="registration",
+            description="Patient portal account created"
+        )
+        activity_dict = jsonable_encoder(activity)
+        await db.patient_portal_activities.insert_one(activity_dict)
+        
+        return {
+            "message": "Patient portal account created successfully",
+            "verification_required": True,
+            "verification_token": verification_token  # In production, send via email
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating patient portal account: {str(e)}")
+
+@api_router.post("/patient-portal/login")
+async def login_patient_portal(login_data: PatientPortalLogin):
+    """Patient portal login"""
+    try:
+        # Find user
+        portal_user = await db.patient_portal_users.find_one({
+            "username": login_data.username,
+            "is_active": True
+        }, {"_id": 0})
+        
+        if not portal_user:
+            raise HTTPException(status_code=401, detail="Invalid username or password")
+        
+        # Check if account is locked
+        if portal_user.get("locked_until") and datetime.utcnow() < datetime.fromisoformat(portal_user["locked_until"]):
+            raise HTTPException(status_code=423, detail="Account is temporarily locked due to too many failed attempts")
+        
+        # Verify password
+        password_hash = hashlib.sha256(login_data.password.encode()).hexdigest()
+        if portal_user["password_hash"] != password_hash:
+            # Increment failed attempts
+            await db.patient_portal_users.update_one(
+                {"id": portal_user["id"]},
+                {"$inc": {"login_attempts": 1}}
+            )
+            
+            # Lock account after 5 failed attempts
+            if portal_user.get("login_attempts", 0) >= 4:
+                lock_until = datetime.utcnow() + timedelta(minutes=30)
+                await db.patient_portal_users.update_one(
+                    {"id": portal_user["id"]},
+                    {"$set": {"locked_until": jsonable_encoder(lock_until)}}
+                )
+            
+            raise HTTPException(status_code=401, detail="Invalid username or password")
+        
+        # Check if account is verified
+        if not portal_user.get("is_verified", True):
+            raise HTTPException(status_code=403, detail="Account not verified. Please check your email for verification instructions.")
+        
+        # Generate session token
+        session_token = secrets.token_urlsafe(32)
+        expires_at = datetime.utcnow() + timedelta(hours=8)
+        
+        # Create session
+        session = PatientPortalSession(
+            patient_id=portal_user["patient_id"],
+            session_token=session_token,
+            expires_at=expires_at
+        )
+        session_dict = jsonable_encoder(session)
+        await db.patient_portal_sessions.insert_one(session_dict)
+        
+        # Update user login info
+        await db.patient_portal_users.update_one(
+            {"id": portal_user["id"]},
+            {"$set": {
+                "last_login": jsonable_encoder(datetime.utcnow()),
+                "login_attempts": 0,
+                "locked_until": None
+            }}
+        )
+        
+        # Log activity
+        activity = PatientPortalActivity(
+            patient_id=portal_user["patient_id"],
+            activity_type="login",
+            description="Patient logged into portal"
+        )
+        activity_dict = jsonable_encoder(activity)
+        await db.patient_portal_activities.insert_one(activity_dict)
+        
+        # Get patient info
+        patient = await db.patients.find_one({"id": portal_user["patient_id"]}, {"_id": 0})
+        patient_info = {
+            "id": patient["id"],
+            "name": f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
+            "email": next((t["value"] for t in patient.get("telecom", []) if t.get("system") == "email"), ""),
+            "phone": next((t["value"] for t in patient.get("telecom", []) if t.get("system") == "phone"), "")
+        }
+        
+        return {
+            "message": "Login successful",
+            "access_token": session_token,
+            "expires_at": expires_at.isoformat(),
+            "patient": patient_info
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during login: {str(e)}")
+
+@api_router.post("/patient-portal/logout")
+async def logout_patient_portal(session_token: str):
+    """Patient portal logout"""
+    try:
+        # Invalidate session
+        result = await db.patient_portal_sessions.delete_one({"session_token": session_token})
+        
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Session not found")
+        
+        return {"message": "Logged out successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error during logout: {str(e)}")
+
+# Patient Portal Authentication Middleware
+async def get_current_portal_patient(session_token: str):
+    """Get current authenticated portal patient"""
+    session = await db.patient_portal_sessions.find_one({
+        "session_token": session_token,
+        "expires_at": {"$gt": jsonable_encoder(datetime.utcnow())}
+    }, {"_id": 0})
+    
+    if not session:
+        raise HTTPException(status_code=401, detail="Invalid or expired session")
+    
+    patient = await db.patients.find_one({"id": session["patient_id"]}, {"_id": 0})
+    if not patient:
+        raise HTTPException(status_code=404, detail="Patient not found")
+    
+    return patient
+
+# Patient Medical Records Access
+@api_router.get("/patient-portal/medical-records")
+async def get_patient_medical_records(session_token: str):
+    """Get patient's medical records"""
+    try:
+        patient = await get_current_portal_patient(session_token)
+        patient_id = patient["id"]
+        
+        # Get recent appointments
+        appointments = await db.appointments.find({
+            "patient_id": patient_id,
+            "status": {"$in": ["completed", "in_progress"]}
+        }, {"_id": 0}).sort("appointment_date", -1).limit(10).to_list(10)
+        
+        # Get SOAP notes
+        soap_notes = await db.soap_notes.find({
+            "patient_id": patient_id
+        }, {"_id": 0}).sort("created_at", -1).limit(10).to_list(10)
+        
+        # Get vital signs
+        vital_signs = await db.vital_signs.find({
+            "patient_id": patient_id
+        }, {"_id": 0}).sort("recorded_date", -1).limit(10).to_list(10)
+        
+        # Get medications
+        medications = await db.medications.find({
+            "patient_id": patient_id,
+            "status": "active"
+        }, {"_id": 0}).sort("start_date", -1).to_list(50)
+        
+        # Get allergies
+        allergies = await db.allergies.find({
+            "patient_id": patient_id,
+            "status": "active"
+        }, {"_id": 0}).sort("created_at", -1).to_list(50)
+        
+        # Get lab results (recent)
+        lab_results = await db.lab_results.find({
+            "patient_id": patient_id
+        }, {"_id": 0}).sort("result_date", -1).limit(10).to_list(10)
+        
+        return {
+            "patient_info": {
+                "name": f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}",
+                "date_of_birth": patient.get("birth_date"),
+                "gender": patient.get("gender"),
+                "phone": next((t["value"] for t in patient.get("telecom", []) if t.get("system") == "phone"), ""),
+                "email": next((t["value"] for t in patient.get("telecom", []) if t.get("system") == "email"), "")
+            },
+            "recent_appointments": appointments,
+            "soap_notes": soap_notes,
+            "vital_signs": vital_signs,
+            "current_medications": medications,
+            "allergies": allergies,
+            "recent_lab_results": lab_results
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving medical records: {str(e)}")
+
+# Patient Appointment Management
+@api_router.get("/patient-portal/appointments")
+async def get_patient_appointments(session_token: str):
+    """Get patient's appointments"""
+    try:
+        patient = await get_current_portal_patient(session_token)
+        patient_id = patient["id"]
+        
+        # Get upcoming appointments
+        upcoming_appointments = await db.appointments.find({
+            "patient_id": patient_id,
+            "appointment_date": {"$gte": date.today().isoformat()},
+            "status": {"$nin": ["cancelled", "no_show"]}
+        }, {"_id": 0}).sort("appointment_date", 1).to_list(20)
+        
+        # Get past appointments
+        past_appointments = await db.appointments.find({
+            "patient_id": patient_id,
+            "appointment_date": {"$lt": date.today().isoformat()}
+        }, {"_id": 0}).sort("appointment_date", -1).limit(20).to_list(20)
+        
+        return {
+            "upcoming_appointments": upcoming_appointments,
+            "past_appointments": past_appointments
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving appointments: {str(e)}")
+
+@api_router.post("/patient-portal/appointment-requests")
+async def create_appointment_request(session_token: str, request_data: Dict[str, Any]):
+    """Create appointment request"""
+    try:
+        patient = await get_current_portal_patient(session_token)
+        patient_id = patient["id"]
+        
+        appointment_request = PatientAppointmentRequest(
+            patient_id=patient_id,
+            provider_id=request_data.get("provider_id"),
+            appointment_type=request_data["appointment_type"],
+            preferred_date=datetime.strptime(request_data["preferred_date"], "%Y-%m-%d").date(),
+            preferred_time=request_data.get("preferred_time"),
+            reason=request_data["reason"],
+            urgency=request_data.get("urgency", "routine"),
+            notes=request_data.get("notes")
+        )
+        
+        request_dict = jsonable_encoder(appointment_request)
+        await db.patient_appointment_requests.insert_one(request_dict)
+        
+        # Log activity
+        activity = PatientPortalActivity(
+            patient_id=patient_id,
+            activity_type="appointment_request",
+            description=f"Appointment request submitted for {request_data['preferred_date']}"
+        )
+        activity_dict = jsonable_encoder(activity)
+        await db.patient_portal_activities.insert_one(activity_dict)
+        
+        return {
+            "message": "Appointment request submitted successfully",
+            "request_id": appointment_request.id,
+            "status": "pending"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating appointment request: {str(e)}")
+
+# Patient Messaging System
+@api_router.get("/patient-portal/messages")
+async def get_patient_messages(session_token: str):
+    """Get patient's messages"""
+    try:
+        patient = await get_current_portal_patient(session_token)
+        patient_id = patient["id"]
+        
+        messages = await db.patient_messages.find({
+            "patient_id": patient_id
+        }, {"_id": 0}).sort("created_at", -1).to_list(50)
+        
+        return {"messages": messages}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving messages: {str(e)}")
+
+@api_router.post("/patient-portal/messages")
+async def send_patient_message(session_token: str, message_data: Dict[str, Any]):
+    """Send message from patient"""
+    try:
+        patient = await get_current_portal_patient(session_token)
+        patient_id = patient["id"]
+        
+        message = PatientMessage(
+            patient_id=patient_id,
+            provider_id=message_data.get("provider_id"),
+            subject=message_data["subject"],
+            message=message_data["message"],
+            message_type=message_data.get("message_type", "general"),
+            priority=message_data.get("priority", "normal"),
+            is_patient_sender=True
+        )
+        
+        message_dict = jsonable_encoder(message)
+        await db.patient_messages.insert_one(message_dict)
+        
+        # Log activity
+        activity = PatientPortalActivity(
+            patient_id=patient_id,
+            activity_type="message_sent",
+            description=f"Message sent: {message_data['subject']}"
+        )
+        activity_dict = jsonable_encoder(activity)
+        await db.patient_portal_activities.insert_one(activity_dict)
+        
+        return {
+            "message": "Message sent successfully",
+            "message_id": message.id
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error sending message: {str(e)}")
+
+# Patient Billing
+@api_router.get("/patient-portal/billing")
+async def get_patient_billing(session_token: str):
+    """Get patient's billing information"""
+    try:
+        patient = await get_current_portal_patient(session_token)
+        patient_id = patient["id"]
+        
+        # Get invoices
+        invoices = await db.invoices.find({
+            "patient_id": patient_id
+        }, {"_id": 0}).sort("issue_date", -1).to_list(50)
+        
+        # Get financial transactions
+        transactions = await db.financial_transactions.find({
+            "patient_id": patient_id
+        }, {"_id": 0}).sort("transaction_date", -1).to_list(50)
+        
+        # Calculate summary
+        total_balance = sum(invoice.get("total_amount", 0) for invoice in invoices if invoice.get("status") not in ["paid", "cancelled"])
+        total_paid = sum(invoice.get("total_amount", 0) for invoice in invoices if invoice.get("status") == "paid")
+        
+        return {
+            "billing_summary": {
+                "current_balance": total_balance,
+                "total_paid_ytd": total_paid,
+                "pending_invoices": len([i for i in invoices if i.get("status") == "sent"])
+            },
+            "invoices": invoices,
+            "transactions": transactions
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving billing information: {str(e)}")
+
+# Prescription Refill Requests
+@api_router.post("/patient-portal/prescription-refills")
+async def create_refill_request(session_token: str, refill_data: Dict[str, Any]):
+    """Create prescription refill request"""
+    try:
+        patient = await get_current_portal_patient(session_token)
+        patient_id = patient["id"]
+        
+        refill_request = PrescriptionRefillRequest(
+            patient_id=patient_id,
+            original_prescription_id=refill_data.get("original_prescription_id"),
+            medication_name=refill_data["medication_name"],
+            dosage=refill_data["dosage"],
+            quantity_requested=refill_data["quantity_requested"],
+            pharmacy_name=refill_data.get("pharmacy_name"),
+            pharmacy_phone=refill_data.get("pharmacy_phone"),
+            reason=refill_data.get("reason"),
+            urgency=refill_data.get("urgency", "routine")
+        )
+        
+        request_dict = jsonable_encoder(refill_request)
+        await db.prescription_refill_requests.insert_one(request_dict)
+        
+        # Log activity
+        activity = PatientPortalActivity(
+            patient_id=patient_id,
+            activity_type="refill_request",
+            description=f"Refill request for {refill_data['medication_name']}"
+        )
+        activity_dict = jsonable_encoder(activity)
+        await db.patient_portal_activities.insert_one(activity_dict)
+        
+        return {
+            "message": "Prescription refill request submitted successfully",
+            "request_id": refill_request.id,
+            "status": "pending"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating refill request: {str(e)}")
+
+# Patient Documents
+@api_router.get("/patient-portal/documents")
+async def get_patient_documents(session_token: str):
+    """Get patient's documents"""
+    try:
+        patient = await get_current_portal_patient(session_token)
+        patient_id = patient["id"]
+        
+        documents = await db.patient_documents.find({
+            "patient_id": patient_id,
+            "is_patient_accessible": True
+        }, {"_id": 0}).sort("created_at", -1).to_list(100)
+        
+        return {"documents": documents}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving documents: {str(e)}")
+
+# Patient Telehealth Portal Access
+@api_router.get("/patient-portal/telehealth-sessions")
+async def get_patient_telehealth_sessions(session_token: str):
+    """Get patient's telehealth sessions"""
+    try:
+        patient = await get_current_portal_patient(session_token)
+        patient_id = patient["id"]
+        
+        sessions = await db.telehealth_sessions.find({
+            "patient_id": patient_id
+        }, {"_id": 0}).sort("scheduled_start", -1).to_list(20)
+        
+        return {"telehealth_sessions": sessions}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving telehealth sessions: {str(e)}")
+
+@api_router.post("/patient-portal/telehealth-sessions/{session_id}/join")
+async def join_telehealth_session_portal(session_id: str, session_token: str):
+    """Join telehealth session from patient portal"""
+    try:
+        patient = await get_current_portal_patient(session_token)
+        patient_id = patient["id"]
+        
+        # Verify session belongs to patient
+        session = await db.telehealth_sessions.find_one({
+            "id": session_id,
+            "patient_id": patient_id
+        }, {"_id": 0})
+        
+        if not session:
+            raise HTTPException(status_code=404, detail="Telehealth session not found")
+        
+        # Check if session is ready to join
+        if session["status"] not in ["scheduled", "waiting", "in_progress"]:
+            raise HTTPException(status_code=400, detail="Session is not available to join")
+        
+        # Add to waiting room if not already in progress
+        if session["status"] == "scheduled":
+            await db.telehealth_waiting_room.insert_one({
+                "id": str(uuid.uuid4()),
+                "session_id": session_id,
+                "patient_id": patient_id,
+                "patient_name": session["patient_name"],
+                "joined_at": jsonable_encoder(datetime.utcnow()),
+                "ready_to_join": True
+            })
+            
+            # Update session status
+            await db.telehealth_sessions.update_one(
+                {"id": session_id},
+                {"$set": {"status": "waiting"}}
+            )
+        
+        return {
+            "message": "Joined telehealth session successfully",
+            "session_url": session.get("session_url"),
+            "room_id": session.get("room_id"),
+            "status": "waiting" if session["status"] == "scheduled" else session["status"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error joining telehealth session: {str(e)}")
+
+# Patient Portal Preferences
+@api_router.get("/patient-portal/preferences")
+async def get_patient_preferences(session_token: str):
+    """Get patient portal preferences"""
+    try:
+        patient = await get_current_portal_patient(session_token)
+        patient_id = patient["id"]
+        
+        preferences = await db.patient_portal_preferences.find_one({
+            "patient_id": patient_id
+        }, {"_id": 0})
+        
+        if not preferences:
+            # Create default preferences
+            preferences = PatientPortalPreferences(patient_id=patient_id)
+            preferences_dict = jsonable_encoder(preferences)
+            await db.patient_portal_preferences.insert_one(preferences_dict)
+            return preferences_dict
+        
+        return preferences
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving preferences: {str(e)}")
+
+@api_router.put("/patient-portal/preferences")
+async def update_patient_preferences(session_token: str, preferences_data: Dict[str, Any]):
+    """Update patient portal preferences"""
+    try:
+        patient = await get_current_portal_patient(session_token)
+        patient_id = patient["id"]
+        
+        preferences_data["updated_at"] = jsonable_encoder(datetime.utcnow())
+        
+        result = await db.patient_portal_preferences.update_one(
+            {"patient_id": patient_id},
+            {"$set": preferences_data}
+        )
+        
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Preferences not found")
+        
+        return {"message": "Preferences updated successfully"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating preferences: {str(e)}")
+
+# Patient Portal Activity Log
+@api_router.get("/patient-portal/activity")
+async def get_patient_activity(session_token: str):
+    """Get patient portal activity log"""
+    try:
+        patient = await get_current_portal_patient(session_token)
+        patient_id = patient["id"]
+        
+        activities = await db.patient_portal_activities.find({
+            "patient_id": patient_id
+        }, {"_id": 0}).sort("created_at", -1).limit(50).to_list(50)
+        
+        return {"activities": activities}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error retrieving activity log: {str(e)}")
+
 # Lab Integration API Endpoints
 
 # Lab Tests Management
