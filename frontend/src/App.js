@@ -10391,8 +10391,8 @@ const QualityMeasuresModule = ({ setActiveModule }) => {
                   <option value="gte">Greater than or equal (≥)</option>
                   <option value="lte">Less than or equal (≤)</option>
                   <option value="eq">Equal to (=)</option>
-                  <option value="gt">Greater than (>)</option>
-                  <option value="lt">Less than (<)</option>
+                  <option value="gt">Greater than (&gt;)</option>
+                  <option value="lt">Less than (&lt;)</option>
                 </select>
               </div>
 
