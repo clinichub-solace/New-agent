@@ -165,9 +165,9 @@ def test_patient_portal_authentication():
     if portal_token:
         try:
             url = f"{API_URL}/patient-portal/logout"
-            headers = {"Authorization": f"Bearer {portal_token}"}
+            params = {"session_token": portal_token}
             
-            response = requests.post(url, headers=headers)
+            response = requests.post(url, params=params)
             response.raise_for_status()
             result = response.json()
             
