@@ -1445,6 +1445,7 @@ class PatientMessage(BaseModel):
     priority: str = "normal"  # low, normal, high, urgent
     status: str = "unread"  # unread, read, replied, closed
     is_patient_sender: bool = True
+    sender_type: str = "patient"  # patient, provider, system
     reply_to_message_id: Optional[str] = None
     attachments: List[str] = []
     read_at: Optional[datetime] = None
