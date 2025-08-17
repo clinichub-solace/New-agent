@@ -159,25 +159,8 @@ def test_patient_portal_authentication():
         print_test_result("Patient Portal Login", False)
         return None, None
     
-    # Test 3: Patient Portal Logout
-    if portal_token:
-        try:
-            url = f"{API_URL}/patient-portal/logout"
-            params = {"session_token": portal_token}
-            
-            response = requests.post(url, params=params)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Patient Portal Logout", True, result)
-        except Exception as e:
-            print(f"Error in patient portal logout: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Patient Portal Logout", False)
-    
-    return patient_id, portal_token
+    # Note: We'll test logout at the end to keep the session active for other tests
+    return patient_id, portal_token, username
 
 def test_medical_records_access(patient_id, portal_token, admin_token):
     """Test Medical Records Access endpoints"""
