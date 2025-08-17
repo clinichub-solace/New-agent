@@ -171,16 +171,16 @@ class LabInsuranceBackendTester:
                 self.log_result("Lab Order Management Setup", False, "No lab tests available")
                 return
             
-            # Test 1: Create lab order (try both formats to see which works)
+            # Test 1: Create lab order (using working format from backend_test.py)
             lab_order_data = {
                 "patient_id": self.patient_id,
                 "provider_id": self.provider_id,
-                "order_number": f"LAB-TEST-{datetime.now().strftime('%Y%m%d%H%M%S')}",
                 "lab_tests": [lab_tests[0]["id"]],  # List of test IDs
                 "icd10_codes": ["Z00.00"],
                 "status": "ordered",
                 "priority": "routine",
-                "notes": "Annual physical examination"
+                "notes": "Annual physical examination",
+                "ordered_by": "Dr. Michael Chen"
             }
             
             response = requests.post(f"{BACKEND_URL}/lab-orders", json=lab_order_data, headers=self.get_headers())
