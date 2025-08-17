@@ -119,7 +119,8 @@ def test_patient_portal_authentication():
         response.raise_for_status()
         result = response.json()
         
-        portal_user_id = result["id"]
+        # Registration successful, user ID not returned in this response
+        portal_user_id = "registered"  # We'll get the actual ID after login
         print_test_result("Patient Portal Registration", True, result)
     except Exception as e:
         print(f"Error in patient portal registration: {str(e)}")
