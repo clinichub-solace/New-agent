@@ -175,18 +175,11 @@ class LabInsuranceBackendTester:
             lab_order_data = {
                 "patient_id": self.patient_id,
                 "provider_id": self.provider_id,
-                "tests": [
-                    {
-                        "test_id": lab_tests[0]["id"],
-                        "test_code": lab_tests[0]["test_code"],
-                        "test_name": lab_tests[0]["test_name"],
-                        "specimen_type": lab_tests[0]["specimen_type"],
-                        "priority": "routine"
-                    }
-                ],
+                "lab_tests": [lab_tests[0]["id"]],  # List of test IDs
+                "icd10_codes": ["Z00.00"],
+                "status": "draft",
                 "priority": "routine",
-                "clinical_info": "Annual physical examination",
-                "diagnosis_codes": ["Z00.00"]
+                "notes": "Annual physical examination"
             }
             
             response = requests.post(f"{BACKEND_URL}/lab-orders", json=lab_order_data, headers=self.get_headers())
