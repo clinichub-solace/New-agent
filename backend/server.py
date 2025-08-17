@@ -10237,13 +10237,29 @@ async def create_lab_order(lab_order_data: Dict[str, Any], current_user: User = 
         patient_name = f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}"
         provider_name = provider.get("name", f"{provider.get('first_name', '')} {provider.get('last_name', '')}").strip()
         
+        # Process tests data - handle both formats
+        processed_tests = []
+        for test_data in lab_order_data.get("tests", []):
+            if isinstance(test_data, dict):
+                processed_test = LabOrderItem(
+                    test_id=test_data.get("test_id", str(uuid.uuid4())),
+                    test_code=test_data.get("test_code", "UNKNOWN"),
+                    test_name=test_data.get("test_name", "Unknown Test"),
+                    quantity=test_data.get("quantity", 1),
+                    specimen_type=test_data.get("specimen_type", "blood"),
+                    collection_instructions=test_data.get("collection_instructions"),
+                    fasting_required=test_data.get("fasting_required", False),
+                    priority=LabOrderPriority(test_data.get("priority", "routine"))
+                )
+                processed_tests.append(processed_test)
+        
         # Create lab order
         lab_order = LabOrder(
             patient_id=lab_order_data["patient_id"],
             patient_name=patient_name,
             provider_id=lab_order_data["provider_id"],
             provider_name=provider_name,
-            tests=lab_order_data["tests"],
+            tests=processed_tests,
             priority=LabOrderPriority(lab_order_data.get("priority", "routine")),
             clinical_info=lab_order_data.get("clinical_info"),
             diagnosis_codes=lab_order_data.get("diagnosis_codes", []),
