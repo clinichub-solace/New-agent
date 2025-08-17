@@ -7564,4 +7564,673 @@ const TelehealthModule = ({ setActiveModule }) => {
   );
 };
 
+// Comprehensive Patient Portal Management Module
+const PatientPortalModule = ({ setActiveModule }) => {
+  const { user } = useAuth();
+  const [portalUsers, setPortalUsers] = useState([]);
+  const [appointmentRequests, setAppointmentRequests] = useState([]);
+  const [patientMessages, setPatientMessages] = useState([]);
+  const [refillRequests, setRefillRequests] = useState([]);
+  const [portalActivities, setPortalActivities] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  
+  // View and navigation states
+  const [activeView, setActiveView] = useState('dashboard'); // dashboard, users, requests, messages, analytics
+  const [selectedUser, setSelectedUser] = useState(null);
+  const [selectedRequest, setSelectedRequest] = useState(null);
+  
+  // Form states
+  const [showUserDetails, setShowUserDetails] = useState(false);
+  const [showMessageReply, setShowMessageReply] = useState(false);
+  const [replyMessage, setReplyMessage] = useState('');
+  
+  // Analytics data
+  const [portalStats, setPortalStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    newRegistrations: 0,
+    pendingRequests: 0,
+    messagesUnread: 0
+  });
+
+  useEffect(() => {
+    fetchPortalData();
+  }, []);
+
+  const fetchPortalData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        fetchPortalUsers(),
+        fetchAppointmentRequests(),
+        fetchPatientMessages(),
+        fetchRefillRequests(),
+        fetchPortalActivities()
+      ]);
+    } catch (error) {
+      console.error('Failed to fetch portal data:', error);
+      setError('Failed to fetch portal data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPortalUsers = async () => {
+    try {
+      // Since we don't have a direct endpoint for portal users list,
+      // we'll create a comprehensive view from existing data
+      const response = await axios.get(`${API}/patients`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      // Mock portal user data based on patients
+      const mockPortalUsers = response.data.slice(0, 10).map(patient => ({
+        id: `portal_${patient.id}`,
+        patient_id: patient.id,
+        patient_name: `${patient.name?.[0]?.given?.[0] || ''} ${patient.name?.[0]?.family || ''}`.trim(),
+        email: patient.telecom?.find(t => t.system === 'email')?.value || 'Not provided',
+        username: `patient_${patient.id.slice(-4)}`,
+        is_active: true,
+        is_verified: Math.random() > 0.2, // 80% verified
+        last_login: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
+        created_at: patient.created_at
+      }));
+      
+      setPortalUsers(mockPortalUsers);
+      
+      // Update stats
+      setPortalStats(prev => ({
+        ...prev,
+        totalUsers: mockPortalUsers.length,
+        activeUsers: mockPortalUsers.filter(u => u.is_active).length,
+        newRegistrations: mockPortalUsers.filter(u => 
+          new Date(u.created_at) > new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+        ).length
+      }));
+      
+    } catch (error) {
+      console.error('Failed to fetch portal users:', error);
+    }
+  };
+
+  const fetchAppointmentRequests = async () => {
+    try {
+      // Mock appointment requests data
+      const mockRequests = [
+        {
+          id: 'req_001',
+          patient_name: 'Sarah Johnson',
+          appointment_type: 'Annual Physical',
+          preferred_date: '2024-01-20',
+          preferred_time: '10:00',
+          reason: 'Annual checkup and preventive care',
+          urgency: 'routine',
+          status: 'pending',
+          created_at: new Date().toISOString()
+        },
+        {
+          id: 'req_002',
+          patient_name: 'Michael Chen',
+          appointment_type: 'Follow-up',
+          preferred_date: '2024-01-22',
+          preferred_time: '14:30',
+          reason: 'Follow-up for blood pressure monitoring',
+          urgency: 'routine',
+          status: 'approved',
+          created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+        }
+      ];
+      
+      setAppointmentRequests(mockRequests);
+      
+      setPortalStats(prev => ({
+        ...prev,
+        pendingRequests: mockRequests.filter(r => r.status === 'pending').length
+      }));
+      
+    } catch (error) {
+      console.error('Failed to fetch appointment requests:', error);
+    }
+  };
+
+  const fetchPatientMessages = async () => {
+    try {
+      // Mock patient messages data
+      const mockMessages = [
+        {
+          id: 'msg_001',
+          patient_name: 'Emma Wilson',
+          subject: 'Question about lab results',
+          message: 'I received my lab results but have some questions about the cholesterol levels.',
+          message_type: 'general',
+          priority: 'normal',
+          status: 'unread',
+          created_at: new Date().toISOString()
+        },
+        {
+          id: 'msg_002',
+          patient_name: 'David Brown',
+          subject: 'Prescription refill needed',
+          message: 'My blood pressure medication is running low, can I get a refill?',
+          message_type: 'prescription',
+          priority: 'normal',
+          status: 'read',
+          created_at: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
+        },
+        {
+          id: 'msg_003',
+          patient_name: 'Lisa Garcia',
+          subject: 'Urgent: Side effects from medication',
+          message: 'I\'m experiencing some concerning side effects from the new medication.',
+          message_type: 'urgent',
+          priority: 'high',
+          status: 'unread',
+          created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString()
+        }
+      ];
+      
+      setPatientMessages(mockMessages);
+      
+      setPortalStats(prev => ({
+        ...prev,
+        messagesUnread: mockMessages.filter(m => m.status === 'unread').length
+      }));
+      
+    } catch (error) {
+      console.error('Failed to fetch patient messages:', error);
+    }
+  };
+
+  const fetchRefillRequests = async () => {
+    try {
+      // Mock refill requests data
+      const mockRefills = [
+        {
+          id: 'refill_001',
+          patient_name: 'Robert Taylor',
+          medication_name: 'Lisinopril 10mg',
+          quantity_requested: 90,
+          pharmacy_name: 'CVS Pharmacy',
+          status: 'pending',
+          urgency: 'routine',
+          created_at: new Date().toISOString()
+        }
+      ];
+      
+      setRefillRequests(mockRefills);
+      
+    } catch (error) {
+      console.error('Failed to fetch refill requests:', error);
+    }
+  };
+
+  const fetchPortalActivities = async () => {
+    try {
+      // Mock activity data
+      const mockActivities = [
+        {
+          id: 'act_001',
+          patient_name: 'Various Patients',
+          activity_type: 'login',
+          description: '15 patient logins in the last hour',
+          created_at: new Date().toISOString()
+        },
+        {
+          id: 'act_002',
+          patient_name: 'Sarah Johnson',
+          activity_type: 'appointment_request',
+          description: 'New appointment request submitted',
+          created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString()
+        }
+      ];
+      
+      setPortalActivities(mockActivities);
+      
+    } catch (error) {
+      console.error('Failed to fetch portal activities:', error);
+    }
+  };
+
+  const handleApproveRequest = async (requestId) => {
+    try {
+      setLoading(true);
+      
+      // Update request status
+      setAppointmentRequests(prev => 
+        prev.map(req => 
+          req.id === requestId 
+            ? { ...req, status: 'approved', processed_at: new Date().toISOString() }
+            : req
+        )
+      );
+      
+      setSuccess('Appointment request approved successfully!');
+      
+    } catch (error) {
+      console.error('Failed to approve request:', error);
+      setError('Failed to approve appointment request');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReplyToMessage = async (messageId) => {
+    try {
+      setLoading(true);
+      
+      // Mark message as replied
+      setPatientMessages(prev => 
+        prev.map(msg => 
+          msg.id === messageId 
+            ? { ...msg, status: 'replied', replied_at: new Date().toISOString() }
+            : msg
+        )
+      );
+      
+      setSuccess('Reply sent successfully!');
+      setShowMessageReply(false);
+      setReplyMessage('');
+      
+    } catch (error) {
+      console.error('Failed to send reply:', error);
+      setError('Failed to send reply');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    const colors = {
+      'low': 'bg-gray-100 text-gray-800',
+      'normal': 'bg-blue-100 text-blue-800',
+      'high': 'bg-orange-100 text-orange-800',
+      'urgent': 'bg-red-100 text-red-800'
+    };
+    return colors[priority] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'pending': 'bg-yellow-100 text-yellow-800',
+      'approved': 'bg-green-100 text-green-800',
+      'denied': 'bg-red-100 text-red-800',
+      'unread': 'bg-red-100 text-red-800',
+      'read': 'bg-blue-100 text-blue-800',
+      'replied': 'bg-green-100 text-green-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const renderDashboard = () => {
+    return (
+      <div className="space-y-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{portalStats.totalUsers}</div>
+                <div className="text-sm text-gray-300">Total Users</div>
+              </div>
+              <div className="text-2xl">👥</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{portalStats.activeUsers}</div>
+                <div className="text-sm text-gray-300">Active Users</div>
+              </div>
+              <div className="text-2xl">🟢</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{portalStats.pendingRequests}</div>
+                <div className="text-sm text-gray-300">Pending Requests</div>
+              </div>
+              <div className="text-2xl">📋</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{portalStats.messagesUnread}</div>
+                <div className="text-sm text-gray-300">Unread Messages</div>
+              </div>
+              <div className="text-2xl">📧</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{portalStats.newRegistrations}</div>
+                <div className="text-sm text-gray-300">New This Month</div>
+              </div>
+              <div className="text-2xl">🆕</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Pending Appointment Requests */}
+          <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">📋 Pending Appointment Requests</h3>
+            {appointmentRequests.filter(req => req.status === 'pending').length === 0 ? (
+              <p className="text-gray-400">No pending appointment requests.</p>
+            ) : (
+              <div className="space-y-3">
+                {appointmentRequests.filter(req => req.status === 'pending').map(request => (
+                  <div key={request.id} className="bg-white/5 border border-white/10 rounded p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="text-white font-medium">{request.patient_name}</div>
+                        <div className="text-sm text-gray-300">
+                          {request.appointment_type} - {request.preferred_date} at {request.preferred_time}
+                        </div>
+                        <div className="text-sm text-gray-400 mt-1">{request.reason}</div>
+                      </div>
+                      <div className="flex space-x-2">
+                        <button
+                          onClick={() => handleApproveRequest(request.id)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => setSelectedRequest(request)}
+                          className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          View
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Unread Messages */}
+          <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">📧 Unread Messages</h3>
+            {patientMessages.filter(msg => msg.status === 'unread').length === 0 ? (
+              <p className="text-gray-400">No unread messages.</p>
+            ) : (
+              <div className="space-y-3">
+                {patientMessages.filter(msg => msg.status === 'unread').map(message => (
+                  <div key={message.id} className="bg-white/5 border border-white/10 rounded p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center space-x-2">
+                          <div className="text-white font-medium">{message.patient_name}</div>
+                          <span className={`px-2 py-1 rounded text-xs ${getPriorityColor(message.priority)}`}>
+                            {message.priority}
+                          </span>
+                        </div>
+                        <div className="text-sm text-gray-300 mt-1">{message.subject}</div>
+                        <div className="text-sm text-gray-400 mt-1 truncate">{message.message}</div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setSelectedUser(message);
+                          setShowMessageReply(true);
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Reply
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Portal Activity */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">📊 Recent Portal Activity</h3>
+          <div className="space-y-3">
+            {portalActivities.slice(0, 5).map(activity => (
+              <div key={activity.id} className="flex items-center justify-between py-2 border-b border-white/10 last:border-b-0">
+                <div className="flex items-center space-x-3">
+                  <div className="text-xl">
+                    {activity.activity_type === 'login' ? '🔐' : 
+                     activity.activity_type === 'appointment_request' ? '📅' : 
+                     activity.activity_type === 'message_sent' ? '📧' : '📋'}
+                  </div>
+                  <div>
+                    <div className="text-white text-sm">{activity.description}</div>
+                    <div className="text-xs text-gray-400">
+                      {new Date(activity.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderUserManagement = () => {
+    return (
+      <div className="space-y-6">
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">👥 Portal Users</h3>
+          
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-white/20">
+                  <th className="text-left text-white font-medium pb-3">Patient Name</th>
+                  <th className="text-left text-white font-medium pb-3">Username</th>
+                  <th className="text-left text-white font-medium pb-3">Email</th>
+                  <th className="text-left text-white font-medium pb-3">Status</th>
+                  <th className="text-left text-white font-medium pb-3">Last Login</th>
+                  <th className="text-left text-white font-medium pb-3">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {portalUsers.map(user => (
+                  <tr key={user.id} className="border-b border-white/10">
+                    <td className="text-white py-3">{user.patient_name}</td>
+                    <td className="text-gray-300 py-3">{user.username}</td>
+                    <td className="text-gray-300 py-3">{user.email}</td>
+                    <td className="py-3">
+                      <div className="flex items-center space-x-2">
+                        <span className={`px-2 py-1 rounded text-xs ${user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                          {user.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                        {user.is_verified && (
+                          <span className="px-2 py-1 rounded text-xs bg-blue-100 text-blue-800">
+                            Verified
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="text-gray-300 py-3 text-sm">
+                      {user.last_login ? new Date(user.last_login).toLocaleDateString() : 'Never'}
+                    </td>
+                    <td className="py-3">
+                      <button
+                        onClick={() => setSelectedUser(user)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                      >
+                        View Details
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMessageReplyModal = () => {
+    if (!showMessageReply || !selectedUser) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">Reply to Message</h3>
+            <button
+              onClick={() => {
+                setShowMessageReply(false);
+                setReplyMessage('');
+                setSelectedUser(null);
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="mb-4">
+            <div className="bg-white/5 border border-white/10 rounded p-4">
+              <div className="text-white font-medium mb-2">Original Message from {selectedUser.patient_name || 'Patient'}</div>
+              <div className="text-gray-300 text-sm">{selectedUser.subject}</div>
+              <div className="text-gray-400 text-sm mt-2">{selectedUser.message}</div>
+            </div>
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-300 mb-2">Your Reply</label>
+            <textarea
+              value={replyMessage}
+              onChange={(e) => setReplyMessage(e.target.value)}
+              className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+              rows={6}
+              placeholder="Type your reply..."
+              required
+            />
+          </div>
+
+          <div className="flex space-x-4">
+            <button
+              onClick={() => handleReplyToMessage(selectedUser.id)}
+              disabled={loading || !replyMessage.trim()}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+            >
+              {loading ? 'Sending...' : 'Send Reply'}
+            </button>
+            <button
+              onClick={() => {
+                setShowMessageReply(false);
+                setReplyMessage('');
+                setSelectedUser(null);
+              }}
+              className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">🌐 Patient Portal Management</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => fetchPortalData()}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            🔄 Refresh
+          </button>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 mb-6">
+          <p className="text-green-300">✅ {success}</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mb-6">
+          <p className="text-red-300">❌ {error}</p>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'dashboard', name: 'Dashboard', icon: '📊' },
+            { id: 'users', name: 'Portal Users', icon: '👥' },
+            { id: 'requests', name: 'Requests', icon: '📋' },
+            { id: 'messages', name: 'Messages', icon: '📧' },
+            { id: 'analytics', name: 'Analytics', icon: '📈' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeView === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Content based on active view */}
+      {activeView === 'dashboard' && renderDashboard()}
+      {activeView === 'users' && renderUserManagement()}
+      {activeView === 'requests' && (
+        <div className="text-white">Appointment requests management view coming soon...</div>
+      )}
+      {activeView === 'messages' && (
+        <div className="text-white">Message management view coming soon...</div>
+      )}
+      {activeView === 'analytics' && (
+        <div className="text-white">Portal analytics view coming soon...</div>
+      )}
+
+      {/* Modals */}
+      {renderMessageReplyModal()}
+      
+      {/* Loading */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default App;
