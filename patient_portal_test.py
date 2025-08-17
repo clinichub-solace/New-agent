@@ -105,11 +105,16 @@ def test_patient_portal_authentication():
     
     # Test 1: Patient Portal Registration
     try:
+        # Use unique username to avoid conflicts
+        unique_id = str(uuid.uuid4())[:8]
+        username = f"emily_rodriguez_{unique_id}"
+        email = f"emily.rodriguez.{unique_id}@example.com"
+        
         url = f"{API_URL}/patient-portal/register"
         data = {
             "patient_id": patient_id,
-            "username": "emily_rodriguez",
-            "email": "emily.rodriguez@example.com",
+            "username": username,
+            "email": email,
             "password": "SecurePass123!",
             "confirm_password": "SecurePass123!",
             "date_of_birth": "1990-08-15"
