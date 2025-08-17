@@ -10730,35 +10730,7 @@ async def get_lab_tests(current_user: User = Depends(get_current_active_user)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving lab tests: {str(e)}")
 
-# Lab Orders Management
-@api_router.post("/lab-orders")
-async def create_lab_order(order_data: dict, current_user: User = Depends(get_current_active_user)):
-    """Create a new lab order"""
-    try:
-        # Verify patient exists
-        patient = await db.patients.find_one({"id": order_data["patient_id"]}, {"_id": 0})
-        if not patient:
-            raise HTTPException(status_code=404, detail="Patient not found")
-        
-        # Generate order number
-        count = await db.lab_orders.count_documents({})
-        order_number = f"LAB-{count + 1:06d}"
-        
-        # Create lab order
-        lab_order = LabOrder(
-            order_number=order_number,
-            ordered_by=current_user.username,
-            **order_data
-        )
-        
-        lab_order_dict = jsonable_encoder(lab_order)
-        await db.lab_orders.insert_one(lab_order_dict)
-        
-        return lab_order
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error creating lab order: {str(e)}")
+# Lab Orders Management (Duplicate endpoint removed - using comprehensive implementation above)
 
 @api_router.get("/lab-orders")
 async def get_lab_orders(
