@@ -9092,8 +9092,7 @@ async def convert_appointment_to_telehealth(
 import hashlib
 import secrets
 import smtplib
-from email.mime.text import MimeText
-from email.mime.multipart import MimeMultipart
+# Email imports removed - not needed for current functionality
 
 # Patient Portal Authentication
 @api_router.post("/patient-portal/register")
