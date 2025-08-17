@@ -2176,16 +2176,10 @@ class MockEmailService:
 
 # Enhanced EHR Models
 
-# Lab Integration Models
-class LabOrderStatus(str, Enum):
-    ORDERED = "ordered"
-    COLLECTED = "collected"
-    PROCESSING = "processing"
-    COMPLETED = "completed"
-    CANCELLED = "cancelled"
-    AMENDED = "amended"
+# Lab Integration Models - Using comprehensive definitions from above
+# Duplicate LabOrderStatus and LabOrder classes removed to prevent conflicts
 
-class LabResultStatus(str, Enum):
+class LabResultStatus(BaseModel):
     PENDING = "pending"
     FINAL = "final"
     CORRECTED = "corrected"
