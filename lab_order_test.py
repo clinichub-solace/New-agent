@@ -199,8 +199,8 @@ def test_lab_order_creation(admin_token):
             # Use the first available lab test
             test_item = {
                 "test_id": lab_tests[0]["id"],
-                "test_code": lab_tests[0]["test_code"],
-                "test_name": lab_tests[0]["test_name"],
+                "test_code": lab_tests[0]["code"],  # Fixed: use "code" not "test_code"
+                "test_name": lab_tests[0]["name"],  # Fixed: use "name" not "test_name"
                 "quantity": 1,
                 "specimen_type": lab_tests[0]["specimen_type"],
                 "fasting_required": lab_tests[0].get("fasting_required", False),
