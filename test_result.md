@@ -989,11 +989,11 @@ test_plan:
 
   - task: "Lab Integration System"
     implemented: true
-    working: true
+    working: false
     file: "/app/backend/server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
-    needs_retesting: false
+    needs_retesting: true
     status_history:
       - working: false
         agent: "main"
@@ -1004,6 +1004,9 @@ test_plan:
       - working: true
         agent: "testing"
         comment: "Performed additional comprehensive testing of the Lab Integration System. All endpoints are functioning correctly. Successfully tested: 1) POST /api/lab-tests/init - Initialized lab tests with LOINC codes, 2) GET /api/lab-tests - Retrieved all lab tests with proper codes and descriptions, 3) POST /api/icd10/init and GET /api/icd10/search - Successfully searched for ICD-10 codes by query term, 4) POST /api/lab-orders - Created a lab order with patient, provider, lab tests, and ICD-10 codes, 5) GET /api/lab-orders - Retrieved all lab orders, 6) GET /api/lab-orders/{id} - Retrieved a specific lab order by ID. The system correctly handles all required operations for lab test management and ordering."
+      - working: false
+        agent: "testing"
+        comment: "🚨 CRITICAL LAB ORDER CREATION BUG IDENTIFIED: Comprehensive testing revealed a critical backend implementation issue with lab order creation. Lab Tests Catalog is working perfectly (✅ 4/4 tests passed): initialization, retrieval, filtering, and search all functional. However, Lab Order Management has a critical bug (❌ 1/4 tests failed): POST /api/lab-orders endpoint has validation errors where only patient_id and ordered_by are being passed to LabOrder constructor, missing required fields (order_number, lab_tests, icd10_codes, status). This appears to be caused by duplicate endpoint definitions at lines 10224 and 10718 in server.py, where the second endpoint overrides the first but has incomplete data passing. External Lab Integration and Lab Results Management endpoints are accessible but cannot be fully tested due to lab order creation failure. RECOMMENDATION: Fix the lab order creation endpoint by ensuring all request data is properly passed to the LabOrder constructor."
 
   - task: "Insurance Verification System"
     implemented: true
