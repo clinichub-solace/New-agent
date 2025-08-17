@@ -775,13 +775,39 @@ def create_test_telehealth_session(patient_id, admin_token):
         print(f"Error creating test telehealth session: {str(e)}")
         return None
 
+def test_patient_portal_logout(portal_token):
+    """Test Patient Portal Logout"""
+    print("\n=== TESTING PATIENT PORTAL LOGOUT ===")
+    
+    if portal_token:
+        try:
+            url = f"{API_URL}/patient-portal/logout"
+            params = {"session_token": portal_token}
+            
+            response = requests.post(url, params=params)
+            response.raise_for_status()
+            result = response.json()
+            
+            print_test_result("Patient Portal Logout", True, result)
+        except Exception as e:
+            print(f"Error in patient portal logout: {str(e)}")
+            if 'response' in locals():
+                print(f"Status code: {response.status_code}")
+                print(f"Response text: {response.text}")
+            print_test_result("Patient Portal Logout", False)
+
 def main():
     """Main test execution"""
     print("🏥 COMPREHENSIVE PATIENT PORTAL SYSTEM TESTING")
     print("=" * 80)
     
     # Test 1: Patient Portal Authentication
-    patient_id, portal_token = test_patient_portal_authentication()
+    result = test_patient_portal_authentication()
+    if len(result) == 3:
+        patient_id, portal_token, username = result
+    else:
+        patient_id, portal_token = result
+        username = None
     
     if not patient_id or not portal_token:
         print("❌ Cannot proceed with other tests without patient portal authentication")
@@ -813,6 +839,9 @@ def main():
     
     # Test 9: Activity Tracking
     test_activity_tracking(patient_id, portal_token)
+    
+    # Test 10: Patient Portal Logout (at the end)
+    test_patient_portal_logout(portal_token)
     
     print("\n" + "=" * 80)
     print("🏥 PATIENT PORTAL TESTING COMPLETED")
