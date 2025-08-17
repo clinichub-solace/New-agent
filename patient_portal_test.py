@@ -259,9 +259,9 @@ def test_patient_communication(patient_id, portal_token, admin_token):
     # Test 1: Patient Messages Retrieval
     try:
         url = f"{API_URL}/patient-portal/messages"
-        headers = {"Authorization": f"Bearer {portal_token}"}
+        params = {"session_token": portal_token}
         
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, params=params)
         response.raise_for_status()
         result = response.json()
         
@@ -276,7 +276,7 @@ def test_patient_communication(patient_id, portal_token, admin_token):
     # Test 2: Send Message from Patient
     try:
         url = f"{API_URL}/patient-portal/messages"
-        headers = {"Authorization": f"Bearer {portal_token}"}
+        params = {"session_token": portal_token}
         data = {
             "subject": "Question about my recent lab results",
             "message": "Hi Dr. Smith, I have some questions about my recent blood work results. Could you please explain what the elevated glucose levels mean?",
@@ -284,7 +284,7 @@ def test_patient_communication(patient_id, portal_token, admin_token):
             "priority": "normal"
         }
         
-        response = requests.post(url, headers=headers, json=data)
+        response = requests.post(url, params=params, json=data)
         response.raise_for_status()
         result = response.json()
         
@@ -301,7 +301,7 @@ def test_patient_communication(patient_id, portal_token, admin_token):
     if message_id:
         try:
             url = f"{API_URL}/patient-portal/messages"
-            headers = {"Authorization": f"Bearer {portal_token}"}
+            params = {"session_token": portal_token}
             data = {
                 "subject": "Re: Question about my recent lab results",
                 "message": "Thank you for your quick response. I understand now. Should I schedule a follow-up appointment?",
@@ -310,7 +310,7 @@ def test_patient_communication(patient_id, portal_token, admin_token):
                 "reply_to_message_id": message_id
             }
             
-            response = requests.post(url, headers=headers, json=data)
+            response = requests.post(url, params=params, json=data)
             response.raise_for_status()
             result = response.json()
             
