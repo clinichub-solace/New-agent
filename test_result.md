@@ -397,6 +397,57 @@ frontend:
         comment: "Despite the code organization issues, the frontend is accessible via HTTPS and the build process is successful. No syntax errors were found in the App.js file. The login page loads correctly, and the application appears to be functioning as expected. The ENOSPC errors are a development environment issue and don't affect production. The frontend is using React 19.0.0, which might have compatibility issues with some dependencies, but the application is still working."
 
 backend:
+  - task: "Lab Order Creation Endpoint Duplicate Fix"
+    implemented: true
+    working: "NA"
+    file: "/app/backend/server.py"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: false
+        agent: "testing"
+        comment: "Critical bug identified: duplicate endpoint definitions for POST /lab-orders causing conflicts. Found two separate create_lab_order functions at lines 10224 and 10734 with different implementations."
+      - working: "NA"
+        agent: "main"
+        comment: "Fixed duplicate lab order endpoint by removing the simpler implementation (lines 10734-10761) and keeping the comprehensive one (lines 10224-10279) that includes proper test processing, patient/provider validation, and FHIR compliance."
+
+  - task: "Clinical Templates Module"
+    implemented: false
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Backend APIs exist (/api/clinical-templates) but frontend module is missing from current App.js. Dashboard has button for 'clinical-templates' but renderContent switch case is missing."
+
+  - task: "Quality Measures Module"
+    implemented: false
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Backend APIs exist (/api/quality-measures) but frontend module is missing from current App.js. Dashboard has button for 'quality-measures' but renderContent switch case is missing."
+
+  - task: "Document Management Module"
+    implemented: false
+    working: "NA"
+    file: "/app/frontend/src/App.js"
+    stuck_count: 0
+    priority: "high"
+    needs_retesting: true
+    status_history:
+      - working: "NA"
+        agent: "main"
+        comment: "Backend APIs exist (/api/documents) but frontend module and dashboard button are completely missing from current App.js. Module needs to be added to dashboard and implemented."
+
   - task: "SOAP Note Workflow Automation"
     implemented: true
     working: true
