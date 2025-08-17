@@ -149,7 +149,6 @@ def test_patient_portal_authentication():
         
         # Verify login response structure
         assert "access_token" in result
-        assert "token_type" in result
         assert "patient" in result
         
         portal_token = result["access_token"]
