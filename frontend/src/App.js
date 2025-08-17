@@ -7568,7 +7568,652 @@ const TelehealthModule = ({ setActiveModule }) => {
   );
 };
 
-// Comprehensive Patient Portal Management Module
+// Comprehensive Lab Orders Management Module
+const LabOrdersModule = ({ setActiveModule }) => {
+  const { user } = useAuth();
+  const [labOrders, setLabOrders] = useState([]);
+  const [labTests, setLabTests] = useState([]);
+  const [labResults, setLabResults] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [providers, setProviders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  
+  // View and navigation states
+  const [activeView, setActiveView] = useState('dashboard'); // dashboard, orders, tests, results
+  const [selectedOrder, setSelectedOrder] = useState(null);
+  
+  // Form states
+  const [showOrderForm, setShowOrderForm] = useState(false);
+  const [showResultsModal, setShowResultsModal] = useState(false);
+  
+  // Form data
+  const [orderFormData, setOrderFormData] = useState({
+    patient_id: '',
+    provider_id: '',
+    tests: [],
+    priority: 'routine',
+    clinical_info: '',
+    diagnosis_codes: [],
+    lab_provider: 'internal',
+    encounter_id: ''
+  });
+  
+  // Stats data
+  const [labStats, setLabStats] = useState({
+    totalOrders: 0,
+    pendingOrders: 0,
+    completedToday: 0,
+    criticalResults: 0
+  });
+
+  useEffect(() => {
+    fetchLabData();
+  }, []);
+
+  const fetchLabData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        fetchLabOrders(),
+        fetchLabTests(),
+        fetchPatients(),
+        fetchProviders(),
+        fetchLabResults()
+      ]);
+    } catch (error) {
+      console.error('Failed to fetch lab data:', error);
+      setError('Failed to fetch lab data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchLabOrders = async () => {
+    try {
+      const response = await axios.get(`${API}/lab-orders`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setLabOrders(response.data);
+      
+      // Update stats
+      const today = new Date().toDateString();
+      setLabStats(prev => ({
+        ...prev,
+        totalOrders: response.data.length,
+        pendingOrders: response.data.filter(order => 
+          ['draft', 'ordered', 'collected', 'processing'].includes(order.status)
+        ).length,
+        completedToday: response.data.filter(order => 
+          order.completed_date && new Date(order.completed_date).toDateString() === today
+        ).length
+      }));
+      
+    } catch (error) {
+      console.error('Failed to fetch lab orders:', error);
+    }
+  };
+
+  const fetchLabTests = async () => {
+    try {
+      const response = await axios.get(`${API}/lab-tests`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setLabTests(response.data);
+    } catch (error) {
+      console.error('Failed to fetch lab tests:', error);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/patients`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setPatients(response.data);
+    } catch (error) {
+      console.error('Failed to fetch patients:', error);
+    }
+  };
+
+  const fetchProviders = async () => {
+    try {
+      const response = await axios.get(`${API}/providers`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setProviders(response.data);
+    } catch (error) {
+      console.error('Failed to fetch providers:', error);
+    }
+  };
+
+  const fetchLabResults = async () => {
+    try {
+      const response = await axios.get(`${API}/lab-results`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setLabResults(response.data);
+      
+      // Update critical results count
+      const criticalCount = response.data.filter(result => result.critical_value).length;
+      setLabStats(prev => ({ ...prev, criticalResults: criticalCount }));
+      
+    } catch (error) {
+      console.error('Failed to fetch lab results:', error);
+    }
+  };
+
+  const handleCreateOrder = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      const response = await axios.post(`${API}/lab-orders`, orderFormData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      setLabOrders([...labOrders, response.data]);
+      setSuccess('Lab order created successfully!');
+      setShowOrderForm(false);
+      resetOrderForm();
+      fetchLabOrders();
+    } catch (error) {
+      console.error('Failed to create lab order:', error);
+      setError(error.response?.data?.detail || 'Failed to create lab order');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitOrder = async (orderId) => {
+    try {
+      setLoading(true);
+      const response = await axios.post(`${API}/lab-orders/${orderId}/submit`, {}, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      setSuccess('Lab order submitted to external lab successfully!');
+      fetchLabOrders();
+    } catch (error) {
+      console.error('Failed to submit lab order:', error);
+      setError(error.response?.data?.detail || 'Failed to submit lab order');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleRetrieveResults = async (orderId) => {
+    try {
+      setLoading(true);
+      const response = await axios.post(`${API}/lab-orders/${orderId}/results`, {}, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      
+      setSuccess('Lab results retrieved successfully!');
+      fetchLabOrders();
+      fetchLabResults();
+    } catch (error) {
+      console.error('Failed to retrieve lab results:', error);
+      setError(error.response?.data?.detail || 'Failed to retrieve lab results');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetOrderForm = () => {
+    setOrderFormData({
+      patient_id: '',
+      provider_id: '',
+      tests: [],
+      priority: 'routine',
+      clinical_info: '',
+      diagnosis_codes: [],
+      lab_provider: 'internal',
+      encounter_id: ''
+    });
+  };
+
+  const addTestToOrder = (test) => {
+    const newTest = {
+      test_id: test.id,
+      test_code: test.test_code,
+      test_name: test.test_name,
+      quantity: 1,
+      specimen_type: test.specimen_type,
+      fasting_required: test.fasting_required,
+      priority: orderFormData.priority
+    };
+    
+    setOrderFormData({
+      ...orderFormData,
+      tests: [...orderFormData.tests, newTest]
+    });
+  };
+
+  const removeTestFromOrder = (testIndex) => {
+    setOrderFormData({
+      ...orderFormData,
+      tests: orderFormData.tests.filter((_, index) => index !== testIndex)
+    });
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'draft': 'bg-gray-100 text-gray-800',
+      'ordered': 'bg-blue-100 text-blue-800',
+      'collected': 'bg-yellow-100 text-yellow-800',
+      'processing': 'bg-purple-100 text-purple-800',
+      'completed': 'bg-green-100 text-green-800',
+      'resulted': 'bg-green-100 text-green-800',
+      'cancelled': 'bg-red-100 text-red-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const getPriorityColor = (priority) => {
+    const colors = {
+      'routine': 'bg-blue-100 text-blue-800',
+      'urgent': 'bg-orange-100 text-orange-800',
+      'stat': 'bg-red-100 text-red-800',
+      'asap': 'bg-red-100 text-red-800'
+    };
+    return colors[priority] || 'bg-blue-100 text-blue-800';
+  };
+
+  const renderDashboard = () => {
+    const todayOrders = labOrders.filter(order => 
+      new Date(order.created_at).toDateString() === new Date().toDateString()
+    );
+
+    return (
+      <div className="space-y-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{labStats.totalOrders}</div>
+                <div className="text-sm text-gray-300">Total Orders</div>
+              </div>
+              <div className="text-2xl">🧪</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{labStats.pendingOrders}</div>
+                <div className="text-sm text-gray-300">Pending Orders</div>
+              </div>
+              <div className="text-2xl">⏳</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{labStats.completedToday}</div>
+                <div className="text-sm text-gray-300">Completed Today</div>
+              </div>
+              <div className="text-2xl">✅</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{labStats.criticalResults}</div>
+                <div className="text-sm text-gray-300">Critical Results</div>
+              </div>
+              <div className="text-2xl">🚨</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Today's Orders */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">📋 Today's Lab Orders</h3>
+          {todayOrders.length === 0 ? (
+            <p className="text-gray-400">No lab orders created today.</p>
+          ) : (
+            <div className="space-y-3">
+              {todayOrders.map(order => (
+                <div key={order.id} className="bg-white/5 border border-white/10 rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-white font-medium">{order.order_number}</div>
+                        <span className={`px-2 py-1 rounded text-xs ${getStatusColor(order.status)}`}>
+                          {order.status}
+                        </span>
+                        <span className={`px-2 py-1 rounded text-xs ${getPriorityColor(order.priority)}`}>
+                          {order.priority}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        {order.patient_name} - {order.tests.length} test(s)
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1">
+                        Provider: {order.provider_name}
+                      </div>
+                    </div>
+                    <div className="flex space-x-2">
+                      {order.status === 'draft' && (
+                        <button
+                          onClick={() => handleSubmitOrder(order.id)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Submit Order
+                        </button>
+                      )}
+                      {order.status === 'ordered' && (
+                        <button
+                          onClick={() => handleRetrieveResults(order.id)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Check Results
+                        </button>
+                      )}
+                      <button
+                        onClick={() => setSelectedOrder(order)}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-3 py-1 rounded text-sm"
+                      >
+                        View Details
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Available Lab Tests */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">🔬 Available Lab Tests</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {labTests.slice(0, 6).map(test => (
+              <div key={test.id} className="bg-white/5 border border-white/10 rounded p-4">
+                <div className="text-white font-medium">{test.test_name}</div>
+                <div className="text-sm text-gray-300 mt-1">Code: {test.test_code}</div>
+                <div className="text-sm text-gray-400 mt-1">Category: {test.category}</div>
+                <div className="text-sm text-gray-400 mt-1">
+                  Turnaround: {test.turnaround_time_hours}h
+                </div>
+                {test.fasting_required && (
+                  <div className="text-xs text-yellow-400 mt-1">⚠️ Fasting Required</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderOrderForm = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">🧪 New Lab Order</h3>
+            <button
+              onClick={() => {
+                setShowOrderForm(false);
+                resetOrderForm();
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={handleCreateOrder} className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Patient</label>
+                <select
+                  value={orderFormData.patient_id}
+                  onChange={(e) => setOrderFormData({...orderFormData, patient_id: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Patient</option>
+                  {patients.map(patient => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.name?.[0]?.given?.[0]} {patient.name?.[0]?.family}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Provider</label>
+                <select
+                  value={orderFormData.provider_id}
+                  onChange={(e) => setOrderFormData({...orderFormData, provider_id: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Provider</option>
+                  {providers.map(provider => (
+                    <option key={provider.id} value={provider.id}>
+                      {provider.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Priority</label>
+                <select
+                  value={orderFormData.priority}
+                  onChange={(e) => setOrderFormData({...orderFormData, priority: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                >
+                  <option value="routine">Routine</option>
+                  <option value="urgent">Urgent</option>
+                  <option value="stat">STAT</option>
+                  <option value="asap">ASAP</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Lab Provider</label>
+                <select
+                  value={orderFormData.lab_provider}
+                  onChange={(e) => setOrderFormData({...orderFormData, lab_provider: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                >
+                  <option value="internal">Internal Lab</option>
+                  <option value="labcorp">LabCorp</option>
+                  <option value="quest">Quest Diagnostics</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Selected Tests */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Selected Tests</label>
+              {orderFormData.tests.length === 0 ? (
+                <p className="text-gray-400 text-sm">No tests selected</p>
+              ) : (
+                <div className="space-y-2 mb-4">
+                  {orderFormData.tests.map((test, index) => (
+                    <div key={index} className="bg-white/5 border border-white/10 rounded p-3 flex items-center justify-between">
+                      <div>
+                        <div className="text-white font-medium">{test.test_name}</div>
+                        <div className="text-sm text-gray-300">
+                          Code: {test.test_code} | Specimen: {test.specimen_type}
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeTestFromOrder(index)}
+                        className="text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Available Tests to Add */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Add Tests</label>
+              <div className="grid grid-cols-2 gap-2 max-h-40 overflow-y-auto">
+                {labTests.map(test => (
+                  <button
+                    key={test.id}
+                    type="button"
+                    onClick={() => addTestToOrder(test)}
+                    disabled={orderFormData.tests.some(t => t.test_id === test.id)}
+                    className="bg-gray-600 hover:bg-gray-500 disabled:bg-gray-700 disabled:opacity-50 text-white p-2 rounded text-sm text-left"
+                  >
+                    <div className="font-medium">{test.test_name}</div>
+                    <div className="text-xs text-gray-300">{test.test_code}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Clinical Information</label>
+              <textarea
+                value={orderFormData.clinical_info}
+                onChange={(e) => setOrderFormData({...orderFormData, clinical_info: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                rows={3}
+                placeholder="Clinical notes, symptoms, diagnosis..."
+              />
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading || orderFormData.tests.length === 0}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Creating...' : 'Create Lab Order'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowOrderForm(false);
+                  resetOrderForm();
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">🧪 Lab Orders Management</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowOrderForm(true)}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+          >
+            🧪 New Lab Order
+          </button>
+          <button
+            onClick={() => fetchLabData()}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            🔄 Refresh
+          </button>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 mb-6">
+          <p className="text-green-300">✅ {success}</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mb-6">
+          <p className="text-red-300">❌ {error}</p>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'dashboard', name: 'Dashboard', icon: '📊' },
+            { id: 'orders', name: 'All Orders', icon: '📋' },
+            { id: 'tests', name: 'Lab Tests', icon: '🔬' },
+            { id: 'results', name: 'Results', icon: '📄' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeView === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Content based on active view */}
+      {activeView === 'dashboard' && renderDashboard()}
+      {activeView === 'orders' && (
+        <div className="text-white">All orders list view coming soon...</div>
+      )}
+      {activeView === 'tests' && (
+        <div className="text-white">Lab tests catalog view coming soon...</div>
+      )}
+      {activeView === 'results' && (
+        <div className="text-white">Lab results view coming soon...</div>
+      )}
+
+      {/* Forms */}
+      {showOrderForm && renderOrderForm()}
+      
+      {/* Loading */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Comprehensive Insurance Verification Management Module
 const PatientPortalModule = ({ setActiveModule }) => {
   const { user } = useAuth();
   const [portalUsers, setPortalUsers] = useState([]);
