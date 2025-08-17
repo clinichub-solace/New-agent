@@ -998,10 +998,10 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Backend fixes verification completed"
-    - "All critical medications endpoints tested"
-    - "Patient creation validation verified"
-    - "Core EHR regression testing completed"
+    - "Lab Order Creation Endpoint Duplicate Fix"
+    - "Clinical Templates Module"
+    - "Quality Measures Module"  
+    - "Document Management Module"
   stuck_tasks: []
   test_all: false
   test_priority: "high_first"
