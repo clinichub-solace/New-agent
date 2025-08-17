@@ -2203,23 +2203,6 @@ class LabTest(BaseModel):
     cost: float
     is_active: bool = True
 
-class LabOrder(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
-    patient_id: str
-    provider_id: str
-    encounter_id: Optional[str] = None
-    order_number: str
-    lab_tests: List[str]  # List of LabTest IDs
-    icd10_codes: List[str]  # Diagnosis codes justifying the order
-    status: LabOrderStatus
-    priority: str = "routine"  # routine, urgent, stat
-    notes: Optional[str] = None
-    ordered_by: str
-    ordered_at: datetime = Field(default_factory=datetime.utcnow)
-    collected_at: Optional[datetime] = None
-    expected_completion: Optional[datetime] = None
-    lab_facility: str = "Internal Lab"
-
 class LabResult(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
     lab_order_id: str
