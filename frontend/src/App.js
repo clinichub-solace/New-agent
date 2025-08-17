@@ -8882,4 +8882,694 @@ const PatientPortalModule = ({ setActiveModule }) => {
   );
 };
 
+// Comprehensive Insurance Verification Management Module
+const InsuranceModule = ({ setActiveModule }) => {
+  const { user } = useAuth();
+  const [insurancePlans, setInsurancePlans] = useState([]);
+  const [insurancePolicies, setInsurancePolicies] = useState([]);
+  const [verifications, setVerifications] = useState([]);
+  const [priorAuths, setPriorAuths] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  
+  // View and navigation states
+  const [activeView, setActiveView] = useState('dashboard'); // dashboard, plans, policies, verifications, prior-auth
+  const [selectedPolicy, setSelectedPolicy] = useState(null);
+  
+  // Form states
+  const [showPolicyForm, setShowPolicyForm] = useState(false);
+  const [showVerificationForm, setShowVerificationForm] = useState(false);
+  const [showPriorAuthForm, setShowPriorAuthForm] = useState(false);
+  
+  // Form data
+  const [policyFormData, setPolicyFormData] = useState({
+    patient_id: '',
+    insurance_plan_id: '',
+    policy_number: '',
+    group_number: '',
+    subscriber_id: '',
+    subscriber_name: '',
+    relationship_to_subscriber: 'self',
+    effective_date: new Date().toISOString().split('T')[0],
+    is_primary: true,
+    copay_amount: '',
+    deductible_amount: ''
+  });
+  
+  const [verificationFormData, setVerificationFormData] = useState({
+    patient_id: '',
+    insurance_policy_id: '',
+    service_codes: ['99213'], // Default office visit
+    provider_npi: ''
+  });
+  
+  // Stats data
+  const [insuranceStats, setInsuranceStats] = useState({
+    totalPolicies: 0,
+    verifiedToday: 0,
+    pendingVerifications: 0,
+    activeAuthorizations: 0
+  });
+
+  useEffect(() => {
+    fetchInsuranceData();
+  }, []);
+
+  const fetchInsuranceData = async () => {
+    try {
+      setLoading(true);
+      await Promise.all([
+        fetchInsurancePlans(),
+        fetchPatients(),
+        fetchVerifications()
+      ]);
+    } catch (error) {
+      console.error('Failed to fetch insurance data:', error);
+      setError('Failed to fetch insurance data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchInsurancePlans = async () => {
+    try {
+      const response = await axios.get(`${API}/insurance-plans`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setInsurancePlans(response.data);
+    } catch (error) {
+      console.error('Failed to fetch insurance plans:', error);
+    }
+  };
+
+  const fetchPatients = async () => {
+    try {
+      const response = await axios.get(`${API}/patients`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setPatients(response.data);
+    } catch (error) {
+      console.error('Failed to fetch patients:', error);
+    }
+  };
+
+  const fetchVerifications = async () => {
+    try {
+      const response = await axios.get(`${API}/insurance-verifications`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+      setVerifications(response.data);
+      
+      // Update stats
+      const today = new Date().toDateString();
+      setInsuranceStats(prev => ({
+        ...prev,
+        verifiedToday: response.data.filter(v => 
+          new Date(v.verification_date).toDateString() === today
+        ).length,
+        pendingVerifications: response.data.filter(v => v.status === 'pending').length
+      }));
+      
+    } catch (error) {
+      console.error('Failed to fetch verifications:', error);
+    }
+  };
+
+  const handleCreatePolicy = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      const response = await axios.post(`${API}/insurance-policies`, policyFormData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      setInsurancePolicies([...insurancePolicies, response.data]);
+      setSuccess('Insurance policy created successfully!');
+      setShowPolicyForm(false);
+      resetPolicyForm();
+    } catch (error) {
+      console.error('Failed to create insurance policy:', error);
+      setError(error.response?.data?.detail || 'Failed to create insurance policy');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyInsurance = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      const response = await axios.post(`${API}/insurance-verification`, verificationFormData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
+
+      setSuccess('Insurance verification completed successfully!');
+      setShowVerificationForm(false);
+      resetVerificationForm();
+      fetchVerifications();
+    } catch (error) {
+      console.error('Failed to verify insurance:', error);
+      setError(error.response?.data?.detail || 'Failed to verify insurance');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetPolicyForm = () => {
+    setPolicyFormData({
+      patient_id: '',
+      insurance_plan_id: '',
+      policy_number: '',
+      group_number: '',
+      subscriber_id: '',
+      subscriber_name: '',
+      relationship_to_subscriber: 'self',
+      effective_date: new Date().toISOString().split('T')[0],
+      is_primary: true,
+      copay_amount: '',
+      deductible_amount: ''
+    });
+  };
+
+  const resetVerificationForm = () => {
+    setVerificationFormData({
+      patient_id: '',
+      insurance_policy_id: '',
+      service_codes: ['99213'],
+      provider_npi: ''
+    });
+  };
+
+  const getVerificationStatusColor = (status) => {
+    const colors = {
+      'pending': 'bg-yellow-100 text-yellow-800',
+      'verified': 'bg-green-100 text-green-800',
+      'denied': 'bg-red-100 text-red-800',
+      'expired': 'bg-gray-100 text-gray-800',
+      'requires_auth': 'bg-orange-100 text-orange-800',
+      'error': 'bg-red-100 text-red-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const renderDashboard = () => {
+    const recentVerifications = verifications.slice(0, 5);
+
+    return (
+      <div className="space-y-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{insurancePlans.length}</div>
+                <div className="text-sm text-gray-300">Insurance Plans</div>
+              </div>
+              <div className="text-2xl">🏥</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{insuranceStats.verifiedToday}</div>
+                <div className="text-sm text-gray-300">Verified Today</div>
+              </div>
+              <div className="text-2xl">✅</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{insuranceStats.pendingVerifications}</div>
+                <div className="text-sm text-gray-300">Pending Verifications</div>
+              </div>
+              <div className="text-2xl">⏳</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{insuranceStats.activeAuthorizations}</div>
+                <div className="text-sm text-gray-300">Active Prior Auths</div>
+              </div>
+              <div className="text-2xl">📋</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Verifications */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">🔍 Recent Insurance Verifications</h3>
+          {recentVerifications.length === 0 ? (
+            <p className="text-gray-400">No recent insurance verifications.</p>
+          ) : (
+            <div className="space-y-3">
+              {recentVerifications.map(verification => (
+                <div key={verification.id} className="bg-white/5 border border-white/10 rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-white font-medium">
+                          Patient ID: {verification.patient_id}
+                        </div>
+                        <span className={`px-2 py-1 rounded text-xs ${getVerificationStatusColor(verification.status)}`}>
+                          {verification.status}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        Service Codes: {verification.service_codes?.join(', ') || 'N/A'}
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1">
+                        {verification.is_covered !== null && (
+                          <span className={verification.is_covered ? 'text-green-400' : 'text-red-400'}>
+                            {verification.is_covered ? '✅ Covered' : '❌ Not Covered'}
+                          </span>
+                        )}
+                        {verification.copay_amount && (
+                          <span className="ml-4">Copay: ${verification.copay_amount}</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      {new Date(verification.verification_date).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Available Insurance Plans */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">🏥 Insurance Plans</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {insurancePlans.slice(0, 6).map(plan => (
+              <div key={plan.id} className="bg-white/5 border border-white/10 rounded p-4">
+                <div className="text-white font-medium">{plan.insurance_company}</div>
+                <div className="text-sm text-gray-300 mt-1">{plan.plan_name}</div>
+                <div className="text-sm text-gray-400 mt-1">Type: {plan.plan_type}</div>
+                <div className="text-sm text-gray-400 mt-1">Network: {plan.network_type}</div>
+                {plan.requires_referrals && (
+                  <div className="text-xs text-yellow-400 mt-1">⚠️ Requires Referrals</div>
+                )}
+                {plan.requires_prior_auth && (
+                  <div className="text-xs text-orange-400 mt-1">📋 Prior Auth Required</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderVerificationForm = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">🔍 Insurance Verification</h3>
+            <button
+              onClick={() => {
+                setShowVerificationForm(false);
+                resetVerificationForm();
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={handleVerifyInsurance} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Patient</label>
+              <select
+                value={verificationFormData.patient_id}
+                onChange={(e) => setVerificationFormData({...verificationFormData, patient_id: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                required
+              >
+                <option value="">Select Patient</option>
+                {patients.map(patient => (
+                  <option key={patient.id} value={patient.id}>
+                    {patient.name?.[0]?.given?.[0]} {patient.name?.[0]?.family}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Service Codes (CPT)</label>
+              <input
+                type="text"
+                value={verificationFormData.service_codes.join(', ')}
+                onChange={(e) => setVerificationFormData({
+                  ...verificationFormData, 
+                  service_codes: e.target.value.split(',').map(code => code.trim())
+                })}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                placeholder="99213, 99214, 80048"
+                required
+              />
+              <p className="text-xs text-gray-400 mt-1">Enter CPT codes separated by commas</p>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Provider NPI (Optional)</label>
+              <input
+                type="text"
+                value={verificationFormData.provider_npi}
+                onChange={(e) => setVerificationFormData({...verificationFormData, provider_npi: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                placeholder="1234567890"
+              />
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Verifying...' : 'Verify Insurance'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowVerificationForm(false);
+                  resetVerificationForm();
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPolicyForm = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">🏥 New Insurance Policy</h3>
+            <button
+              onClick={() => {
+                setShowPolicyForm(false);
+                resetPolicyForm();
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={handleCreatePolicy} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Patient</label>
+                <select
+                  value={policyFormData.patient_id}
+                  onChange={(e) => setPolicyFormData({...policyFormData, patient_id: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Patient</option>
+                  {patients.map(patient => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.name?.[0]?.given?.[0]} {patient.name?.[0]?.family}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Insurance Plan</label>
+                <select
+                  value={policyFormData.insurance_plan_id}
+                  onChange={(e) => setPolicyFormData({...policyFormData, insurance_plan_id: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Insurance Plan</option>
+                  {insurancePlans.map(plan => (
+                    <option key={plan.id} value={plan.id}>
+                      {plan.insurance_company} - {plan.plan_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Policy Number</label>
+                <input
+                  type="text"
+                  value={policyFormData.policy_number}
+                  onChange={(e) => setPolicyFormData({...policyFormData, policy_number: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Group Number</label>
+                <input
+                  type="text"
+                  value={policyFormData.group_number}
+                  onChange={(e) => setPolicyFormData({...policyFormData, group_number: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Subscriber ID</label>
+                <input
+                  type="text"
+                  value={policyFormData.subscriber_id}
+                  onChange={(e) => setPolicyFormData({...policyFormData, subscriber_id: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Subscriber Name</label>
+                <input
+                  type="text"
+                  value={policyFormData.subscriber_name}
+                  onChange={(e) => setPolicyFormData({...policyFormData, subscriber_name: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Relationship to Subscriber</label>
+                <select
+                  value={policyFormData.relationship_to_subscriber}
+                  onChange={(e) => setPolicyFormData({...policyFormData, relationship_to_subscriber: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                >
+                  <option value="self">Self</option>
+                  <option value="spouse">Spouse</option>
+                  <option value="child">Child</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Effective Date</label>
+                <input
+                  type="date"
+                  value={policyFormData.effective_date}
+                  onChange={(e) => setPolicyFormData({...policyFormData, effective_date: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Copay Amount ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={policyFormData.copay_amount}
+                  onChange={(e) => setPolicyFormData({...policyFormData, copay_amount: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Deductible Amount ($)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={policyFormData.deductible_amount}
+                  onChange={(e) => setPolicyFormData({...policyFormData, deductible_amount: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="is_primary"
+                checked={policyFormData.is_primary}
+                onChange={(e) => setPolicyFormData({...policyFormData, is_primary: e.target.checked})}
+                className="rounded"
+              />
+              <label htmlFor="is_primary" className="text-gray-300">Primary Insurance</label>
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Creating...' : 'Create Policy'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPolicyForm(false);
+                  resetPolicyForm();
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">💳 Insurance Verification</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowPolicyForm(true)}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+          >
+            🏥 New Policy
+          </button>
+          <button
+            onClick={() => setShowVerificationForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            🔍 Verify Insurance
+          </button>
+          <button
+            onClick={() => fetchInsuranceData()}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            🔄 Refresh
+          </button>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 mb-6">
+          <p className="text-green-300">✅ {success}</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mb-6">
+          <p className="text-red-300">❌ {error}</p>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'dashboard', name: 'Dashboard', icon: '📊' },
+            { id: 'plans', name: 'Insurance Plans', icon: '🏥' },
+            { id: 'policies', name: 'Patient Policies', icon: '📋' },
+            { id: 'verifications', name: 'Verifications', icon: '🔍' },
+            { id: 'prior-auth', name: 'Prior Authorization', icon: '📄' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeView === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Content based on active view */}
+      {activeView === 'dashboard' && renderDashboard()}
+      {activeView === 'plans' && (
+        <div className="text-white">Insurance plans management view coming soon...</div>
+      )}
+      {activeView === 'policies' && (
+        <div className="text-white">Patient policies management view coming soon...</div>
+      )}
+      {activeView === 'verifications' && (
+        <div className="text-white">Verifications history view coming soon...</div>
+      )}
+      {activeView === 'prior-auth' && (
+        <div className="text-white">Prior authorization management view coming soon...</div>
+      )}
+
+      {/* Forms */}
+      {showPolicyForm && renderPolicyForm()}
+      {showVerificationForm && renderVerificationForm()}
+      
+      {/* Loading */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 export default App;
