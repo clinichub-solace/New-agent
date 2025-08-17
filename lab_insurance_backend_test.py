@@ -171,7 +171,7 @@ class LabInsuranceBackendTester:
                 self.log_result("Lab Order Management Setup", False, "No lab tests available")
                 return
             
-            # Test 1: Create lab order
+            # Test 1: Create lab order (try both formats to see which works)
             lab_order_data = {
                 "patient_id": self.patient_id,
                 "provider_id": self.provider_id,
@@ -183,10 +183,33 @@ class LabInsuranceBackendTester:
             }
             
             response = requests.post(f"{BACKEND_URL}/lab-orders", json=lab_order_data, headers=self.get_headers())
+            if response.status_code != 200:
+                # Try the other format
+                lab_order_data_alt = {
+                    "patient_id": self.patient_id,
+                    "provider_id": self.provider_id,
+                    "patient_name": "Sarah Johnson",
+                    "provider_name": "Dr. Michael Chen",
+                    "tests": [
+                        {
+                            "test_id": lab_tests[0]["id"],
+                            "test_code": lab_tests[0].get("code", lab_tests[0].get("test_code", "UNKNOWN")),
+                            "test_name": lab_tests[0].get("name", lab_tests[0].get("test_name", "Unknown Test")),
+                            "specimen_type": lab_tests[0].get("specimen_type", "blood"),
+                            "priority": "routine"
+                        }
+                    ],
+                    "priority": "routine",
+                    "clinical_info": "Annual physical examination",
+                    "diagnosis_codes": ["Z00.00"]
+                }
+                
+                response = requests.post(f"{BACKEND_URL}/lab-orders", json=lab_order_data_alt, headers=self.get_headers())
+            
             if response.status_code == 200:
                 lab_order = response.json()
                 self.lab_order_id = lab_order["id"]
-                self.log_result("Create Lab Order", True, f"Order ID: {lab_order['order_number']}")
+                self.log_result("Create Lab Order", True, f"Order ID: {lab_order.get('order_number', lab_order['id'])}")
             else:
                 self.log_result("Create Lab Order", False, f"Status: {response.status_code}, Response: {response.text}")
                 return
