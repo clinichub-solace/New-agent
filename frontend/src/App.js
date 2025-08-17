@@ -215,6 +215,8 @@ const Dashboard = () => {
         return <SchedulingModule setActiveModule={setActiveModule} />;
       case 'telehealth':
         return <TelehealthModule setActiveModule={setActiveModule} />;
+      case 'patient-portal':
+        return <PatientPortalModule setActiveModule={setActiveModule} />;
       case 'invoices':
         return <InvoicesModule setActiveModule={setActiveModule} />;
       case 'system-settings':
