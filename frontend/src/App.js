@@ -221,6 +221,12 @@ const Dashboard = () => {
         return <LabOrdersModule setActiveModule={setActiveModule} />;
       case 'insurance':
         return <InsuranceModule setActiveModule={setActiveModule} />;
+      case 'clinical-templates':
+        return <ClinicalTemplatesModule setActiveModule={setActiveModule} />;
+      case 'quality-measures':
+        return <QualityMeasuresModule setActiveModule={setActiveModule} />;
+      case 'documents':
+        return <DocumentManagementModule setActiveModule={setActiveModule} />;
       case 'invoices':
         return <InvoicesModule setActiveModule={setActiveModule} />;
       case 'system-settings':
