@@ -1746,6 +1746,123 @@ class InsurancePolicy(BaseModel):
 
 class EligibilityVerification(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    patient_id: str
+    insurance_policy_id: str
+    provider_id: str
+    
+    # Verification Request
+    service_type: str = "medical_care"  # medical_care, pharmacy, mental_health, etc.
+    service_codes: List[str] = []  # CPT codes being verified
+    verification_date: datetime = Field(default_factory=datetime.utcnow)
+    
+    # Verification Response
+    status: VerificationStatus = VerificationStatus.PENDING
+    is_covered: Optional[bool] = None
+    coverage_percentage: Optional[float] = None
+    copay_amount: Optional[float] = None
+    deductible_remaining: Optional[float] = None
+    
+    # Prior Authorization
+    requires_prior_auth: bool = False
+    prior_auth_number: Optional[str] = None
+    prior_auth_expiry: Optional[date] = None
+    
+    # Service Limits
+    annual_limit: Optional[float] = None
+    visits_remaining: Optional[int] = None
+    benefit_period: Optional[str] = None
+    
+    # External System Data
+    external_transaction_id: Optional[str] = None
+    raw_response_data: Optional[Dict[str, Any]] = None
+    error_message: Optional[str] = None
+    
+    # Processing Info
+    verified_by: str
+    verification_method: str = "api"  # api, phone, manual, portal
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+class PriorAuthorization(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    authorization_number: str = Field(default_factory=lambda: f"PA-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:8].upper()}")
+    
+    # Patient and Provider
+    patient_id: str
+    provider_id: str
+    insurance_policy_id: str
+    
+    # Authorization Details
+    service_type: str
+    procedure_codes: List[str]  # CPT codes
+    diagnosis_codes: List[str]  # ICD-10 codes
+    
+    # Request Information
+    requested_date: datetime = Field(default_factory=datetime.utcnow)
+    requested_by: str
+    clinical_justification: str
+    supporting_documentation: List[str] = []
+    
+    # Authorization Response
+    status: str = "pending"  # pending, approved, denied, expired
+    approved_date: Optional[datetime] = None
+    expiry_date: Optional[date] = None
+    approved_units: Optional[int] = None
+    used_units: int = 0
+    
+    # External System
+    external_auth_id: Optional[str] = None
+    payer_reference: Optional[str] = None
+    denial_reason: Optional[str] = None
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+# External Service Integration Models
+class ExternalServiceConfig(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    service_name: str  # "labcorp_api", "quest_api", "availity_eligibility"
+    service_type: str  # "lab_orders", "insurance_verification"
+    
+    # Connection Details
+    base_url: str
+    api_version: str = "v1"
+    authentication_type: str = "api_key"  # api_key, oauth2, basic_auth
+    
+    # Credentials (encrypted in production)
+    api_key: Optional[str] = None
+    client_id: Optional[str] = None
+    client_secret: Optional[str] = None
+    username: Optional[str] = None
+    password: Optional[str] = None
+    
+    # Configuration
+    timeout_seconds: int = 30
+    retry_attempts: int = 3
+    rate_limit_per_minute: int = 60
+    
+    # Status
+    is_active: bool = True
+    last_tested: Optional[datetime] = None
+    test_result: Optional[str] = None
+    
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+# Service Request/Response Models
+class LabOrderRequest(BaseModel):
+    lab_order_id: str
+    external_lab_provider: LabProvider
+    priority: LabOrderPriority = LabOrderPriority.ROUTINE
+
+class InsuranceVerificationRequest(BaseModel):
+    patient_id: str
+    insurance_policy_id: str
+    service_codes: List[str]
+    provider_npi: Optional[str] = None
+
+# Patient Portal Authentication Models
 class PatientPortalLogin(BaseModel):
     username: str
     password: str
