@@ -2179,7 +2179,7 @@ class MockEmailService:
 # Lab Integration Models - Using comprehensive definitions from above
 # Duplicate LabOrderStatus and LabOrder classes removed to prevent conflicts
 
-class LabResultStatus(BaseModel):
+class LabResultStatus(str, Enum):
     PENDING = "pending"
     FINAL = "final"
     CORRECTED = "corrected"
