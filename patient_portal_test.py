@@ -195,9 +195,9 @@ def test_medical_records_access(patient_id, portal_token, admin_token):
     # Test 1: Patient Medical Records Access
     try:
         url = f"{API_URL}/patient-portal/medical-records"
-        headers = {"Authorization": f"Bearer {portal_token}"}
+        params = {"session_token": portal_token}
         
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, params=params)
         response.raise_for_status()
         result = response.json()
         
@@ -215,9 +215,9 @@ def test_medical_records_access(patient_id, portal_token, admin_token):
     # Test 2: Patient Appointments View
     try:
         url = f"{API_URL}/patient-portal/appointments"
-        headers = {"Authorization": f"Bearer {portal_token}"}
+        params = {"session_token": portal_token}
         
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, params=params)
         response.raise_for_status()
         result = response.json()
         
@@ -232,9 +232,9 @@ def test_medical_records_access(patient_id, portal_token, admin_token):
     # Test 3: Patient Documents Access
     try:
         url = f"{API_URL}/patient-portal/documents"
-        headers = {"Authorization": f"Bearer {portal_token}"}
+        params = {"session_token": portal_token}
         
-        response = requests.get(url, headers=headers)
+        response = requests.get(url, params=params)
         response.raise_for_status()
         result = response.json()
         
