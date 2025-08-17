@@ -175,6 +175,7 @@ class LabInsuranceBackendTester:
             lab_order_data = {
                 "patient_id": self.patient_id,
                 "provider_id": self.provider_id,
+                "order_number": f"LAB-TEST-{datetime.now().strftime('%Y%m%d%H%M%S')}",
                 "lab_tests": [lab_tests[0]["id"]],  # List of test IDs
                 "icd10_codes": ["Z00.00"],
                 "status": "draft",
