@@ -1440,7 +1440,6 @@ const PatientsModule = () => {
       
       const vitalsData = {
         patient_id: selectedPatient.id,
-        encounter_id: selectedEncounter?.id,
         temperature: parseFloat(vitalsFormData.temperature) || 0,
         systolic_bp: parseInt(vitalsFormData.systolic_bp) || 0,
         diastolic_bp: parseInt(vitalsFormData.diastolic_bp) || 0,
@@ -1477,7 +1476,7 @@ const PatientsModule = () => {
       setShowVitalsForm(false);
       
       // Refresh patient data
-      await fetchPatientDetails(selectedPatient.id);
+      fetchAllPatientData(selectedPatient.id);
     } catch (error) {
       console.error('Failed to save vital signs:', error);
       setError(error.response?.data?.detail || 'Failed to save vital signs. Please try again.');
