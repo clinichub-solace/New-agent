@@ -13859,6 +13859,256 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# ===== MISSING RECEIPT GENERATION ENDPOINTS =====
+
+@api_router.post("/receipts/soap-note/{soap_note_id}")
+async def generate_soap_receipt(soap_note_id: str, current_user: User = Depends(get_current_active_user)):
+    """Generate receipt for completed SOAP note"""
+    try:
+        # Get SOAP note
+        soap_note = await db.soap_notes.find_one({"id": soap_note_id}, {"_id": 0})
+        if not soap_note:
+            raise HTTPException(status_code=404, detail="SOAP note not found")
+        
+        # Get patient info
+        patient = await db.patients.find_one({"id": soap_note["patient_id"]}, {"_id": 0})
+        if not patient:
+            raise HTTPException(status_code=404, detail="Patient not found")
+        
+        # Extract patient name safely
+        patient_name = "Unknown Patient"
+        if patient and patient.get('name') and len(patient['name']) > 0:
+            name_obj = patient['name'][0]
+            if name_obj.get('given') and name_obj.get('family'):
+                patient_name = f"{name_obj['given'][0]} {name_obj['family']}"
+        
+        # Generate receipt
+        receipt_data = {
+            "id": str(uuid.uuid4()),
+            "receipt_number": f"RCP-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:6].upper()}",
+            "soap_note_id": soap_note_id,
+            "patient_id": soap_note["patient_id"],
+            "patient_name": patient_name,
+            "date": datetime.now().isoformat(),
+            "services": [
+                {
+                    "description": f"Clinical consultation - {soap_note.get('chief_complaint', 'General consultation')}",
+                    "amount": 150.00
+                }
+            ],
+            "subtotal": 150.00,
+            "tax": 0.00,
+            "total": 150.00,
+            "payment_method": "pending",
+            "provider": current_user.username,
+            "created_by": current_user.username,
+            "created_at": datetime.now().isoformat()
+        }
+        
+        # Save receipt
+        await db.receipts.insert_one(receipt_data)
+        
+        # Update SOAP note status
+        await db.soap_notes.update_one(
+            {"id": soap_note_id}, 
+            {"$set": {"status": "completed", "receipt_generated": True, "receipt_id": receipt_data["id"]}}
+        )
+        
+        return {
+            "message": "Receipt generated successfully",
+            "receipt": receipt_data
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generating receipt: {str(e)}")
+
+@api_router.get("/receipts/{receipt_id}")
+async def get_receipt(receipt_id: str):
+    """Get receipt by ID"""
+    receipt = await db.receipts.find_one({"id": receipt_id}, {"_id": 0})
+    if not receipt:
+        raise HTTPException(status_code=404, detail="Receipt not found")
+    return receipt
+
+@api_router.get("/receipts")
+async def list_receipts(limit: int = 50):
+    """List all receipts"""
+    receipts = []
+    async for receipt in db.receipts.find({}, {"_id": 0}).sort("created_at", -1).limit(limit):
+        receipts.append(receipt)
+    return receipts
+
+# ===== MISSING EMPLOYEE CLOCK IN/OUT ENDPOINTS =====
+
+@api_router.post("/employees/{employee_id}/clock-in")
+async def clock_in_employee(employee_id: str, location: str = "Main Office", current_user: User = Depends(get_current_active_user)):
+    """Clock in employee"""
+    try:
+        # Check if employee exists
+        employee = await db.employees.find_one({"id": employee_id}, {"_id": 0})
+        if not employee:
+            raise HTTPException(status_code=404, detail="Employee not found")
+        
+        # Check if already clocked in
+        existing_entry = await db.time_entries.find_one({
+            "employee_id": employee_id,
+            "entry_type": "clock_in",
+            "clock_out_time": {"$exists": False}
+        })
+        
+        if existing_entry:
+            raise HTTPException(status_code=400, detail="Employee already clocked in")
+        
+        # Create clock in entry
+        time_entry = {
+            "id": str(uuid.uuid4()),
+            "employee_id": employee_id,
+            "entry_type": "clock_in",
+            "timestamp": datetime.now(),
+            "location": location,
+            "manual_entry": False,
+            "notes": f"Clocked in by {current_user.username}",
+            "created_by": current_user.username,
+            "created_at": datetime.now()
+        }
+        
+        await db.time_entries.insert_one(time_entry)
+        return {
+            "message": "Clocked in successfully", 
+            "timestamp": time_entry["timestamp"].isoformat(),
+            "location": location,
+            "entry_id": time_entry["id"]
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Clock in failed: {str(e)}")
+
+@api_router.post("/employees/{employee_id}/clock-out") 
+async def clock_out_employee(employee_id: str, current_user: User = Depends(get_current_active_user)):
+    """Clock out employee"""
+    try:
+        # Find active clock in entry
+        clock_in_entry = await db.time_entries.find_one({
+            "employee_id": employee_id,
+            "entry_type": "clock_in",
+            "clock_out_time": {"$exists": False}
+        })
+        
+        if not clock_in_entry:
+            raise HTTPException(status_code=400, detail="Employee not clocked in")
+        
+        # Calculate hours worked
+        clock_out_time = datetime.now()
+        hours_worked = (clock_out_time - clock_in_entry["timestamp"]).total_seconds() / 3600
+        
+        # Create clock out entry
+        time_entry = {
+            "id": str(uuid.uuid4()),
+            "employee_id": employee_id, 
+            "entry_type": "clock_out",
+            "timestamp": clock_out_time,
+            "clock_in_id": clock_in_entry["id"],
+            "hours_worked": round(hours_worked, 2),
+            "manual_entry": False,
+            "notes": f"Clocked out by {current_user.username}",
+            "created_by": current_user.username,
+            "created_at": datetime.now()
+        }
+        
+        await db.time_entries.insert_one(time_entry)
+        
+        # Update clock in entry with clock out info
+        await db.time_entries.update_one(
+            {"id": clock_in_entry["id"]},
+            {"$set": {
+                "clock_out_time": clock_out_time, 
+                "hours_worked": round(hours_worked, 2),
+                "completed": True
+            }}
+        )
+        
+        return {
+            "message": "Clocked out successfully", 
+            "hours_worked": round(hours_worked, 2),
+            "clock_out_time": clock_out_time.isoformat(),
+            "total_shift_time": f"{int(hours_worked)}h {int((hours_worked % 1) * 60)}m"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Clock out failed: {str(e)}")
+
+@api_router.get("/employees/{employee_id}/time-status")
+async def get_employee_time_status(employee_id: str):
+    """Get current clock in/out status for employee"""
+    try:
+        # Check if currently clocked in
+        active_entry = await db.time_entries.find_one({
+            "employee_id": employee_id,
+            "entry_type": "clock_in", 
+            "clock_out_time": {"$exists": False}
+        })
+        
+        if active_entry:
+            # Calculate time since clock in
+            now = datetime.now()
+            time_diff = now - active_entry["timestamp"]
+            hours_so_far = time_diff.total_seconds() / 3600
+            
+            return {
+                "status": "clocked_in",
+                "clocked_in_at": active_entry["timestamp"].isoformat(),
+                "location": active_entry.get("location", "Unknown"),
+                "hours_so_far": round(hours_so_far, 2),
+                "entry_id": active_entry["id"]
+            }
+        else:
+            # Get last clock out entry
+            last_entry = await db.time_entries.find_one({
+                "employee_id": employee_id,
+                "entry_type": "clock_out"
+            }, {"_id": 0}, sort=[("timestamp", -1)])
+            
+            return {
+                "status": "clocked_out",
+                "last_clock_out": last_entry["timestamp"].isoformat() if last_entry else None
+            }
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Status check failed: {str(e)}")
+
+@api_router.get("/employees/{employee_id}/time-entries/today")
+async def get_employee_time_entries_today(employee_id: str):
+    """Get today's time entries for employee"""
+    try:
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_end = today_start + timedelta(days=1)
+        
+        entries = []
+        async for entry in db.time_entries.find({
+            "employee_id": employee_id,
+            "timestamp": {"$gte": today_start, "$lt": today_end}
+        }, {"_id": 0}).sort("timestamp", 1):
+            entries.append(entry)
+        
+        # Calculate total hours for today
+        total_hours = 0
+        for entry in entries:
+            if entry.get("hours_worked"):
+                total_hours += entry["hours_worked"]
+        
+        return {
+            "entries": entries,
+            "total_hours_today": round(total_hours, 2),
+            "date": today_start.strftime("%Y-%m-%d")
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get time entries: {str(e)}")
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
