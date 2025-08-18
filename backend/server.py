@@ -56,6 +56,23 @@ try:
         # Fallback for development
         mongo_url = os.environ.get('MONGO_URL', 'mongodb://admin:changeme123@mongodb:27017/clinichub?authSource=admin')
     
+    def sanitize_mongo_uri(uri: str) -> str:
+        """Ensure username/password are percent-encoded in the Mongo URI."""
+        p = urlparse(uri)
+        # If no user/pass present, return as-is
+        if not (p.username or p.password):
+            return uri
+
+        user = quote(p.username or '', safe='')
+        pw   = quote(p.password or '', safe='')
+        query = f'?{p.query}' if p.query else ''
+        path  = p.path or '/clinichub'
+        host  = p.hostname or 'localhost'
+        port  = f":{p.port}" if p.port else ''
+
+        return f"mongodb://{user}:{pw}@{host}{port}{path}{query}"
+
+    mongo_url = sanitize_mongo_uri(mongo_url)
     client = AsyncIOMotorClient(mongo_url)
     db = client[os.environ.get('DB_NAME', 'clinichub')]
 except Exception as e:
