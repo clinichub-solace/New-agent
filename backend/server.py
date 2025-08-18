@@ -3448,19 +3448,22 @@ async def create_patient(patient_data: PatientCreate, request: Request, current_
     return patient
 
 @api_router.get("/patients", response_model=List[Patient])
-async def get_patients():
+@audit_phi_access("patient", "list")
+async def get_patients(request: Request, current_user: User = Depends(get_current_active_user)):
     patients = await db.patients.find({"status": {"$ne": "deceased"}}).to_list(1000)
     return [Patient(**patient) for patient in patients]
 
 @api_router.get("/patients/{patient_id}", response_model=Patient)
-async def get_patient(patient_id: str):
+@audit_phi_access("patient", "read")
+async def get_patient(patient_id: str, request: Request, current_user: User = Depends(get_current_active_user)):
     patient = await db.patients.find_one({"id": patient_id}, {"_id": 0})
     if not patient:
         raise HTTPException(status_code=404, detail="Patient not found")
     return Patient(**patient)
 
 @api_router.put("/patients/{patient_id}", response_model=Patient)
-async def update_patient(patient_id: str, patient_data: PatientCreate, current_user: User = Depends(get_current_active_user)):
+@audit_phi_access("patient", "update")
+async def update_patient(patient_id: str, patient_data: PatientCreate, request: Request, current_user: User = Depends(get_current_active_user)):
     """Update existing patient"""
     # Check if patient exists
     existing_patient = await db.patients.find_one({"id": patient_id})
