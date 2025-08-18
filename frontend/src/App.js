@@ -1603,6 +1603,67 @@ const PatientsModule = () => {
     setShowSoapForm(true);
   };
 
+  const handleCompleteSoapNote = async (soapNote) => {
+    setLoading(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      // Update SOAP note status to completed
+      await axios.put(`${API}/soap-notes/${soapNote.id}`, {
+        ...soapNote,
+        status: 'completed'
+      });
+      
+      // Generate receipt
+      const receiptData = {
+        patient_id: selectedPatient.id,
+        soap_note_id: soapNote.id,
+        provider: soapNote.provider,
+        date: new Date().toISOString(),
+        services: ['Clinical consultation', 'SOAP note documentation'],
+        total_amount: 150.00 // This would be calculated based on services
+      };
+      
+      await axios.post(`${API}/receipts`, receiptData);
+      
+      setSuccess('SOAP note completed and receipt generated successfully!');
+      fetchAllPatientData(selectedPatient.id); // Refresh data
+    } catch (error) {
+      console.error('Failed to complete SOAP note:', error);
+      setError(error.response?.data?.detail || 'Failed to complete SOAP note. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleViewReceipt = async (soapNote) => {
+    try {
+      const response = await axios.get(`${API}/receipts/soap-note/${soapNote.id}`);
+      const receipt = response.data;
+      
+      // Open receipt in new window or show modal
+      const receiptWindow = window.open('', '_blank');
+      receiptWindow.document.write(`
+        <html>
+          <head><title>Receipt - ${getPatientName(selectedPatient)}</title></head>
+          <body style="font-family: Arial, sans-serif; padding: 20px;">
+            <h2>Medical Services Receipt</h2>
+            <p><strong>Patient:</strong> ${getPatientName(selectedPatient)}</p>
+            <p><strong>Date:</strong> ${new Date(receipt.date).toLocaleDateString()}</p>
+            <p><strong>Provider:</strong> ${receipt.provider}</p>
+            <p><strong>Services:</strong> ${receipt.services.join(', ')}</p>
+            <p><strong>Total:</strong> $${receipt.total_amount}</p>
+            <button onclick="window.print()">Print</button>
+          </body>
+        </html>
+      `);
+    } catch (error) {
+      console.error('Failed to fetch receipt:', error);
+      setError('Failed to fetch receipt. Please try again.');
+    }
+  };
+
   const getPatientName = (patient) => {
     if (patient.name && patient.name.length > 0) {
       const name = patient.name[0];
