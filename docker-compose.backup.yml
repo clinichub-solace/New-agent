@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  # MinIO Object Storage for Backups
+  minio:
+    image: minio/minio:latest
+    container_name: clinichub-minio
+    restart: unless-stopped
+    ports:
+      - "9000:9000"  # API
+      - "9001:9001"  # Console
+    environment:
+      MINIO_ROOT_USER: clinichub
+      MINIO_ROOT_PASSWORD_FILE: /run/secrets/minio_root_password
+    secrets:
+      - minio_root_password
+    volumes:
+      - minio_data:/data
+    networks:
+      - clinichub-network
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Restic Backup Service
+  restic-backup:
+    build:
+      context: ./backup
+      dockerfile: Dockerfile
+    container_name: clinichub-backup
+    restart: unless-stopped
+    environment:
+      RESTIC_REPOSITORY: s3:http://minio:9000/clinichub-backups
+      RESTIC_PASSWORD_FILE: /run/secrets/restic_password
+      AWS_ACCESS_KEY_ID: clinichub
+      AWS_SECRET_ACCESS_KEY_FILE: /run/secrets/minio_root_password
+      BACKUP_SCHEDULE: "0 2 * * *"  # Daily at 2 AM
+      RETENTION_DAYS: 30
+      RETENTION_WEEKS: 12
+      RETENTION_MONTHS: 12
+    secrets:
+      - restic_password
+      - minio_root_password
+      - mongo_connection_string
+    volumes:
+      - mongodb_data:/backup/mongodb:ro
+      - backend_logs:/backup/logs:ro
+      - ./secrets:/backup/secrets:ro
+      - restic_cache:/root/.cache/restic
+    networks:
+      - clinichub-network
+    depends_on:
+      - minio
+      - mongodb
+
+volumes:
+  minio_data:
+    driver: local
+  restic_cache:
+    driver: local
+  mongodb_data:
+    external: true
+  backend_logs:
+    external: true
+
+networks:
+  clinichub-network:
+    external: true
+
+secrets:
+  minio_root_password:
+    file: ./secrets/minio_root_password
+  restic_password:
+    file: ./secrets/restic_password
+  mongo_connection_string:
+    external: true
