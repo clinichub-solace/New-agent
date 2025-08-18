@@ -1,5 +1,5 @@
 services:
-  # MongoDB Database
+  # MongoDB Database with High Availability
   mongodb:
     image: mongo:6.0
     container_name: clinichub-mongodb
@@ -11,18 +11,33 @@ services:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
       MONGO_INITDB_DATABASE: clinichub
+      # Enable authentication and SSL
+      MONGO_REPLICA_SET_NAME: clinichub-rs
+      MONGO_SSL_ENABLED: "true"
     secrets:
       - mongo_root_password
     volumes:
       - mongodb_data:/data/db
+      - mongodb_logs:/data/logs
       - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
+      - ./mongo-keyfile:/data/keyfile:ro
     networks:
       - clinichub-network
+    command: >
+      mongod --replSet clinichub-rs 
+             --bind_ip_all 
+             --auth 
+             --keyFile /data/keyfile
+             --logpath /data/logs/mongodb.log
+             --logappend
+             --slowms 100
+             --profile 1
     healthcheck:
       test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
 
   # Backend API
   backend:
