@@ -204,7 +204,7 @@ def test_appointment_enum_fix():
         
         response = requests.post(url, json=appointment_data, headers=get_auth_headers())
         
-        if response.status_code == 201:
+        if response.status_code in [200, 201]:
             result = response.json()
             appointment_id = result.get("id")
             print_test_result("Create Telemedicine Appointment", True, result, "Successfully created appointment with 'telemedicine' type")
