@@ -83,7 +83,48 @@ class ClinicHubTester:
         except Exception as e:
             self.log_test("Get/Create Test Patient", False, f"Exception: {str(e)}")
             return None
+    def create_test_patient(self) -> Dict[str, Any]:
         """Create a test patient for testing"""
+        try:
+            patient_data = {
+                "first_name": "Sarah",
+                "last_name": "Johnson",
+                "email": "sarah.johnson@email.com",
+                "phone": "555-0123",
+                "date_of_birth": "1985-03-15",
+                "gender": "female",
+                "address_line1": "123 Main Street",
+                "city": "Austin",
+                "state": "TX",
+                "zip_code": "78701"
+            }
+            
+            # Add headers to handle the audit decorator issue
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "ClinicHub-Test-Client/1.0"
+            }
+            if self.token:
+                headers["Authorization"] = f"Bearer {self.token}"
+            
+            response = self.session.post(
+                f"{BACKEND_URL}/patients",
+                json=patient_data,
+                headers=headers,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                patient = response.json()
+                self.log_test("Create Test Patient", True, f"Created patient: {patient['name'][0]['given'][0]} {patient['name'][0]['family']}")
+                return patient
+            else:
+                self.log_test("Create Test Patient", False, f"HTTP {response.status_code}: {response.text}")
+                return None
+                
+        except Exception as e:
+            self.log_test("Create Test Patient", False, f"Exception: {str(e)}")
+            return None
         try:
             patient_data = {
                 "first_name": "Sarah",
