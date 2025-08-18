@@ -109,18 +109,28 @@ def test_authentication_security():
     """Test Authentication & Security (TOP PRIORITY)"""
     print("\n🔐 === AUTHENTICATION & SECURITY (TOP PRIORITY) ===")
     
-    # Test 1: Initialize Admin User
+    # Test 1: Initialize Admin User (or check if already exists)
     try:
         response = requests.post(f"{API_URL}/auth/init-admin", timeout=10)
-        response.raise_for_status()
-        result = response.json()
         
-        assert "username" in result
-        assert "password" in result
-        assert result["username"] == "admin"
-        assert result["password"] == "admin123"
-        
-        print_test_result("Initialize Admin User", True, result, critical=True)
+        if response.status_code == 400:
+            # Admin user already exists - this is fine
+            result = response.json()
+            if "Admin user already exists" in result.get("detail", ""):
+                print_test_result("Initialize Admin User", True, {"status": "Admin user already exists"}, critical=True)
+            else:
+                print_test_result("Initialize Admin User", False, result.get("detail", "Unknown error"), critical=True)
+                return None
+        else:
+            response.raise_for_status()
+            result = response.json()
+            
+            assert "username" in result
+            assert "password" in result
+            assert result["username"] == "admin"
+            assert result["password"] == "admin123"
+            
+            print_test_result("Initialize Admin User", True, result, critical=True)
     except Exception as e:
         print_test_result("Initialize Admin User", False, str(e), critical=True)
         return None
