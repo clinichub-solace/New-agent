@@ -61,7 +61,28 @@ class ClinicHubTester:
             self.log_test("Authentication", False, f"Exception: {str(e)}")
             return False
     
-    def create_test_patient(self) -> Dict[str, Any]:
+    def get_or_create_test_patient(self) -> Dict[str, Any]:
+        """Get existing patient or create a test patient for testing"""
+        try:
+            # First try to get existing patients
+            response = self.session.get(
+                f"{BACKEND_URL}/patients",
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                patients = response.json()
+                if patients and len(patients) > 0:
+                    patient = patients[0]  # Use the first existing patient
+                    self.log_test("Get Existing Patient", True, f"Using existing patient: {patient['name'][0]['given'][0]} {patient['name'][0]['family']}")
+                    return patient
+            
+            # If no existing patients, create a new one
+            return self.create_test_patient()
+                
+        except Exception as e:
+            self.log_test("Get/Create Test Patient", False, f"Exception: {str(e)}")
+            return None
         """Create a test patient for testing"""
         try:
             patient_data = {
