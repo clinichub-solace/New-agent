@@ -1123,14 +1123,11 @@ metadata:
 
 test_plan:
   current_focus:
-    - "Comprehensive System Verification"
-    - "All Backend Endpoints Testing"
-    - "Frontend Complete Functionality Testing"
-    - "Authentication System Verification"
-    - "Database Integrity Check"
+    - "Authentication System Bulletproof Verification (Review Request)"
+    - "Backend URL Configuration Verification (Review Request)"
   stuck_tasks: []
-  test_all: true
-  test_priority: "comprehensive_all"
+  test_all: false
+  test_priority: "high_first"
   backend_fixes_status: "completed"
   critical_issues_resolved: true
       - working: false
