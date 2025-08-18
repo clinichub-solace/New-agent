@@ -78,6 +78,47 @@ except Exception as e:
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
 
+# Domain Event Publishing System for Interoperability
+class DomainEvent(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    event_type: str  # patient.created, encounter.completed, lab.ordered, etc.
+    aggregate_type: str  # patient, encounter, lab_order, etc.
+    aggregate_id: str
+    version: int = 1
+    data: Dict[str, Any] = {}
+    metadata: Dict[str, Any] = {}
+
+class EventPublisher:
+    """Event publisher for healthcare interoperability"""
+    
+    def __init__(self):
+        self.events = []  # In-memory for now, will add message queue later
+    
+    async def publish(self, event_type: str, aggregate_type: str, aggregate_id: str, data: Dict[str, Any], metadata: Dict[str, Any] = None):
+        """Publish domain event for integration processing"""
+        event = DomainEvent(
+            event_type=event_type,
+            aggregate_type=aggregate_type,
+            aggregate_id=aggregate_id,
+            data=data,
+            metadata=metadata or {}
+        )
+        
+        # Store event in database for audit and replay
+        await db.domain_events.insert_one(jsonable_encoder(event))
+        
+        # Log event for external processors (Mirth, FHIR server, etc.)
+        logging.info(f"DOMAIN_EVENT: {jsonable_encoder(event)}")
+        
+        # TODO: Add message queue publishing (RabbitMQ/NATS)
+        # await self.message_queue.publish(event_type, event)
+        
+        return event
+
+# Global event publisher
+event_publisher = EventPublisher()
+
 # Synology DSM Integration Configuration
 SYNOLOGY_DSM_URL = os.environ.get('SYNOLOGY_DSM_URL', None)  # e.g., "https://your-nas:5001"
 SYNOLOGY_VERIFY_SSL = os.environ.get('SYNOLOGY_VERIFY_SSL', 'true').lower() == 'true'
