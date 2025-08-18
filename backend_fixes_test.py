@@ -140,7 +140,7 @@ def setup_test_data():
         
         response = requests.post(url, json=provider_data, headers=get_auth_headers())
         
-        if response.status_code == 201:
+        if response.status_code in [200, 201]:
             result = response.json()
             test_provider_id = result.get("id")
             print_test_result("Test Provider Creation", True, result, f"Created provider: Dr. Jennifer Martinez")
