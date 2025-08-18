@@ -2358,6 +2358,10 @@ const PatientsModule = () => {
                           <span className="text-white ml-2">{vitals.height} in</span>
                         </div>
                         <div>
+                          <span className="text-blue-200">Pain Scale:</span>
+                          <span className="text-white ml-2">{vitals.pain_scale}/10</span>
+                        </div>
+                        <div>
                           <span className="text-blue-200">BMI:</span>
                           <span className="text-white ml-2">{vitals.weight && vitals.height ? ((vitals.weight / (vitals.height * vitals.height)) * 703).toFixed(1) : 'N/A'}</span>
                         </div>
