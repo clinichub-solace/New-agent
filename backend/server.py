@@ -379,6 +379,24 @@ def audit_phi_access(resource_type: str, event_type: str = "read"):
 # Create the main app without a prefix
 app = FastAPI(title="ClinicHub API", description="AI-Powered Practice Management System")
 
+# Register error handlers
+from fastapi import HTTPException
+from fastapi.responses import JSONResponse
+from pydantic import ValidationError
+from .errors import validation_exception_handler, generic_exception_handler
+
+app.add_exception_handler(ValidationError, validation_exception_handler)
+
+# Optional: centralize HTTPException to always use {"detail": ...}
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc: HTTPException):
+    return JSONResponse(status_code=exc.status_code, content={"detail": exc.detail})
+
+# last-resort catch-all
+@app.exception_handler(Exception)
+async def all_exception_handler(request, exc: Exception):
+    return await generic_exception_handler(request, exc)
+
 # Add root route for health verification
 @app.get("/")
 async def root():
