@@ -14085,6 +14085,38 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Include API router (MUST be after all endpoint definitions)
+app.include_router(api_router)
+
+# Health endpoint for Docker health check
+@app.get("/api/health")
+async def health_check():
+    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+
+@app.get("/health")
+async def root_health_check():
+    return {"status": "healthy", "service": "ClinicHub API"}
+
+# Root route for API verification
+@app.get("/")
+async def root():
+    return {
+        "message": "ClinicHub API is running", 
+        "status": "healthy", 
+        "version": "1.0.0",
+        "docs": "/docs",
+        "api_endpoints": "/api",
+        "health": "/health"
+    }
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_credentials=True,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
