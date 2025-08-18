@@ -7096,11 +7096,70 @@ async def create_prescription(prescription_data: dict, current_user: User = Depe
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
-        # Create prescription object
-        prescription = MedicationRequest(
-            id=str(uuid.uuid4()),
-            **prescription_data
-        )
+        # Get medication details if medication_id provided
+        medication_display = prescription_data.get("medication_display", "Unknown Medication")
+        if prescription_data.get("medication_id"):
+            medication = await db.medications.find_one({"id": prescription_data["medication_id"]}, {"_id": 0})
+            if medication:
+                medication_display = medication.get("generic_name", medication.get("brand_name", "Unknown Medication"))
+        
+        # Prepare patient display name
+        patient_name = "Unknown Patient"
+        if patient.get("name") and len(patient["name"]) > 0:
+            name_obj = patient["name"][0]
+            given_names = name_obj.get("given", [])
+            family_name = name_obj.get("family", "")
+            if given_names and family_name:
+                patient_name = f"{' '.join(given_names)} {family_name}"
+            elif family_name:
+                patient_name = family_name
+            elif given_names:
+                patient_name = ' '.join(given_names)
+        
+        # Create prescription object with required fields
+        prescription_dict = {
+            "id": str(uuid.uuid4()),
+            "resource_type": "MedicationRequest",
+            "status": prescription_data.get("status", "active"),
+            "intent": prescription_data.get("intent", "order"),
+            "priority": prescription_data.get("priority", "routine"),
+            
+            # Medication Information
+            "medication_id": prescription_data.get("medication_id", "unknown"),
+            "medication_display": medication_display,
+            
+            # Patient Information
+            "patient_id": prescription_data["patient_id"],
+            "patient_display": patient_name,
+            
+            # Encounter Context
+            "encounter_id": prescription_data.get("encounter_id"),
+            
+            # Prescriber Information
+            "prescriber_id": current_user.id if hasattr(current_user, 'id') else 'unknown',
+            "prescriber_name": getattr(current_user, 'first_name', '') + ' ' + getattr(current_user, 'last_name', ''),
+            "prescriber_npi": prescription_data.get("prescriber_npi"),
+            "prescriber_dea": prescription_data.get("prescriber_dea"),
+            
+            # Dosage and Instructions
+            "dosage_instruction": prescription_data.get("dosage_instruction", []),
+            "quantity": prescription_data.get("quantity"),
+            "supply_duration": prescription_data.get("supply_duration"),
+            "refills_allowed": prescription_data.get("refills_allowed", 0),
+            
+            # Additional fields
+            "reason_code": prescription_data.get("reason_code", []),
+            "reason_reference": prescription_data.get("reason_reference", []),
+            "note": prescription_data.get("note", []),
+            
+            # Timestamps
+            "authored_on": datetime.utcnow(),
+            "created_at": datetime.utcnow(),
+            "updated_at": datetime.utcnow()
+        }
+        
+        # Create MedicationRequest object for validation
+        prescription = MedicationRequest(**prescription_dict)
         
         # Store in database
         prescription_dict = jsonable_encoder(prescription)
