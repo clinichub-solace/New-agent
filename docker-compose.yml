@@ -1,15 +1,18 @@
 services:
   # MongoDB Database
   mongodb:
-    image: mongo:4.4
+    image: mongo:6.0
     container_name: clinichub-mongodb
     restart: unless-stopped
-    ports:
-      - "27017:27017"
+    # SECURITY: Removed host port mapping - only accessible internally
+    expose:
+      - "27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
-      MONGO_INITDB_ROOT_PASSWORD: changeme123
+      MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
       MONGO_INITDB_DATABASE: clinichub
+    secrets:
+      - mongo_root_password
     volumes:
       - mongodb_data:/data/db
       - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
@@ -31,13 +34,17 @@ services:
     ports:
       - "8001:8001"
     environment:
-      MONGO_URL: mongodb://admin:changeme123@mongodb:27017/clinichub?authSource=admin
-      SECRET_KEY: super-secure-secret-key-change-in-production
-      JWT_SECRET_KEY: jwt-secret-key-change-in-production
-      DEBUG: "true"
+      MONGO_URL_FILE: /run/secrets/mongo_connection_string
+      SECRET_KEY_FILE: /run/secrets/app_secret_key
+      JWT_SECRET_KEY_FILE: /run/secrets/jwt_secret_key
+      DEBUG: "false"
       HOST: 0.0.0.0
       PORT: 8001
       DB_NAME: clinichub
+    secrets:
+      - mongo_connection_string
+      - app_secret_key
+      - jwt_secret_key
     depends_on:
       - mongodb
     volumes:
@@ -45,7 +52,8 @@ services:
       - backend_logs:/app/logs
     networks:
       - clinichub-network
-    command: uvicorn server:app --host 0.0.0.0 --port 8001 --reload
+    # SECURITY: Removed --reload for production
+    command: uvicorn server:app --host 0.0.0.0 --port 8001 --workers 4
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s
