@@ -3612,6 +3612,29 @@ async def create_patient(patient_data: PatientCreate, request: Request, current_
     # Use jsonable_encoder to handle date serialization
     patient_dict = jsonable_encoder(patient)
     await db.patients.insert_one(patient_dict)
+    
+    # INTEROP: Publish domain event with FHIR data for external systems
+    try:
+        fhir_patient = fhir_converter.patient_to_fhir(patient)
+        await event_publisher.publish(
+            event_type="patient.created",
+            aggregate_type="patient",
+            aggregate_id=patient.id,
+            data={
+                "fhir_resource": fhir_patient,
+                "source_system": "clinichub",
+                "created_by": current_user.username
+            },
+            metadata={
+                "user_id": current_user.id if hasattr(current_user, 'id') else 'unknown',
+                "user_name": current_user.username,
+                "ip_address": request.client.host if hasattr(request, 'client') else None
+            }
+        )
+    except Exception as e:
+        # Log error but don't fail patient creation
+        logging.error(f"Failed to publish patient.created event: {e}")
+    
     return patient
 
 @api_router.get("/patients", response_model=List[Patient])
