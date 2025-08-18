@@ -2273,6 +2273,19 @@ const PatientsModule = () => {
                           placeholder="68"
                         />
                       </div>
+                      <div>
+                        <label className="block text-blue-200 text-sm font-medium mb-2">Pain Scale (0-10)</label>
+                        <input
+                          type="number"
+                          name="pain_scale"
+                          value={vitalsFormData.pain_scale}
+                          onChange={handleVitalsInputChange}
+                          min="0"
+                          max="10"
+                          className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                          placeholder="0"
+                        />
+                      </div>
                     </div>
                     <div>
                       <label className="block text-blue-200 text-sm font-medium mb-2">Notes</label>
