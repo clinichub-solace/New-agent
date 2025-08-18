@@ -312,6 +312,10 @@ async def create_audit_event(
 # Audit decorator for PHI-sensitive endpoints
 def audit_phi_access(resource_type: str, event_type: str = "read"):
     def decorator(func):
+        import inspect
+        from functools import wraps
+        
+        @wraps(func)
         async def wrapper(*args, **kwargs):
             # Extract request info
             request = kwargs.get('request') or (args[0] if args else None)
@@ -327,9 +331,16 @@ def audit_phi_access(resource_type: str, event_type: str = "read"):
                     current_user = value
                     break
             
-            # Execute the function
+            # Get function signature and filter kwargs to match expected parameters
+            sig = inspect.signature(func)
+            filtered_kwargs = {}
+            for param_name, param in sig.parameters.items():
+                if param_name in kwargs:
+                    filtered_kwargs[param_name] = kwargs[param_name]
+            
+            # Execute the function with filtered arguments
             try:
-                result = await func(*args, **kwargs)
+                result = await func(*args, **filtered_kwargs)
                 
                 # Create audit event for successful access
                 if current_user:
