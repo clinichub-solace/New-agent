@@ -19,7 +19,7 @@ services:
     networks:
       - clinichub-network
     healthcheck:
-      test: ["CMD-SHELL", "mongo --host localhost --port 27017 --authenticationDatabase admin -u admin -p \"$$(cat /run/secrets/mongo_root_password)\" --eval 'db.adminCommand(\"ping\")' --quiet"]
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
       interval: 30s
       timeout: 10s
       retries: 3
