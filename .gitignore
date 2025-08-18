@@ -30,6 +30,16 @@ next-env.d.ts
 dist/
 dist
 
+# SECURITY: Never commit secrets
+secrets/
+*.key
+*.pem
+*.crt
+*.p12
+*.jks
+*secret*
+*password*
+
 # Environment files (comprehensive coverage)
 
 *token.json*
