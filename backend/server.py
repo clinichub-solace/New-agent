@@ -13914,7 +13914,7 @@ async def clock_in_employee(employee_id: str, location: str = "Main Office", cur
     """Clock in employee"""
     try:
         # Check if employee exists
-        employee = await db.employees.find_one({"id": employee_id}, {"_id": 0})
+        employee = await db.enhanced_employees.find_one({"id": employee_id}, {"_id": 0})
         if not employee:
             raise HTTPException(status_code=404, detail="Employee not found")
         
