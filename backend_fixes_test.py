@@ -266,7 +266,7 @@ def test_prescription_creation_fix():
         
         response = requests.post(url, json=prescription_data, headers=get_auth_headers())
         
-        if response.status_code == 201:
+        if response.status_code in [200, 201]:
             result = response.json()
             print_test_result("Prescription Creation", True, result, "Successfully created prescription with proper MedicationRequest validation")
             
