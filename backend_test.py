@@ -1,2752 +1,448 @@
 #!/usr/bin/env python3
+"""
+ClinicHub Backend Testing - Receipt Generation and Employee Clock-In/Out
+Testing the newly added Receipt Generation and Employee Clock-In/Out functionality
+"""
+
 import requests
 import json
-import os
-from datetime import date, datetime, timedelta
-import uuid
-from dotenv import load_dotenv
-from pathlib import Path
+import sys
+from datetime import datetime, date
+import time
 
-# Load environment variables from frontend/.env to get the backend URL
-load_dotenv(Path(__file__).parent / "frontend" / ".env")
+# Configuration
+BACKEND_URL = "http://localhost:8001"
+API_BASE = f"{BACKEND_URL}/api"
 
-# Get the backend URL from environment variables
-BACKEND_URL = os.environ.get("REACT_APP_BACKEND_URL")
-if not BACKEND_URL:
-    print("Error: REACT_APP_BACKEND_URL not found in environment variables")
-    exit(1)
+# Test credentials
+ADMIN_USERNAME = "admin"
+ADMIN_PASSWORD = "admin123"
 
-# Set the API URL
-API_URL = f"{BACKEND_URL}/api"
-print(f"Using API URL: {API_URL}")
-
-# Helper function to print test results
-def print_test_result(test_name, success, response=None):
-    if success:
-        print(f"✅ {test_name}: PASSED")
-        if response:
-            print(f"   Response: {json.dumps(response, indent=2, default=str)[:200]}...")
-    else:
-        print(f"❌ {test_name}: FAILED")
-        if response:
-            print(f"   Response: {response}")
-    print("-" * 80)
-
-# Test FHIR-Compliant Patient Management
-def test_patient_management():
-    print("\n--- Testing FHIR-Compliant Patient Management ---")
+class ClinicHubTester:
+    def __init__(self):
+        self.session = requests.Session()
+        self.auth_token = None
+        self.test_results = []
+        
+    def log_result(self, test_name, success, message, details=None):
+        """Log test result"""
+        status = "✅ PASS" if success else "❌ FAIL"
+        print(f"{status} {test_name}: {message}")
+        if details:
+            print(f"   Details: {details}")
+        
+        self.test_results.append({
+            "test": test_name,
+            "success": success,
+            "message": message,
+            "details": details
+        })
     
-    # Test creating a patient
-    patient_id = None
-    try:
-        url = f"{API_URL}/patients"
-        data = {
-            "first_name": "Sarah",
-            "last_name": "Johnson",
-            "email": "sarah.johnson@example.com",
-            "phone": "+1-555-123-4567",
-            "date_of_birth": "1985-06-15",
-            "gender": "female",
-            "address_line1": "123 Medical Center Blvd",
-            "city": "Springfield",
-            "state": "IL",
-            "zip_code": "62704"
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Verify FHIR compliance
-        assert result["resource_type"] == "Patient"
-        assert isinstance(result["name"], list)
-        assert result["name"][0]["family"] == "Johnson"
-        assert "Sarah" in result["name"][0]["given"]
-        
-        patient_id = result["id"]
-        print_test_result("Create Patient", True, result)
-    except Exception as e:
-        print(f"Error creating patient: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Create Patient", False)
-        return
-    
-    # Test getting all patients
-    try:
-        url = f"{API_URL}/patients"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Patients", True, result)
-    except Exception as e:
-        print(f"Error getting patients: {str(e)}")
-        print_test_result("Get Patients", False)
-    
-    # Test getting a specific patient
-    if patient_id:
+    def authenticate(self):
+        """Authenticate with admin credentials"""
         try:
-            url = f"{API_URL}/patients/{patient_id}"
-            response = requests.get(url)
-            response.raise_for_status()
-            result = response.json()
+            response = self.session.post(f"{API_BASE}/auth/login", json={
+                "username": ADMIN_USERNAME,
+                "password": ADMIN_PASSWORD
+            })
             
-            assert result["id"] == patient_id
-            print_test_result("Get Patient by ID", True, result)
-        except Exception as e:
-            print(f"Error getting patient by ID: {str(e)}")
-            print_test_result("Get Patient by ID", False)
-    
-    return patient_id
-
-# Test SmartForm System
-def test_smartform_system(patient_id):
-    print("\n--- Testing SmartForm System ---")
-    
-    # Test creating a form
-    form_id = None
-    try:
-        url = f"{API_URL}/forms"
-        data = {
-            "title": "Comprehensive Medical Assessment",
-            "description": "Standard medical assessment form with FHIR mapping",
-            "fields": [
-                {
-                    "type": "text",
-                    "label": "Chief Complaint",
-                    "placeholder": "Patient's main concern",
-                    "required": True,
-                    "smart_tag": "{patient_complaint}"
-                },
-                {
-                    "type": "select",
-                    "label": "Pain Level",
-                    "required": True,
-                    "options": ["None", "Mild", "Moderate", "Severe", "Very Severe"],
-                    "smart_tag": "{pain_level}"
-                }
-            ],
-            "status": "active",
-            "fhir_mapping": {
-                "chief_complaint": "Observation.code.text",
-                "pain_level": "Observation.valueQuantity"
-            }
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        form_id = result["id"]
-        print_test_result("Create Form", True, result)
-    except Exception as e:
-        print(f"Error creating form: {str(e)}")
-        print_test_result("Create Form", False)
-        return
-    
-    # Test getting all forms
-    try:
-        url = f"{API_URL}/forms"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Forms", True, result)
-    except Exception as e:
-        print(f"Error getting forms: {str(e)}")
-        print_test_result("Get Forms", False)
-    
-    # Test submitting a form
-    if form_id and patient_id:
-        try:
-            url = f"{API_URL}/forms/{form_id}/submit"
-            data = {
-                "chief_complaint": "Persistent headache for 3 days",
-                "pain_level": "Moderate"
-            }
-            params = {"patient_id": patient_id}
-            
-            response = requests.post(url, json=data, params=params)
-            response.raise_for_status()
-            result = response.json()
-            
-            assert result["form_id"] == form_id
-            assert result["patient_id"] == patient_id
-            print_test_result("Submit Form", True, result)
-        except Exception as e:
-            print(f"Error submitting form: {str(e)}")
-            print_test_result("Submit Form", False)
-    
-    return form_id
-
-# Test Invoice/Receipt Management
-def test_invoice_management(patient_id):
-    print("\n--- Testing Invoice/Receipt Management ---")
-    
-    # Test creating an invoice
-    invoice_id = None
-    if not patient_id:
-        print("Skipping invoice tests - no patient ID available")
-        return
-    
-    try:
-        url = f"{API_URL}/invoices"
-        data = {
-            "patient_id": patient_id,
-            "items": [
-                {
-                    "description": "Initial Consultation",
-                    "quantity": 1,
-                    "unit_price": 150.00,
-                    "total": 150.00
-                },
-                {
-                    "description": "Blood Test - Complete Blood Count",
-                    "quantity": 1,
-                    "unit_price": 75.00,
-                    "total": 75.00
-                }
-            ],
-            "tax_rate": 0.07,
-            "due_days": 30,
-            "notes": "Please pay within 30 days of receipt."
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Verify invoice creation and automatic numbering
-        assert "invoice_number" in result
-        assert result["invoice_number"].startswith("INV-")
-        
-        invoice_id = result["id"]
-        print_test_result("Create Invoice", True, result)
-    except Exception as e:
-        print(f"Error creating invoice: {str(e)}")
-        print_test_result("Create Invoice", False)
-        return
-    
-    # Test getting all invoices
-    try:
-        url = f"{API_URL}/invoices"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Invoices", True, result)
-    except Exception as e:
-        print(f"Error getting invoices: {str(e)}")
-        print_test_result("Get Invoices", False)
-    
-    # Test getting a specific invoice
-    if invoice_id:
-        try:
-            url = f"{API_URL}/invoices/{invoice_id}"
-            response = requests.get(url)
-            response.raise_for_status()
-            result = response.json()
-            
-            assert result["id"] == invoice_id
-            print_test_result("Get Invoice by ID", True, result)
-        except Exception as e:
-            print(f"Error getting invoice by ID: {str(e)}")
-            print_test_result("Get Invoice by ID", False)
-    
-    return invoice_id
-
-# Test Inventory Management
-def test_inventory_management():
-    print("\n--- Testing Inventory Management ---")
-    
-    # Test creating an inventory item
-    item_id = None
-    try:
-        url = f"{API_URL}/inventory"
-        data = {
-            "name": "Amoxicillin 500mg",
-            "category": "Antibiotics",
-            "sku": "MED-AMOX-500",
-            "current_stock": 100,
-            "min_stock_level": 20,
-            "unit_cost": 1.25,
-            "supplier": "MedPharm Supplies",
-            "expiry_date": (date.today() + timedelta(days=365)).isoformat(),
-            "location": "Pharmacy Cabinet B",
-            "notes": "Keep at room temperature"
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        item_id = result["id"]
-        print_test_result("Create Inventory Item", True, result)
-    except Exception as e:
-        print(f"Error creating inventory item: {str(e)}")
-        print_test_result("Create Inventory Item", False)
-        return
-    
-    # Test getting all inventory items
-    try:
-        url = f"{API_URL}/inventory"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Inventory", True, result)
-    except Exception as e:
-        print(f"Error getting inventory: {str(e)}")
-        print_test_result("Get Inventory", False)
-    
-    # Test inventory transactions
-    if item_id:
-        try:
-            url = f"{API_URL}/inventory/{item_id}/transaction"
-            data = {
-                "transaction_type": "in",
-                "quantity": 50,
-                "notes": "Received new shipment",
-                "created_by": "Dr. Smith"
-            }
-            
-            response = requests.post(url, json=data)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Inventory Transaction (IN)", True, result)
-            
-            # Test "out" transaction
-            data = {
-                "transaction_type": "out",
-                "quantity": 25,
-                "notes": "Dispensed to patient",
-                "created_by": "Nurse Johnson"
-            }
-            
-            response = requests.post(url, json=data)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Inventory Transaction (OUT)", True, result)
-        except Exception as e:
-            print(f"Error with inventory transaction: {str(e)}")
-            print_test_result("Inventory Transaction", False)
-    
-    return item_id
-
-# Test Employee Management
-def test_employee_management():
-    print("\n--- Testing Employee Management ---")
-    
-    # Test creating an employee
-    try:
-        url = f"{API_URL}/employees"
-        data = {
-            "first_name": "Michael",
-            "last_name": "Chen",
-            "email": "dr.chen@clinichub.com",
-            "phone": "+1-555-987-6543",
-            "role": "doctor",
-            "hire_date": date.today().isoformat(),
-            "salary": 120000.00
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Verify employee ID generation
-        assert "employee_id" in result
-        assert result["employee_id"].startswith("EMP-")
-        
-        print_test_result("Create Employee", True, result)
-    except Exception as e:
-        print(f"Error creating employee: {str(e)}")
-        print_test_result("Create Employee", False)
-        return
-    
-    # Test getting all employees
-    try:
-        url = f"{API_URL}/employees"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Employees", True, result)
-    except Exception as e:
-        print(f"Error getting employees: {str(e)}")
-        print_test_result("Get Employees", False)
-
-# Test Dashboard Analytics
-def test_dashboard_analytics():
-    print("\n--- Testing Dashboard Analytics ---")
-    
-    try:
-        url = f"{API_URL}/dashboard/stats"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Verify dashboard stats structure
-        assert "stats" in result
-        assert "total_patients" in result["stats"]
-        assert "total_invoices" in result["stats"]
-        assert "pending_invoices" in result["stats"]
-        assert "low_stock_items" in result["stats"]
-        assert "total_employees" in result["stats"]
-        
-        print_test_result("Dashboard Stats", True, result)
-    except Exception as e:
-        print(f"Error getting dashboard stats: {str(e)}")
-        print_test_result("Dashboard Stats", False)
-
-# Test SOAP Notes System
-def test_soap_notes_system(patient_id):
-    print("\n--- Testing SOAP Notes System ---")
-    
-    # First, create an encounter for the patient
-    encounter_id = None
-    try:
-        url = f"{API_URL}/encounters"
-        data = {
-            "patient_id": patient_id,
-            "encounter_type": "follow_up",
-            "scheduled_date": (datetime.now() + timedelta(days=1)).isoformat(),
-            "provider": "Dr. Michael Chen",
-            "location": "Main Clinic - Room 105",
-            "chief_complaint": "Persistent headache",
-            "reason_for_visit": "Follow-up for headache treatment"
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Verify encounter creation and auto-numbering
-        assert "encounter_number" in result
-        assert result["encounter_number"].startswith("ENC-")
-        
-        encounter_id = result["id"]
-        print_test_result("Create Encounter for SOAP Notes", True, result)
-    except Exception as e:
-        print(f"Error creating encounter: {str(e)}")
-        print_test_result("Create Encounter for SOAP Notes", False)
-        return None
-    
-    # Test creating a SOAP note
-    soap_note_id = None
-    if encounter_id:
-        try:
-            url = f"{API_URL}/soap-notes"
-            data = {
-                "encounter_id": encounter_id,
-                "patient_id": patient_id,
-                "subjective": "Patient reports persistent headache for 5 days, describes it as throbbing pain behind the eyes. Pain level 7/10. Reports light sensitivity and nausea. No fever.",
-                "objective": "Vital signs stable. BP 120/80, HR 72, Temp 98.6°F. HEENT: Pupils equal and reactive. No sinus tenderness. Neurological exam normal.",
-                "assessment": "Migraine headache, possibly triggered by recent stress and lack of sleep.",
-                "plan": "1. Prescribed sumatriptan 50mg PRN for acute episodes. 2. Recommended stress reduction techniques. 3. Follow up in 2 weeks. 4. If symptoms worsen, return to clinic immediately.",
-                "provider": "Dr. Michael Chen"
-            }
-            
-            response = requests.post(url, json=data)
-            response.raise_for_status()
-            result = response.json()
-            
-            soap_note_id = result["id"]
-            print_test_result("Create SOAP Note", True, result)
-        except Exception as e:
-            print(f"Error creating SOAP note: {str(e)}")
-            print_test_result("Create SOAP Note", False)
-    
-    # Test getting SOAP notes by encounter
-    if encounter_id:
-        try:
-            url = f"{API_URL}/soap-notes/encounter/{encounter_id}"
-            response = requests.get(url)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Get SOAP Notes by Encounter", True, result)
-        except Exception as e:
-            print(f"Error getting SOAP notes by encounter: {str(e)}")
-            print_test_result("Get SOAP Notes by Encounter", False)
-    
-    # Test getting SOAP notes by patient
-    try:
-        url = f"{API_URL}/soap-notes/patient/{patient_id}"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get SOAP Notes by Patient", True, result)
-    except Exception as e:
-        print(f"Error getting SOAP notes by patient: {str(e)}")
-        print_test_result("Get SOAP Notes by Patient", False)
-    
-    return encounter_id
-
-# Test Encounter/Visit Management
-def test_encounter_management(patient_id):
-    print("\n--- Testing Encounter/Visit Management ---")
-    
-    # Test creating an encounter
-    encounter_id = None
-    try:
-        url = f"{API_URL}/encounters"
-        data = {
-            "patient_id": patient_id,
-            "encounter_type": "annual_physical",
-            "scheduled_date": (datetime.now() + timedelta(days=7)).isoformat(),
-            "provider": "Dr. Sarah Williams",
-            "location": "Main Clinic - Room 203",
-            "chief_complaint": "Annual physical examination",
-            "reason_for_visit": "Yearly check-up"
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Verify encounter creation and auto-numbering
-        assert "encounter_number" in result
-        assert result["encounter_number"].startswith("ENC-")
-        
-        encounter_id = result["id"]
-        print_test_result("Create Encounter", True, result)
-    except Exception as e:
-        print(f"Error creating encounter: {str(e)}")
-        print_test_result("Create Encounter", False)
-        return
-    
-    # Test getting all encounters
-    try:
-        url = f"{API_URL}/encounters"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get All Encounters", True, result)
-    except Exception as e:
-        print(f"Error getting all encounters: {str(e)}")
-        print_test_result("Get All Encounters", False)
-    
-    # Test getting encounters by patient
-    try:
-        url = f"{API_URL}/encounters/patient/{patient_id}"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Patient Encounters", True, result)
-    except Exception as e:
-        print(f"Error getting patient encounters: {str(e)}")
-        print_test_result("Get Patient Encounters", False)
-    
-    # Test updating encounter status
-    if encounter_id:
-        try:
-            url = f"{API_URL}/encounters/{encounter_id}/status"
-            params = {"status": "arrived"}
-            
-            response = requests.put(url, params=params)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Update Encounter Status (Arrived)", True, result)
-            
-            # Update to in_progress
-            params = {"status": "in_progress"}
-            response = requests.put(url, params=params)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Update Encounter Status (In Progress)", True, result)
-            
-            # Update to completed
-            params = {"status": "completed"}
-            response = requests.put(url, params=params)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Update Encounter Status (Completed)", True, result)
-        except Exception as e:
-            print(f"Error updating encounter status: {str(e)}")
-            print_test_result("Update Encounter Status", False)
-    
-    return encounter_id
-
-# Test Vital Signs Recording
-def test_vital_signs(patient_id, encounter_id):
-    print("\n--- Testing Vital Signs Recording ---")
-    
-    # Test creating vital signs
-    try:
-        url = f"{API_URL}/vital-signs"
-        data = {
-            "patient_id": patient_id,
-            "encounter_id": encounter_id,
-            "height": 175.5,  # cm
-            "weight": 70.3,   # kg
-            "bmi": 22.8,
-            "systolic_bp": 120,
-            "diastolic_bp": 80,
-            "heart_rate": 72,
-            "respiratory_rate": 16,
-            "temperature": 37.0,
-            "oxygen_saturation": 98,
-            "pain_scale": 0,
-            "recorded_by": "Nurse Johnson"
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Create Vital Signs", True, result)
-    except Exception as e:
-        print(f"Error creating vital signs: {str(e)}")
-        print_test_result("Create Vital Signs", False)
-    
-    # Test getting vital signs by patient
-    try:
-        url = f"{API_URL}/vital-signs/patient/{patient_id}"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Patient Vital Signs", True, result)
-    except Exception as e:
-        print(f"Error getting patient vital signs: {str(e)}")
-        print_test_result("Get Patient Vital Signs", False)
-
-# Test Allergy Management
-def test_allergy_management(patient_id):
-    print("\n--- Testing Allergy Management ---")
-    
-    # Test creating an allergy
-    allergy_id = None
-    try:
-        url = f"{API_URL}/allergies"
-        data = {
-            "patient_id": patient_id,
-            "allergen": "Penicillin",
-            "reaction": "Hives, difficulty breathing",
-            "severity": "severe",
-            "onset_date": "2018-05-10",
-            "notes": "First discovered during treatment for strep throat",
-            "created_by": "Dr. Michael Chen"
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        allergy_id = result["id"]
-        print_test_result("Create Allergy", True, result)
-    except Exception as e:
-        print(f"Error creating allergy: {str(e)}")
-        print_test_result("Create Allergy", False)
-    
-    # Test getting allergies by patient
-    try:
-        url = f"{API_URL}/allergies/patient/{patient_id}"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Patient Allergies", True, result)
-    except Exception as e:
-        print(f"Error getting patient allergies: {str(e)}")
-        print_test_result("Get Patient Allergies", False)
-    
-    return allergy_id
-
-# Test Medication Management
-def test_medication_management(patient_id):
-    print("\n--- Testing Medication Management ---")
-    
-    # Test creating a medication
-    medication_id = None
-    try:
-        url = f"{API_URL}/medications"
-        data = {
-            "patient_id": patient_id,
-            "medication_name": "Lisinopril",
-            "dosage": "10mg",
-            "frequency": "Once daily",
-            "route": "oral",
-            "start_date": date.today().isoformat(),
-            "prescribing_physician": "Dr. Sarah Williams",
-            "indication": "Hypertension",
-            "notes": "Take in the morning with food"
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        medication_id = result["id"]
-        print_test_result("Create Medication", True, result)
-    except Exception as e:
-        print(f"Error creating medication: {str(e)}")
-        print_test_result("Create Medication", False)
-    
-    # Test getting medications by patient
-    try:
-        url = f"{API_URL}/medications/patient/{patient_id}"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Patient Medications", True, result)
-    except Exception as e:
-        print(f"Error getting patient medications: {str(e)}")
-        print_test_result("Get Patient Medications", False)
-    
-    # Test updating medication status
-    if medication_id:
-        try:
-            url = f"{API_URL}/medications/{medication_id}/status"
-            params = {"status": "discontinued"}
-            
-            response = requests.put(url, params=params)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Update Medication Status", True, result)
-        except Exception as e:
-            print(f"Error updating medication status: {str(e)}")
-            print_test_result("Update Medication Status", False)
-    
-    return medication_id
-
-# Test Medical History
-def test_medical_history(patient_id):
-    print("\n--- Testing Medical History ---")
-    
-    # Test creating a medical history entry
-    try:
-        url = f"{API_URL}/medical-history"
-        data = {
-            "patient_id": patient_id,
-            "condition": "Essential (primary) hypertension",
-            "icd10_code": "I10",
-            "diagnosis_date": "2020-03-15",
-            "status": "active",
-            "notes": "Well-controlled with medication",
-            "diagnosed_by": "Dr. Sarah Williams"
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Create Medical History", True, result)
-    except Exception as e:
-        print(f"Error creating medical history: {str(e)}")
-        print_test_result("Create Medical History", False)
-    
-    # Test getting medical history by patient
-    try:
-        url = f"{API_URL}/medical-history/patient/{patient_id}"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Patient Medical History", True, result)
-    except Exception as e:
-        print(f"Error getting patient medical history: {str(e)}")
-        print_test_result("Get Patient Medical History", False)
-
-# Test Diagnosis and Procedure Coding
-def test_diagnosis_procedure(patient_id, encounter_id):
-    print("\n--- Testing Diagnosis and Procedure Coding ---")
-    
-    # Test creating a diagnosis
-    try:
-        url = f"{API_URL}/diagnoses"
-        data = {
-            "encounter_id": encounter_id,
-            "patient_id": patient_id,
-            "diagnosis_code": "J45.909",
-            "diagnosis_description": "Unspecified asthma, uncomplicated",
-            "diagnosis_type": "primary",
-            "status": "active",
-            "onset_date": "2021-06-10",
-            "provider": "Dr. Michael Chen"
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Create Diagnosis", True, result)
-    except Exception as e:
-        print(f"Error creating diagnosis: {str(e)}")
-        print_test_result("Create Diagnosis", False)
-    
-    # Test creating a procedure
-    try:
-        url = f"{API_URL}/procedures"
-        data = {
-            "encounter_id": encounter_id,
-            "patient_id": patient_id,
-            "procedure_code": "94010",
-            "procedure_description": "Spirometry, including graphic record, total and timed vital capacity",
-            "procedure_date": date.today().isoformat(),
-            "provider": "Dr. Michael Chen",
-            "location": "Pulmonary Function Lab",
-            "notes": "Patient tolerated procedure well"
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Create Procedure", True, result)
-    except Exception as e:
-        print(f"Error creating procedure: {str(e)}")
-        print_test_result("Create Procedure", False)
-    
-    # Test getting diagnoses by encounter
-    try:
-        url = f"{API_URL}/diagnoses/encounter/{encounter_id}"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Encounter Diagnoses", True, result)
-    except Exception as e:
-        print(f"Error getting encounter diagnoses: {str(e)}")
-        print_test_result("Get Encounter Diagnoses", False)
-    
-    # Test getting diagnoses by patient
-    try:
-        url = f"{API_URL}/diagnoses/patient/{patient_id}"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Patient Diagnoses", True, result)
-    except Exception as e:
-        print(f"Error getting patient diagnoses: {str(e)}")
-        print_test_result("Get Patient Diagnoses", False)
-    
-    # Test getting procedures by encounter
-    try:
-        url = f"{API_URL}/procedures/encounter/{encounter_id}"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Encounter Procedures", True, result)
-    except Exception as e:
-        print(f"Error getting encounter procedures: {str(e)}")
-        print_test_result("Get Encounter Procedures", False)
-    
-    # Test getting procedures by patient
-    try:
-        url = f"{API_URL}/procedures/patient/{patient_id}"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Patient Procedures", True, result)
-    except Exception as e:
-        print(f"Error getting patient procedures: {str(e)}")
-        print_test_result("Get Patient Procedures", False)
-
-# Test Patient Summary
-def test_patient_summary(patient_id):
-    print("\n--- Testing Comprehensive Patient Summary ---")
-    
-    try:
-        url = f"{API_URL}/patients/{patient_id}/summary"
-        response = requests.get(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Verify comprehensive summary structure
-        assert "patient" in result
-        assert "recent_encounters" in result
-        assert "allergies" in result
-        assert "active_medications" in result
-        assert "medical_history" in result
-        
-        print_test_result("Get Patient Summary", True, result)
-    except Exception as e:
-        print(f"Error getting patient summary: {str(e)}")
-        print_test_result("Get Patient Summary", False)
-
-# Test Authentication System
-def test_authentication():
-    print("\n--- Testing Authentication System ---")
-    
-    # Test variables to store authentication data
-    admin_token = None
-    
-    # Test 1: Initialize Admin User
-    try:
-        url = f"{API_URL}/auth/init-admin"
-        response = requests.post(url)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Verify admin initialization response
-        assert "message" in result
-        assert "username" in result
-        assert "password" in result
-        assert result["username"] == "admin"
-        assert result["password"] == "admin123"
-        
-        print_test_result("Initialize Admin User", True, result)
-    except Exception as e:
-        print(f"Error initializing admin user: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize Admin User", False)
-    
-    # Test 2: Login with Admin Credentials
-    try:
-        url = f"{API_URL}/auth/login"
-        data = {
-            "username": "admin",
-            "password": "admin123"
-        }
-        
-        response = requests.post(url, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Verify login response
-        assert "access_token" in result
-        assert "token_type" in result
-        assert "expires_in" in result
-        assert "user" in result
-        assert result["user"]["username"] == "admin"
-        assert result["user"]["role"] == "admin"
-        
-        # Store token for subsequent tests
-        admin_token = result["access_token"]
-        
-        print_test_result("Admin Login", True, result)
-    except Exception as e:
-        print(f"Error logging in as admin: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Admin Login", False)
-    
-    # Test 3: Get Current User Info
-    if admin_token:
-        try:
-            url = f"{API_URL}/auth/me"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            result = response.json()
-            
-            # Verify user info
-            assert result["username"] == "admin"
-            assert result["role"] == "admin"
-            
-            print_test_result("Get Current User", True, result)
-        except Exception as e:
-            print(f"Error getting current user: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Get Current User", False)
-    
-    # Test 4: Access Protected Endpoint
-    if admin_token:
-        try:
-            # Try to access a protected endpoint (get users)
-            url = f"{API_URL}/users"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Access Protected Endpoint", True, result)
-        except Exception as e:
-            print(f"Error accessing protected endpoint: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Access Protected Endpoint", False)
-    
-    # Test 5: Login with Invalid Credentials
-    try:
-        url = f"{API_URL}/auth/login"
-        data = {
-            "username": "admin",
-            "password": "wrongpassword"
-        }
-        
-        response = requests.post(url, json=data)
-        
-        # This should fail with 401
-        assert response.status_code == 401
-        result = response.json()
-        assert "detail" in result
-        
-        print_test_result("Login with Invalid Credentials (Expected to Fail)", True, {"status_code": response.status_code, "detail": result.get("detail")})
-    except Exception as e:
-        print(f"Error testing invalid login: {str(e)}")
-        print_test_result("Login with Invalid Credentials", False)
-    
-    # Test 6: Logout
-    if admin_token:
-        try:
-            url = f"{API_URL}/auth/logout"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            
-            response = requests.post(url, headers=headers)
-            response.raise_for_status()
-            result = response.json()
-            
-            assert "message" in result
-            
-            print_test_result("Logout", True, result)
-        except Exception as e:
-            print(f"Error logging out: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Logout", False)
-    
-    return admin_token
-
-def test_erx_system(patient_id, admin_token):
-    print("\n--- Testing eRx (Electronic Prescribing) System ---")
-    
-    # Test 1: Initialize eRx System (NEW ENDPOINT)
-    try:
-        url = f"{API_URL}/erx/init"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.post(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Initialize eRx System (/api/erx/init)", True, result)
-    except Exception as e:
-        print(f"Error initializing eRx system: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize eRx System (/api/erx/init)", False)
-    
-    # Test 2: Get eRx Medications (NEW ENDPOINT)
-    try:
-        url = f"{API_URL}/erx/medications"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Verify FHIR-compliant medication structure
-        assert len(result) > 0
-        assert result[0]["resource_type"] == "Medication"
-        assert "code" in result[0]
-        assert "generic_name" in result[0]
-        
-        print_test_result("Get eRx Medications (/api/erx/medications)", True, result)
-    except Exception as e:
-        print(f"Error getting eRx medications: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get eRx Medications (/api/erx/medications)", False)
-    
-    # Test 3: Initialize eRx Data (LEGACY ENDPOINT)
-    try:
-        url = f"{API_URL}/init-erx-data"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.post(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Initialize eRx Data (Legacy)", True, result)
-    except Exception as e:
-        print(f"Error initializing eRx data: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize eRx Data (Legacy)", False)
-        return None, None
-    
-    # Test 2: Search Medications
-    medication_id = None
-    try:
-        url = f"{API_URL}/medications"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        params = {"search": "Lisinopril"}
-        
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Verify FHIR-compliant medication structure
-        assert len(result) > 0
-        assert result[0]["resource_type"] == "Medication"
-        assert "code" in result[0]
-        assert "generic_name" in result[0]
-        
-        medication_id = result[0]["id"]
-        print_test_result("Search Medications", True, result)
-    except Exception as e:
-        print(f"Error searching medications: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Search Medications", False)
-    
-    # Test 3: Filter Medications by Drug Class
-    try:
-        url = f"{API_URL}/medications"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        params = {"drug_class": "antibiotic"}
-        
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Verify filtering works
-        assert len(result) > 0
-        assert all(med["drug_class"] == "antibiotic" for med in result)
-        
-        print_test_result("Filter Medications by Drug Class", True, result)
-    except Exception as e:
-        print(f"Error filtering medications: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Filter Medications by Drug Class", False)
-    
-    # Test 4: Get Medication Details
-    if medication_id:
-        try:
-            url = f"{API_URL}/medications/{medication_id}"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            result = response.json()
-            
-            # Verify detailed medication information
-            assert result["id"] == medication_id
-            assert "contraindications" in result
-            assert "warnings" in result
-            assert "standard_dosing" in result
-            
-            print_test_result("Get Medication Details", True, result)
-        except Exception as e:
-            print(f"Error getting medication details: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Get Medication Details", False)
-    
-    # Test 5: Create Prescription
-    prescription_id = None
-    if medication_id and patient_id:
-        try:
-            url = f"{API_URL}/prescriptions"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            data = {
-                "medication_id": medication_id,
-                "patient_id": patient_id,
-                "prescriber_id": "prescriber-123",
-                "prescriber_name": "Dr. Sarah Johnson",
+            if response.status_code == 200:
+                data = response.json()
+                self.auth_token = data.get("access_token")
+                self.session.headers.update({"Authorization": f"Bearer {self.auth_token}"})
+                self.log_result("Authentication", True, f"Successfully authenticated as {ADMIN_USERNAME}")
+                return True
+            else:
+                self.log_result("Authentication", False, f"Failed to authenticate: {response.status_code} - {response.text}")
+                return False
                 
-                # Dosage Information
-                "dosage_text": "Take 1 tablet by mouth once daily",
-                "dose_quantity": 1.0,
-                "dose_unit": "tablet",
-                "frequency": "DAILY",
-                "route": "oral",
+        except Exception as e:
+            self.log_result("Authentication", False, f"Authentication error: {str(e)}")
+            return False
+    
+    def create_test_patient(self):
+        """Create a test patient for receipt generation"""
+        try:
+            patient_data = {
+                "first_name": "Sarah",
+                "last_name": "Johnson",
+                "email": "sarah.johnson@email.com",
+                "phone": "555-0123",
+                "date_of_birth": "1985-03-15",
+                "gender": "female",
+                "address_line1": "123 Main Street",
+                "city": "Austin",
+                "state": "TX",
+                "zip_code": "78701"
+            }
+            
+            response = self.session.post(f"{API_BASE}/patients", json=patient_data)
+            
+            if response.status_code == 200:
+                patient = response.json()
+                patient_id = patient.get("id")
+                self.log_result("Create Test Patient", True, f"Created patient Sarah Johnson with ID: {patient_id}")
+                return patient_id
+            else:
+                self.log_result("Create Test Patient", False, f"Failed to create patient: {response.status_code} - {response.text}")
+                return None
                 
-                # Prescription Details
-                "quantity": 30.0,
-                "days_supply": 30,
-                "refills": 2,
-                
-                # Clinical Context
-                "indication": "Hypertension",
-                "diagnosis_codes": ["I10"],
-                "special_instructions": "Take in the morning",
-                
-                "created_by": "admin"
-            }
-            
-            response = requests.post(url, headers=headers, json=data)
-            response.raise_for_status()
-            result = response.json()
-            
-            # Verify FHIR MedicationRequest structure
-            assert result["resource_type"] == "MedicationRequest"
-            assert result["medication_id"] == medication_id
-            assert result["patient_id"] == patient_id
-            assert "prescription_number" in result
-            assert result["prescription_number"].startswith("RX")
-            assert "allergies_checked" in result
-            assert "interactions_checked" in result
-            
-            prescription_id = result["id"]
-            print_test_result("Create Prescription", True, result)
         except Exception as e:
-            print(f"Error creating prescription: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Create Prescription", False)
-    
-    # Test 6: Get Patient Prescriptions
-    if patient_id:
-        try:
-            url = f"{API_URL}/patients/{patient_id}/prescriptions"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            result = response.json()
-            
-            # Verify prescriptions are returned
-            assert isinstance(result, list)
-            if len(result) > 0:
-                assert result[0]["patient_id"] == patient_id
-            
-            print_test_result("Get Patient Prescriptions", True, result)
-        except Exception as e:
-            print(f"Error getting patient prescriptions: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Get Patient Prescriptions", False)
-    
-    # Test 7: Update Prescription Status
-    if prescription_id:
-        try:
-            url = f"{API_URL}/prescriptions/{prescription_id}/status"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            params = {"status": "active"}
-            
-            response = requests.put(url, headers=headers, params=params)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Update Prescription Status", True, result)
-        except Exception as e:
-            print(f"Error updating prescription status: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Update Prescription Status", False)
-    
-    # Test 8: Check Prescription Interactions
-    if prescription_id:
-        try:
-            url = f"{API_URL}/prescriptions/{prescription_id}/interactions"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            result = response.json()
-            
-            # Verify interaction checking
-            assert "interactions" in result
-            
-            print_test_result("Check Prescription Interactions", True, result)
-        except Exception as e:
-            print(f"Error checking prescription interactions: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Check Prescription Interactions", False)
-    
-    # Test 9: Check Drug-Drug Interactions
-    try:
-        # First get two medication IDs
-        url = f"{API_URL}/medications"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        medications = response.json()
-        
-        if len(medications) >= 2:
-            drug1_id = medications[0]["id"]
-            drug2_id = medications[1]["id"]
-            
-            url = f"{API_URL}/drug-interactions"
-            params = {"drug1_id": drug1_id, "drug2_id": drug2_id}
-            
-            response = requests.get(url, headers=headers, params=params)
-            response.raise_for_status()
-            result = response.json()
-            
-            # Verify interaction data structure
-            assert "interaction" in result
-            
-            print_test_result("Check Drug-Drug Interactions", True, result)
-        else:
-            print("Not enough medications to test drug interactions")
-            print_test_result("Check Drug-Drug Interactions", False)
-    except Exception as e:
-        print(f"Error checking drug interactions: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Check Drug-Drug Interactions", False)
-    
-    return medication_id, prescription_id
-
-def test_scheduling_system(patient_id, admin_token):
-    print("\n--- Testing Scheduling System ---")
-    
-    # Test 1: Create Provider
-    provider_id = None
-    try:
-        url = f"{API_URL}/providers"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        data = {
-            "first_name": "Robert",
-            "last_name": "Wilson",
-            "title": "Dr.",
-            "specialties": ["Cardiology", "Internal Medicine"],
-            "license_number": "MD12345",
-            "npi_number": "1234567890",
-            "email": "dr.wilson@clinichub.com",
-            "phone": "+1-555-789-0123",
-            "default_appointment_duration": 30,
-            "schedule_start_time": "08:00",
-            "schedule_end_time": "17:00",
-            "working_days": ["monday", "tuesday", "wednesday", "thursday", "friday"]
-        }
-        
-        response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        provider_id = result["id"]
-        print_test_result("Create Provider", True, result)
-    except Exception as e:
-        print(f"Error creating provider: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Create Provider", False)
-    
-    # Test 2: Get All Providers
-    try:
-        url = f"{API_URL}/providers"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get All Providers", True, result)
-    except Exception as e:
-        print(f"Error getting providers: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get All Providers", False)
-    
-    # Test 3: Generate Provider Schedule
-    if provider_id:
-        try:
-            url = f"{API_URL}/providers/{provider_id}/schedule"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            params = {
-                "start_date": date.today().isoformat(),
-                "end_date": (date.today() + timedelta(days=7)).isoformat()
-            }
-            
-            response = requests.post(url, headers=headers, params=params)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Generate Provider Schedule", True, result)
-        except Exception as e:
-            print(f"Error generating provider schedule: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Generate Provider Schedule", False)
-    
-    # Test 4: Create Appointment
-    appointment_id = None
-    if provider_id and patient_id:
-        try:
-            url = f"{API_URL}/appointments"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            data = {
-                "patient_id": patient_id,
-                "provider_id": provider_id,
-                "appointment_date": date.today().isoformat(),
-                "start_time": "10:00",
-                "end_time": "10:30",
-                "appointment_type": "consultation",
-                "reason": "Initial cardiology consultation",
-                "location": "Main Clinic",
-                "scheduled_by": "admin"
-            }
-            
-            response = requests.post(url, headers=headers, json=data)
-            response.raise_for_status()
-            result = response.json()
-            
-            # Verify appointment creation
-            assert "appointment_number" in result
-            assert result["appointment_number"].startswith("APT")
-            
-            appointment_id = result["id"]
-            print_test_result("Create Appointment", True, result)
-        except Exception as e:
-            print(f"Error creating appointment: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Create Appointment", False)
-    
-    # Test 5: Get All Appointments
-    try:
-        url = f"{API_URL}/appointments"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get All Appointments", True, result)
-    except Exception as e:
-        print(f"Error getting appointments: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get All Appointments", False)
-    
-    # Test 6: Get Patient Appointments
-    if patient_id:
-        try:
-            url = f"{API_URL}/appointments/patient/{patient_id}"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Get Patient Appointments", True, result)
-        except Exception as e:
-            print(f"Error getting patient appointments: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Get Patient Appointments", False)
-    
-    # Test 7: Update Appointment Status
-    if appointment_id:
-        try:
-            url = f"{API_URL}/appointments/{appointment_id}/status"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            params = {"status": "confirmed"}
-            
-            response = requests.put(url, headers=headers, params=params)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Update Appointment Status (Confirmed)", True, result)
-            
-            # Update to arrived
-            params = {"status": "arrived"}
-            response = requests.put(url, headers=headers, params=params)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Update Appointment Status (Arrived)", True, result)
-        except Exception as e:
-            print(f"Error updating appointment status: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Update Appointment Status", False)
-    
-    # Test 8: Get Calendar View
-    try:
-        url = f"{API_URL}/appointments/calendar"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        params = {
-            "view_type": "week",
-            "start_date": date.today().isoformat()
-        }
-        
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Calendar View (Week)", True, result)
-        
-        # Test day view
-        params["view_type"] = "day"
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Calendar View (Day)", True, result)
-        
-        # Test month view
-        params["view_type"] = "month"
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Calendar View (Month)", True, result)
-    except Exception as e:
-        print(f"Error getting calendar view: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get Calendar View", False)
-    
-    # Test 9: Appointment Conflict Detection
-    if provider_id and patient_id:
-        try:
-            # Try to create an overlapping appointment
-            url = f"{API_URL}/appointments"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            data = {
-                "patient_id": patient_id,
-                "provider_id": provider_id,
-                "appointment_date": date.today().isoformat(),
-                "start_time": "10:15",  # Overlaps with existing 10:00-10:30 appointment
-                "end_time": "10:45",
-                "appointment_type": "follow_up",
-                "reason": "This should fail due to conflict",
-                "location": "Main Clinic",
-                "scheduled_by": "admin"
-            }
-            
-            response = requests.post(url, headers=headers, json=data)
-            
-            # This should fail with 409 Conflict
-            assert response.status_code == 409
-            result = response.json()
-            assert "detail" in result
-            
-            print_test_result("Appointment Conflict Detection (Expected to Fail)", True, {"status_code": response.status_code, "detail": result.get("detail")})
-        except Exception as e:
-            print(f"Error testing appointment conflict: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Appointment Conflict Detection", False)
-    
-    return provider_id, appointment_id
-
-def test_patient_communications(patient_id, admin_token):
-    print("\n--- Testing Patient Communications System ---")
-    
-    # Test 1: Initialize Communication Templates
-    try:
-        url = f"{API_URL}/communications/init-templates"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.post(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Initialize Communication Templates", True, result)
-    except Exception as e:
-        print(f"Error initializing communication templates: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize Communication Templates", False)
-    
-    # Test 2: Get Communication Templates
-    template_id = None
-    try:
-        url = f"{API_URL}/communications/templates"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        if len(result) > 0:
-            template_id = result[0]["id"]
-        
-        print_test_result("Get Communication Templates", True, result)
-    except Exception as e:
-        print(f"Error getting communication templates: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get Communication Templates", False)
-    
-    # Test 3: Create Custom Template
-    if not template_id:
-        try:
-            url = f"{API_URL}/communications/templates"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            data = {
-                "name": "Lab Results Notification",
-                "message_type": "test_results",
-                "subject_template": "Your Lab Results from {clinic_name}",
-                "content_template": "Dear {patient_name},\n\nYour recent lab results are now available. Please log in to your patient portal to view them or contact our office at {clinic_phone}.\n\nRegards,\n{provider_name}"
-            }
-            
-            response = requests.post(url, headers=headers, json=data)
-            response.raise_for_status()
-            result = response.json()
-            
-            template_id = result["id"]
-            print_test_result("Create Custom Template", True, result)
-        except Exception as e:
-            print(f"Error creating custom template: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Create Custom Template", False)
-    
-    # Test 4: Send Message to Patient
-    message_id = None
-    if patient_id and template_id:
-        try:
-            url = f"{API_URL}/communications/send"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            data = {
-                "patient_id": patient_id,
-                "template_id": template_id,
-                "sender_id": "admin",
-                "sender_name": "Dr. Admin",
-                "template_variables": {
-                    "clinic_name": "ClinicHub Medical Center",
-                    "clinic_phone": "555-123-4567",
-                    "provider_name": "Dr. Admin"
-                }
-            }
-            
-            response = requests.post(url, headers=headers, json=data)
-            response.raise_for_status()
-            result = response.json()
-            
-            message_id = result["id"]
-            print_test_result("Send Message to Patient", True, result)
-        except Exception as e:
-            print(f"Error sending message to patient: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Send Message to Patient", False)
-    
-    # Test 5: Get All Messages
-    try:
-        url = f"{API_URL}/communications/messages"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get All Messages", True, result)
-    except Exception as e:
-        print(f"Error getting all messages: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get All Messages", False)
-    
-    # Test 6: Get Patient Messages
-    if patient_id:
-        try:
-            url = f"{API_URL}/communications/messages/patient/{patient_id}"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Get Patient Messages", True, result)
-        except Exception as e:
-            print(f"Error getting patient messages: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Get Patient Messages", False)
-    
-    # Test 7: Update Message Status
-    if message_id:
-        try:
-            url = f"{API_URL}/communications/messages/{message_id}/status"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            params = {"status": "delivered"}
-            
-            response = requests.put(url, headers=headers, params=params)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Update Message Status (Delivered)", True, result)
-            
-            # Update to read
-            params = {"status": "read"}
-            response = requests.put(url, headers=headers, params=params)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Update Message Status (Read)", True, result)
-        except Exception as e:
-            print(f"Error updating message status: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Update Message Status", False)
-    
-    # Test 8: Send Direct Message (without template)
-    try:
-        url = f"{API_URL}/communications/send-direct"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        data = {
-            "patient_id": patient_id,
-            "subject": "Important Information About Your Next Visit",
-            "content": "Please remember to bring your insurance card and a list of current medications to your next appointment.",
-            "message_type": "general",
-            "sender_id": "admin",
-            "sender_name": "Dr. Admin"
-        }
-        
-        response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Send Direct Message", True, result)
-    except Exception as e:
-        print(f"Error sending direct message: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Send Direct Message", False)
-    
-    return template_id, message_id
-
-def test_lab_integration(admin_token, patient_id, provider_id=None):
-    print("\n--- Testing Lab Integration ---")
-    
-    # If no provider_id is provided, create a provider
-    if not provider_id:
-        try:
-            url = f"{API_URL}/providers"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            data = {
-                "first_name": "Robert",
-                "last_name": "Wilson",
-                "title": "Dr.",
-                "specialties": ["Cardiology", "Internal Medicine"],
-                "license_number": "MD12345",
-                "npi_number": "1234567890",
-                "email": "dr.wilson@clinichub.com",
-                "phone": "+1-555-789-0123"
-            }
-            
-            response = requests.post(url, headers=headers, json=data)
-            response.raise_for_status()
-            result = response.json()
-            
-            provider_id = result["id"]
-            print_test_result("Create Provider for Lab Tests", True, result)
-        except Exception as e:
-            print(f"Error creating provider: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Create Provider for Lab Tests", False)
+            self.log_result("Create Test Patient", False, f"Error creating patient: {str(e)}")
             return None
     
-    # Test 1: Initialize Lab Tests
-    try:
-        url = f"{API_URL}/lab-tests/init"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.post(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Initialize Lab Tests", True, result)
-    except Exception as e:
-        print(f"Error initializing lab tests: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize Lab Tests", False)
-    
-    # Test 2: Get Lab Tests
-    lab_test_ids = []
-    try:
-        url = f"{API_URL}/lab-tests"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Store lab test IDs for later use
-        if len(result) > 0:
-            lab_test_ids = [test["id"] for test in result[:3]]  # Get first 3 tests
-        
-        print_test_result("Get Lab Tests", True, result)
-    except Exception as e:
-        print(f"Error getting lab tests: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get Lab Tests", False)
-    
-    # Test 3: Initialize ICD-10 Codes
-    try:
-        url = f"{API_URL}/icd10/init"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.post(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Initialize ICD-10 Codes", True, result)
-    except Exception as e:
-        print(f"Error initializing ICD-10 codes: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize ICD-10 Codes", False)
-    
-    # Test 4: Search ICD-10 Codes
-    icd10_codes = []
-    try:
-        url = f"{API_URL}/icd10/search"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        params = {"query": "diabetes"}
-        
-        response = requests.get(url, headers=headers, params=params)
-        response.raise_for_status()
-        result = response.json()
-        
-        # Store ICD-10 codes for later use
-        if len(result) > 0:
-            icd10_codes = [code["code"] for code in result[:2]]  # Get first 2 codes
-        
-        print_test_result("Search ICD-10 Codes", True, result)
-    except Exception as e:
-        print(f"Error searching ICD-10 codes: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Search ICD-10 Codes", False)
-    
-    # Test 5: Create Lab Order
-    lab_order_id = None
-    if patient_id and provider_id and lab_test_ids and icd10_codes:
+    def create_test_employee(self):
+        """Create a test employee for clock-in/out testing"""
         try:
-            url = f"{API_URL}/lab-orders"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            data = {
+            employee_data = {
+                "first_name": "Michael",
+                "last_name": "Davis",
+                "email": "michael.davis@clinichub.com",
+                "phone": "555-0456",
+                "role": "nurse",
+                "department": "Emergency",
+                "hire_date": "2024-01-15",
+                "hourly_rate": 35.00
+            }
+            
+            response = self.session.post(f"{API_BASE}/employees", json=employee_data)
+            
+            if response.status_code == 200:
+                employee = response.json()
+                employee_id = employee.get("id")
+                self.log_result("Create Test Employee", True, f"Created employee Michael Davis with ID: {employee_id}")
+                return employee_id
+            else:
+                self.log_result("Create Test Employee", False, f"Failed to create employee: {response.status_code} - {response.text}")
+                return None
+                
+        except Exception as e:
+            self.log_result("Create Test Employee", False, f"Error creating employee: {str(e)}")
+            return None
+    
+    def create_test_soap_note(self, patient_id):
+        """Create a test SOAP note for receipt generation"""
+        try:
+            soap_data = {
                 "patient_id": patient_id,
-                "provider_id": provider_id,
-                "lab_tests": lab_test_ids,
-                "icd10_codes": icd10_codes,
-                "status": "ordered",
-                "priority": "routine",
-                "notes": "Patient fasting for 12 hours",
-                "ordered_by": "Dr. Robert Wilson"
+                "encounter_id": f"ENC-{datetime.now().strftime('%Y%m%d')}-TEST",
+                "chief_complaint": "Annual wellness check",
+                "subjective": "Patient reports feeling well overall. No acute complaints.",
+                "objective": "Vital signs stable. Physical exam unremarkable.",
+                "assessment": "Healthy adult, annual wellness visit",
+                "plan": "Continue current health maintenance. Return in 1 year for annual check.",
+                "provider_name": "Dr. Test Provider"
             }
             
-            response = requests.post(url, headers=headers, json=data)
-            response.raise_for_status()
-            result = response.json()
+            response = self.session.post(f"{API_BASE}/soap-notes", json=soap_data)
             
-            lab_order_id = result["id"]
-            print_test_result("Create Lab Order", True, result)
+            if response.status_code == 200:
+                soap_note = response.json()
+                soap_id = soap_note.get("id")
+                self.log_result("Create Test SOAP Note", True, f"Created SOAP note with ID: {soap_id}")
+                return soap_id
+            else:
+                self.log_result("Create Test SOAP Note", False, f"Failed to create SOAP note: {response.status_code} - {response.text}")
+                return None
+                
         except Exception as e:
-            print(f"Error creating lab order: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Create Lab Order", False)
-    else:
-        print("Skipping Create Lab Order test - missing required IDs")
+            self.log_result("Create Test SOAP Note", False, f"Error creating SOAP note: {str(e)}")
+            return None
     
-    # Test 6: Get Lab Orders
-    try:
-        url = f"{API_URL}/lab-orders"
-        headers = {"Authorization": f"Bearer {admin_token}"}
+    def test_receipt_generation_endpoints(self):
+        """Test all receipt generation endpoints"""
+        print("\n🧾 TESTING RECEIPT GENERATION ENDPOINTS")
+        print("=" * 50)
         
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
+        # Create test patient and SOAP note
+        patient_id = self.create_test_patient()
+        if not patient_id:
+            return False
         
-        print_test_result("Get Lab Orders", True, result)
-    except Exception as e:
-        print(f"Error getting lab orders: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get Lab Orders", False)
-    
-    # Test 7: Get Specific Lab Order
-    if lab_order_id:
+        soap_id = self.create_test_soap_note(patient_id)
+        if not soap_id:
+            return False
+        
+        # Test 1: GET /api/receipts (should work - list receipts)
         try:
-            url = f"{API_URL}/lab-orders/{lab_order_id}"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            result = response.json()
-            
-            print_test_result("Get Lab Order by ID", True, result)
+            response = self.session.get(f"{API_BASE}/receipts")
+            if response.status_code == 200:
+                receipts = response.json()
+                self.log_result("GET /api/receipts", True, f"Successfully retrieved {len(receipts)} receipts")
+            else:
+                self.log_result("GET /api/receipts", False, f"Failed: {response.status_code} - {response.text}")
         except Exception as e:
-            print(f"Error getting lab order by ID: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Get Lab Order by ID", False)
-    
-    return lab_order_id
-
-# Test Insurance Verification
-def test_insurance_verification(admin_token, patient_id):
-    print("\n--- Testing Insurance Verification ---")
-    
-    # Test 1: Create Insurance Card
-    insurance_card_id = None
-    try:
-        url = f"{API_URL}/insurance/cards"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        data = {
-            "patient_id": patient_id,
-            "insurance_type": "commercial",
-            "payer_name": "Blue Cross Blue Shield",
-            "payer_id": "BCBS123",
-            "member_id": "XYZ987654321",
-            "group_number": "GRP12345",
-            "policy_number": "POL987654",
-            "subscriber_name": "Sarah Johnson",
-            "subscriber_dob": "1985-06-15",
-            "relationship_to_subscriber": "self",
-            "effective_date": "2023-01-01",
-            "copay_primary": 25.00,
-            "copay_specialist": 40.00,
-            "deductible": 1500.00,
-            "deductible_met": 500.00,
-            "out_of_pocket_max": 5000.00,
-            "out_of_pocket_met": 1200.00,
-            "is_primary": True
-        }
+            self.log_result("GET /api/receipts", False, f"Error: {str(e)}")
         
-        response = requests.post(url, headers=headers, json=data)
-        response.raise_for_status()
-        result = response.json()
-        
-        insurance_card_id = result["id"]
-        print_test_result("Create Insurance Card", True, result)
-    except Exception as e:
-        print(f"Error creating insurance card: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Create Insurance Card", False)
-    
-    # Test 2: Get Patient Insurance
-    try:
-        url = f"{API_URL}/insurance/patient/{patient_id}"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Get Patient Insurance", True, result)
-    except Exception as e:
-        print(f"Error getting patient insurance: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get Patient Insurance", False)
-    
-    # Test 3: Verify Eligibility
-    eligibility_id = None
-    if insurance_card_id:
+        # Test 2: POST /api/receipts/soap-note/{id} (receipt generation)
+        receipt_id = None
         try:
-            url = f"{API_URL}/insurance/verify-eligibility"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            data = {
-                "insurance_card_id": insurance_card_id,
-                "service_date": date.today().isoformat(),
-                "service_type": "office_visit"
-            }
-            
-            response = requests.post(url, headers=headers, json=data)
-            response.raise_for_status()
-            result = response.json()
-            
-            eligibility_id = result["id"]
-            print_test_result("Verify Eligibility", True, result)
+            response = self.session.post(f"{API_BASE}/receipts/soap-note/{soap_id}")
+            if response.status_code == 200:
+                result = response.json()
+                receipt_id = result.get("receipt", {}).get("id")
+                receipt_number = result.get("receipt", {}).get("receipt_number")
+                self.log_result("POST /api/receipts/soap-note/{id}", True, 
+                              f"Successfully generated receipt {receipt_number} with ID: {receipt_id}")
+            else:
+                self.log_result("POST /api/receipts/soap-note/{id}", False, 
+                              f"Failed: {response.status_code} - {response.text}")
         except Exception as e:
-            print(f"Error verifying eligibility: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result("Verify Eligibility", False)
-    else:
-        print("Skipping Verify Eligibility test - no insurance card ID available")
-    
-    # Test 4: Get Patient Eligibility
-    try:
-        url = f"{API_URL}/insurance/eligibility/patient/{patient_id}"
-        headers = {"Authorization": f"Bearer {admin_token}"}
+            self.log_result("POST /api/receipts/soap-note/{id}", False, f"Error: {str(e)}")
         
-        response = requests.get(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
+        # Test 3: GET /api/receipts/{id} (individual receipt fetch)
+        if receipt_id:
+            try:
+                response = self.session.get(f"{API_BASE}/receipts/{receipt_id}")
+                if response.status_code == 200:
+                    receipt = response.json()
+                    patient_name = receipt.get("patient_name")
+                    total = receipt.get("total")
+                    self.log_result("GET /api/receipts/{id}", True, 
+                                  f"Successfully retrieved receipt for {patient_name}, total: ${total}")
+                else:
+                    self.log_result("GET /api/receipts/{id}", False, 
+                                  f"Failed: {response.status_code} - {response.text}")
+            except Exception as e:
+                self.log_result("GET /api/receipts/{id}", False, f"Error: {str(e)}")
+        else:
+            self.log_result("GET /api/receipts/{id}", False, "Skipped - no receipt ID available")
         
-        print_test_result("Get Patient Eligibility", True, result)
-    except Exception as e:
-        print(f"Error getting patient eligibility: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Get Patient Eligibility", False)
+        return True
     
-    return insurance_card_id, eligibility_id
-
-def run_all_tests():
-    print("\n" + "=" * 80)
-    print("TESTING CLINICHUB BACKEND API")
-    print("=" * 80)
-    
-    # Test authentication first
-    admin_token = test_authentication()
-    
-    # Run all tests in sequence
-    patient_id = test_patient_management()
-    test_smartform_system(patient_id)
-    test_invoice_management(patient_id)
-    test_inventory_management()
-    test_employee_management()
-    
-    # Test new EHR features
-    soap_encounter_id = test_soap_notes_system(patient_id)
-    encounter_id = test_encounter_management(patient_id)
-    test_vital_signs(patient_id, encounter_id)
-    test_allergy_management(patient_id)
-    test_medication_management(patient_id)
-    test_medical_history(patient_id)
-    test_diagnosis_procedure(patient_id, encounter_id if encounter_id else soap_encounter_id)
-    test_patient_summary(patient_id)
-    
-    # Test eRx system
-    if admin_token and patient_id:
-        test_erx_system(patient_id, admin_token)
-    
-    # Test new Scheduling and Communications systems
-    if admin_token and patient_id:
-        provider_id, appointment_id = test_scheduling_system(patient_id, admin_token)
-        test_patient_communications(patient_id, admin_token)
+    def test_employee_clock_endpoints(self):
+        """Test all employee clock-in/out endpoints"""
+        print("\n⏰ TESTING EMPLOYEE CLOCK-IN/OUT ENDPOINTS")
+        print("=" * 50)
         
-        # Test Lab Integration and Insurance Verification
-        test_lab_integration(admin_token, patient_id, provider_id)
-        test_insurance_verification(admin_token, patient_id)
-    
-    test_dashboard_analytics()
-    
-    print("\n" + "=" * 80)
-    print("TESTING COMPLETE")
-    print("=" * 80)
-
-# Initialize all demo/test data and test complete workflows
-def init_demo_data():
-    print("\n" + "=" * 80)
-    print("INITIALIZING CLINICHUB DEMO DATA")
-    print("=" * 80)
-    
-    # PHASE 1: SYSTEM INITIALIZATION
-    print("\n" + "=" * 80)
-    print("PHASE 1: SYSTEM INITIALIZATION")
-    print("=" * 80)
-    
-    # Initialize admin account
-    admin_token = test_authentication()
-    if not admin_token:
-        print("Failed to authenticate as admin. Aborting initialization.")
-        return
-    
-    # Initialize lab tests with LOINC codes
-    try:
-        url = f"{API_URL}/lab-tests/init"
-        headers = {"Authorization": f"Bearer {admin_token}"}
+        # Create test employee
+        employee_id = self.create_test_employee()
+        if not employee_id:
+            return False
         
-        response = requests.post(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
+        # Test 1: GET /api/employees/{id}/time-status (initial status check)
+        try:
+            response = self.session.get(f"{API_BASE}/employees/{employee_id}/time-status")
+            if response.status_code == 200:
+                status = response.json()
+                current_status = status.get("status")
+                self.log_result("GET /api/employees/{id}/time-status (initial)", True, 
+                              f"Employee status: {current_status}")
+            else:
+                self.log_result("GET /api/employees/{id}/time-status (initial)", False, 
+                              f"Failed: {response.status_code} - {response.text}")
+        except Exception as e:
+            self.log_result("GET /api/employees/{id}/time-status (initial)", False, f"Error: {str(e)}")
         
-        print_test_result("Initialize Lab Tests with LOINC codes", True, result)
-    except Exception as e:
-        print(f"Error initializing lab tests: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize Lab Tests with LOINC codes", False)
+        # Test 2: POST /api/employees/{id}/clock-in (clock in functionality)
+        try:
+            response = self.session.post(f"{API_BASE}/employees/{employee_id}/clock-in", 
+                                       params={"location": "Emergency Department"})
+            if response.status_code == 200:
+                result = response.json()
+                timestamp = result.get("timestamp")
+                location = result.get("location")
+                self.log_result("POST /api/employees/{id}/clock-in", True, 
+                              f"Successfully clocked in at {location}, time: {timestamp}")
+            else:
+                self.log_result("POST /api/employees/{id}/clock-in", False, 
+                              f"Failed: {response.status_code} - {response.text}")
+        except Exception as e:
+            self.log_result("POST /api/employees/{id}/clock-in", False, f"Error: {str(e)}")
+        
+        # Wait a moment to simulate work time
+        print("   ⏳ Waiting 3 seconds to simulate work time...")
+        time.sleep(3)
+        
+        # Test 3: GET /api/employees/{id}/time-status (check clocked in status)
+        try:
+            response = self.session.get(f"{API_BASE}/employees/{employee_id}/time-status")
+            if response.status_code == 200:
+                status = response.json()
+                current_status = status.get("status")
+                hours_so_far = status.get("hours_so_far", 0)
+                location = status.get("location")
+                self.log_result("GET /api/employees/{id}/time-status (clocked in)", True, 
+                              f"Status: {current_status}, Hours so far: {hours_so_far}, Location: {location}")
+            else:
+                self.log_result("GET /api/employees/{id}/time-status (clocked in)", False, 
+                              f"Failed: {response.status_code} - {response.text}")
+        except Exception as e:
+            self.log_result("GET /api/employees/{id}/time-status (clocked in)", False, f"Error: {str(e)}")
+        
+        # Test 4: POST /api/employees/{id}/clock-out (clock out functionality)
+        try:
+            response = self.session.post(f"{API_BASE}/employees/{employee_id}/clock-out")
+            if response.status_code == 200:
+                result = response.json()
+                hours_worked = result.get("hours_worked")
+                total_shift_time = result.get("total_shift_time")
+                self.log_result("POST /api/employees/{id}/clock-out", True, 
+                              f"Successfully clocked out, Hours worked: {hours_worked}, Shift time: {total_shift_time}")
+            else:
+                self.log_result("POST /api/employees/{id}/clock-out", False, 
+                              f"Failed: {response.status_code} - {response.text}")
+        except Exception as e:
+            self.log_result("POST /api/employees/{id}/clock-out", False, f"Error: {str(e)}")
+        
+        # Test 5: GET /api/employees/{id}/time-entries/today (daily time entries)
+        try:
+            response = self.session.get(f"{API_BASE}/employees/{employee_id}/time-entries/today")
+            if response.status_code == 200:
+                result = response.json()
+                entries = result.get("entries", [])
+                total_hours = result.get("total_hours_today", 0)
+                date_str = result.get("date")
+                self.log_result("GET /api/employees/{id}/time-entries/today", True, 
+                              f"Retrieved {len(entries)} entries for {date_str}, Total hours: {total_hours}")
+            else:
+                self.log_result("GET /api/employees/{id}/time-entries/today", False, 
+                              f"Failed: {response.status_code} - {response.text}")
+        except Exception as e:
+            self.log_result("GET /api/employees/{id}/time-entries/today", False, f"Error: {str(e)}")
+        
+        return True
     
-    # Initialize ICD-10 diagnosis codes
-    try:
-        url = f"{API_URL}/icd10/init"
-        headers = {"Authorization": f"Bearer {admin_token}"}
+    def test_end_to_end_workflows(self):
+        """Test end-to-end workflows"""
+        print("\n🔄 TESTING END-TO-END WORKFLOWS")
+        print("=" * 50)
         
-        response = requests.post(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
+        # Workflow 1: Create employee → Clock in → Check status → Clock out → Check time entries
+        print("\n📋 Workflow 1: Complete Employee Time Tracking")
+        employee_id = self.create_test_employee()
+        if employee_id:
+            # Clock in
+            clock_in_response = self.session.post(f"{API_BASE}/employees/{employee_id}/clock-in", 
+                                                params={"location": "Reception"})
+            if clock_in_response.status_code == 200:
+                print("   ✅ Employee clocked in successfully")
+                
+                # Check status
+                time.sleep(1)
+                status_response = self.session.get(f"{API_BASE}/employees/{employee_id}/time-status")
+                if status_response.status_code == 200:
+                    status = status_response.json()
+                    print(f"   ✅ Status check: {status.get('status')} at {status.get('location')}")
+                    
+                    # Clock out
+                    time.sleep(2)
+                    clock_out_response = self.session.post(f"{API_BASE}/employees/{employee_id}/clock-out")
+                    if clock_out_response.status_code == 200:
+                        result = clock_out_response.json()
+                        print(f"   ✅ Clocked out: {result.get('total_shift_time')}")
+                        
+                        # Check time entries
+                        entries_response = self.session.get(f"{API_BASE}/employees/{employee_id}/time-entries/today")
+                        if entries_response.status_code == 200:
+                            entries = entries_response.json()
+                            print(f"   ✅ Time entries: {len(entries.get('entries', []))} entries today")
+                            self.log_result("End-to-End Employee Workflow", True, "Complete workflow successful")
+                        else:
+                            self.log_result("End-to-End Employee Workflow", False, "Failed at time entries step")
+                    else:
+                        self.log_result("End-to-End Employee Workflow", False, "Failed at clock out step")
+                else:
+                    self.log_result("End-to-End Employee Workflow", False, "Failed at status check step")
+            else:
+                self.log_result("End-to-End Employee Workflow", False, "Failed at clock in step")
         
-        print_test_result("Initialize ICD-10 diagnosis codes", True, result)
-    except Exception as e:
-        print(f"Error initializing ICD-10 codes: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize ICD-10 diagnosis codes", False)
-    
-    # Initialize eRx system data
-    try:
-        url = f"{API_URL}/erx/init"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.post(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Initialize eRx system data", True, result)
-    except Exception as e:
-        print(f"Error initializing eRx data: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize eRx system data", False)
-    
-    # Initialize appointment types
-    try:
-        url = f"{API_URL}/system/init-appointment-types"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.post(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Initialize appointment types", True, result)
-    except Exception as e:
-        print(f"Error initializing appointment types: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize appointment types", False)
-    
-    # Initialize communication templates
-    try:
-        url = f"{API_URL}/communications/init-templates"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.post(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Initialize communication templates", True, result)
-    except Exception as e:
-        print(f"Error initializing communication templates: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize communication templates", False)
-    
-    # Initialize HIPAA compliant forms
-    try:
-        url = f"{API_URL}/forms/templates/init-compliant"
-        headers = {"Authorization": f"Bearer {admin_token}"}
-        
-        response = requests.post(url, headers=headers)
-        response.raise_for_status()
-        result = response.json()
-        
-        print_test_result("Initialize HIPAA compliant forms", True, result)
-    except Exception as e:
-        print(f"Error initializing HIPAA compliant forms: {str(e)}")
-        if 'response' in locals():
-            print(f"Status code: {response.status_code}")
-            print(f"Response text: {response.text}")
-        print_test_result("Initialize HIPAA compliant forms", False)
-    
-    # PHASE 2: CREATE DEMO PATIENTS & PROVIDERS
-    print("\n" + "=" * 80)
-    print("PHASE 2: CREATE DEMO PATIENTS & PROVIDERS")
-    print("=" * 80)
-    
-    # Create demo patients with different profiles
-    patient_data = [
-        {
-            "first_name": "John",
-            "last_name": "Smith",
-            "email": "john.smith@example.com",
-            "phone": "+1-555-123-4567",
-            "date_of_birth": "1975-08-15",
-            "gender": "male",
-            "address_line1": "123 Main Street",
-            "city": "Springfield",
-            "state": "IL",
-            "zip_code": "62704"
-        },
-        {
-            "first_name": "Maria",
-            "last_name": "Garcia",
-            "email": "maria.garcia@example.com",
-            "phone": "+1-555-987-6543",
-            "date_of_birth": "1990-03-22",
-            "gender": "female",
-            "address_line1": "456 Oak Avenue",
-            "city": "Riverside",
-            "state": "CA",
-            "zip_code": "92501"
-        },
-        {
-            "first_name": "Robert",
-            "last_name": "Johnson",
-            "email": "robert.johnson@example.com",
-            "phone": "+1-555-456-7890",
-            "date_of_birth": "1958-11-30",
-            "gender": "male",
-            "address_line1": "789 Pine Drive",
-            "city": "Oakwood",
-            "state": "TX",
-            "zip_code": "75001"
-        },
-        {
-            "first_name": "Emily",
-            "last_name": "Chen",
-            "email": "emily.chen@example.com",
-            "phone": "+1-555-789-0123",
-            "date_of_birth": "1982-05-10",
-            "gender": "female",
-            "address_line1": "321 Cedar Lane",
-            "city": "Maplewood",
-            "state": "NY",
-            "zip_code": "10001"
-        },
-        {
-            "first_name": "Michael",
-            "last_name": "Williams",
-            "email": "michael.williams@example.com",
-            "phone": "+1-555-234-5678",
-            "date_of_birth": "1995-09-18",
-            "gender": "male",
-            "address_line1": "654 Birch Street",
-            "city": "Lakeside",
-            "state": "FL",
-            "zip_code": "33101"
-        },
-        {
-            "first_name": "Sarah",
-            "last_name": "Brown",
-            "email": "sarah.brown@example.com",
-            "phone": "+1-555-345-6789",
-            "date_of_birth": "1970-12-05",
-            "gender": "female",
-            "address_line1": "987 Maple Road",
-            "city": "Hillcrest",
-            "state": "WA",
-            "zip_code": "98001"
-        },
-        {
-            "first_name": "David",
-            "last_name": "Martinez",
-            "email": "david.martinez@example.com",
-            "phone": "+1-555-567-8901",
-            "date_of_birth": "1988-07-25",
-            "gender": "male",
-            "address_line1": "159 Elm Court",
-            "city": "Valleyview",
-            "state": "AZ",
-            "zip_code": "85001"
-        },
-        {
-            "first_name": "Jennifer",
-            "last_name": "Lee",
-            "email": "jennifer.lee@example.com",
-            "phone": "+1-555-678-9012",
-            "date_of_birth": "1965-02-14",
-            "gender": "female",
-            "address_line1": "753 Willow Way",
-            "city": "Mountainview",
-            "state": "CO",
-            "zip_code": "80001"
-        }
-    ]
-    
-    patient_ids = []
-    for data in patient_data:
-        patient_id = test_patient_management()
+        # Workflow 2: Create patient → Create SOAP note → Generate receipt → Verify receipt
+        print("\n📋 Workflow 2: Complete Receipt Generation")
+        patient_id = self.create_test_patient()
         if patient_id:
-            patient_ids.append({"id": patient_id, "name": f"{data['first_name']} {data['last_name']}"})
+            # Create SOAP note
+            soap_id = self.create_test_soap_note(patient_id)
+            if soap_id:
+                # Generate receipt
+                receipt_response = self.session.post(f"{API_BASE}/receipts/soap-note/{soap_id}")
+                if receipt_response.status_code == 200:
+                    receipt_data = receipt_response.json()
+                    receipt_id = receipt_data.get("receipt", {}).get("id")
+                    print(f"   ✅ Receipt generated: {receipt_data.get('receipt', {}).get('receipt_number')}")
+                    
+                    # Verify receipt
+                    if receipt_id:
+                        verify_response = self.session.get(f"{API_BASE}/receipts/{receipt_id}")
+                        if verify_response.status_code == 200:
+                            receipt = verify_response.json()
+                            print(f"   ✅ Receipt verified: ${receipt.get('total')} for {receipt.get('patient_name')}")
+                            self.log_result("End-to-End Receipt Workflow", True, "Complete workflow successful")
+                        else:
+                            self.log_result("End-to-End Receipt Workflow", False, "Failed at receipt verification step")
+                    else:
+                        self.log_result("End-to-End Receipt Workflow", False, "No receipt ID returned")
+                else:
+                    self.log_result("End-to-End Receipt Workflow", False, "Failed at receipt generation step")
+            else:
+                self.log_result("End-to-End Receipt Workflow", False, "Failed at SOAP note creation step")
+        else:
+            self.log_result("End-to-End Receipt Workflow", False, "Failed at patient creation step")
     
-    # Create demo providers
-    provider_data = [
-        {
-            "first_name": "Robert",
-            "last_name": "Wilson",
-            "title": "Dr.",
-            "specialties": ["Family Medicine", "Primary Care"],
-            "license_number": "MD12345",
-            "npi_number": "1234567890",
-            "email": "dr.wilson@clinichub.com",
-            "phone": "+1-555-789-0123"
-        },
-        {
-            "first_name": "Elizabeth",
-            "last_name": "Chen",
-            "title": "Dr.",
-            "specialties": ["Cardiology", "Internal Medicine"],
-            "license_number": "MD67890",
-            "npi_number": "0987654321",
-            "email": "dr.chen@clinichub.com",
-            "phone": "+1-555-456-7890"
-        },
-        {
-            "first_name": "James",
-            "last_name": "Rodriguez",
-            "title": "Dr.",
-            "specialties": ["Pediatrics"],
-            "license_number": "MD54321",
-            "npi_number": "5432167890",
-            "email": "dr.rodriguez@clinichub.com",
-            "phone": "+1-555-321-6547"
-        },
-        {
-            "first_name": "Sarah",
-            "last_name": "Johnson",
-            "title": "NP",
-            "specialties": ["Family Medicine", "Women's Health"],
-            "license_number": "NP98765",
-            "npi_number": "9876543210",
-            "email": "np.johnson@clinichub.com",
-            "phone": "+1-555-987-6543"
-        }
-    ]
-    
-    provider_ids = []
-    for data in provider_data:
-        try:
-            url = f"{API_URL}/providers"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            
-            response = requests.post(url, headers=headers, json=data)
-            response.raise_for_status()
-            result = response.json()
-            
-            provider_id = result["id"]
-            provider_ids.append({"id": provider_id, "name": f"{data['title']} {data['first_name']} {data['last_name']}"})
-            print_test_result(f"Create Provider: {data['first_name']} {data['last_name']}", True, result)
-        except Exception as e:
-            print(f"Error creating provider: {str(e)}")
-            if 'response' in locals():
-                print(f"Status code: {response.status_code}")
-                print(f"Response text: {response.text}")
-            print_test_result(f"Create Provider: {data['first_name']} {data['last_name']}", False)
-    
-    # PHASE 3: DEMO APPOINTMENTS & ENCOUNTERS
-    print("\n" + "=" * 80)
-    print("PHASE 3: DEMO APPOINTMENTS & ENCOUNTERS")
-    print("=" * 80)
-    
-    if patient_ids and provider_ids:
-        # Create sample appointments for today
-        for i in range(min(3, len(patient_ids))):
-            patient = patient_ids[i]
-            provider = provider_ids[i % len(provider_ids)]
-            
-            appointment_data = {
-                "patient_id": patient["id"],
-                "provider_id": provider["id"],
-                "appointment_date": date.today().isoformat(),
-                "start_time": f"{9 + i}:00",
-                "end_time": f"{9 + i}:30",
-                "appointment_type": "consultation",
-                "reason": "Regular check-up",
-                "location": "Main Clinic",
-                "scheduled_by": "admin"
-            }
-            
-            try:
-                url = f"{API_URL}/appointments"
-                headers = {"Authorization": f"Bearer {admin_token}"}
-                
-                response = requests.post(url, headers=headers, json=appointment_data)
-                response.raise_for_status()
-                result = response.json()
-                
-                print_test_result(f"Create Appointment for Patient {patient['id']}", True, result)
-            except Exception as e:
-                print(f"Error creating appointment: {str(e)}")
-                if 'response' in locals():
-                    print(f"Status code: {response.status_code}")
-                    print(f"Response text: {response.text}")
-                print_test_result(f"Create Appointment for Patient {patient['id']}", False)
+    def run_all_tests(self):
+        """Run all tests"""
+        print("🏥 CLINICHUB BACKEND TESTING - RECEIPT GENERATION & EMPLOYEE CLOCK-IN/OUT")
+        print("=" * 80)
+        print(f"Backend URL: {BACKEND_URL}")
+        print(f"Testing Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print("=" * 80)
         
-        # Create completed encounters with SOAP notes
-        for i in range(min(3, len(patient_ids))):
-            patient = patient_ids[i + 3]  # Use different patients
-            provider = provider_ids[i % len(provider_ids)]
-            
-            # Create encounter
-            encounter_data = {
-                "patient_id": patient["id"],
-                "encounter_type": "follow_up",
-                "scheduled_date": (datetime.now() - timedelta(days=i+1)).isoformat(),
-                "provider": provider["name"],
-                "location": f"Main Clinic - Room {101 + i}",
-                "chief_complaint": "Persistent headache",
-                "reason_for_visit": "Follow-up for headache treatment"
-            }
-            
-            try:
-                url = f"{API_URL}/encounters"
-                headers = {"Authorization": f"Bearer {admin_token}"}
-                
-                response = requests.post(url, headers=headers, json=encounter_data)
-                response.raise_for_status()
-                encounter_result = response.json()
-                
-                encounter_id = encounter_result["id"]
-                print_test_result(f"Create Encounter for Patient {patient['id']}", True, encounter_result)
-                
-                # Update encounter status to completed
-                url = f"{API_URL}/encounters/{encounter_id}/status"
-                params = {"status": "completed"}
-                
-                response = requests.put(url, headers=headers, params=params)
-                response.raise_for_status()
-                
-                # Add SOAP note
-                soap_data = {
-                    "encounter_id": encounter_id,
-                    "patient_id": patient["id"],
-                    "subjective": "Patient reports persistent headache for 5 days, describes it as throbbing pain behind the eyes. Pain level 7/10. Reports light sensitivity and nausea. No fever.",
-                    "objective": "Vital signs stable. BP 120/80, HR 72, Temp 98.6°F. HEENT: Pupils equal and reactive. No sinus tenderness. Neurological exam normal.",
-                    "assessment": "Migraine headache, possibly triggered by recent stress and lack of sleep.",
-                    "plan": "1. Prescribed sumatriptan 50mg PRN for acute episodes. 2. Recommended stress reduction techniques. 3. Follow up in 2 weeks. 4. If symptoms worsen, return to clinic immediately.",
-                    "provider": provider["name"]
-                }
-                
-                url = f"{API_URL}/soap-notes"
-                response = requests.post(url, headers=headers, json=soap_data)
-                response.raise_for_status()
-                soap_result = response.json()
-                
-                print_test_result(f"Create SOAP Note for Encounter {encounter_id}", True, soap_result)
-                
-                # Add vital signs
-                vital_signs_data = {
-                    "patient_id": patient["id"],
-                    "encounter_id": encounter_id,
-                    "height": 175.5,  # cm
-                    "weight": 70.3,   # kg
-                    "bmi": 22.8,
-                    "systolic_bp": 120,
-                    "diastolic_bp": 80,
-                    "heart_rate": 72,
-                    "respiratory_rate": 16,
-                    "temperature": 37.0,
-                    "oxygen_saturation": 98,
-                    "pain_scale": 7,
-                    "recorded_by": "Nurse Johnson"
-                }
-                
-                url = f"{API_URL}/vital-signs"
-                response = requests.post(url, headers=headers, json=vital_signs_data)
-                response.raise_for_status()
-                vital_signs_result = response.json()
-                
-                print_test_result(f"Add Vital Signs for Encounter {encounter_id}", True, vital_signs_result)
-                
-                # Add diagnosis with ICD-10 code
-                diagnosis_data = {
-                    "encounter_id": encounter_id,
-                    "patient_id": patient["id"],
-                    "diagnosis_code": "G43.909",
-                    "diagnosis_description": "Migraine, unspecified, not intractable",
-                    "diagnosis_type": "primary",
-                    "status": "active",
-                    "onset_date": (date.today() - timedelta(days=5)).isoformat(),
-                    "provider": provider["name"]
-                }
-                
-                url = f"{API_URL}/diagnoses"
-                response = requests.post(url, headers=headers, json=diagnosis_data)
-                response.raise_for_status()
-                diagnosis_result = response.json()
-                
-                print_test_result(f"Add Diagnosis for Encounter {encounter_id}", True, diagnosis_result)
-                
-                # Prescribe medication
-                # First get a medication
-                url = f"{API_URL}/medications"
-                params = {"search": "sumatriptan"}
-                
-                response = requests.get(url, headers=headers, params=params)
-                response.raise_for_status()
-                medications = response.json()
-                
-                if medications:
-                    medication_id = medications[0]["id"]
-                    
-                    prescription_data = {
-                        "medication_id": medication_id,
-                        "patient_id": patient["id"],
-                        "prescriber_id": provider["id"],
-                        "prescriber_name": provider["name"],
-                        "encounter_id": encounter_id,
-                        
-                        # Dosage Information
-                        "dosage_text": "Take 1 tablet at onset of migraine, may repeat after 2 hours if needed",
-                        "dose_quantity": 1.0,
-                        "dose_unit": "tablet",
-                        "frequency": "PRN",
-                        "route": "oral",
-                        
-                        # Prescription Details
-                        "quantity": 9.0,
-                        "days_supply": 30,
-                        "refills": 2,
-                        
-                        # Clinical Context
-                        "indication": "Migraine headache",
-                        "diagnosis_codes": ["G43.909"],
-                        "special_instructions": "Do not take more than 9 tablets in a 30-day period",
-                        
-                        "created_by": "admin"
-                    }
-                    
-                    url = f"{API_URL}/prescriptions"
-                    response = requests.post(url, headers=headers, json=prescription_data)
-                    response.raise_for_status()
-                    prescription_result = response.json()
-                    
-                    print_test_result(f"Prescribe Medication for Patient {patient['id']}", True, prescription_result)
-            except Exception as e:
-                print(f"Error creating encounter with SOAP: {str(e)}")
-                if 'response' in locals():
-                    print(f"Status code: {response.status_code}")
-                    print(f"Response text: {response.text}")
-                print_test_result(f"Create Encounter with SOAP for Patient {patient['id']}", False)
-    
-    # PHASE 4: LAB & INSURANCE TESTING
-    print("\n" + "=" * 80)
-    print("PHASE 4: LAB & INSURANCE TESTING")
-    print("=" * 80)
-    
-    if patient_ids:
-        # Get lab tests
-        lab_test_ids = []
-        try:
-            url = f"{API_URL}/lab-tests"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            
-            response = requests.get(url, headers=headers)
-            response.raise_for_status()
-            lab_tests = response.json()
-            
-            if lab_tests:
-                lab_test_ids = [test["id"] for test in lab_tests[:3]]  # Get first 3 tests
-        except Exception as e:
-            print(f"Error getting lab tests: {str(e)}")
+        # Authenticate first
+        if not self.authenticate():
+            print("❌ Authentication failed. Cannot proceed with tests.")
+            return False
         
-        # Get ICD-10 codes
-        icd10_codes = []
-        try:
-            url = f"{API_URL}/icd10/search"
-            headers = {"Authorization": f"Bearer {admin_token}"}
-            params = {"query": "migraine"}
-            
-            response = requests.get(url, headers=headers, params=params)
-            response.raise_for_status()
-            icd10_results = response.json()
-            
-            if icd10_results:
-                icd10_codes = [code["code"] for code in icd10_results[:2]]  # Get first 2 codes
-        except Exception as e:
-            print(f"Error searching ICD-10 codes: {str(e)}")
+        # Run specific tests
+        self.test_receipt_generation_endpoints()
+        self.test_employee_clock_endpoints()
+        self.test_end_to_end_workflows()
         
-        # Create lab orders for patients
-        if lab_test_ids and icd10_codes and provider_ids:
-            for i in range(min(3, len(patient_ids))):
-                patient = patient_ids[i]
-                provider = provider_ids[i % len(provider_ids)]
-                
-                lab_order_data = {
-                    "patient_id": patient["id"],
-                    "provider_id": provider["id"],
-                    "lab_tests": lab_test_ids,
-                    "icd10_codes": icd10_codes,
-                    "status": "ordered",
-                    "priority": "routine",
-                    "notes": "Patient fasting for 12 hours",
-                    "ordered_by": provider["name"]
-                }
-                
-                try:
-                    url = f"{API_URL}/lab-orders"
-                    headers = {"Authorization": f"Bearer {admin_token}"}
-                    
-                    response = requests.post(url, headers=headers, json=lab_order_data)
-                    response.raise_for_status()
-                    result = response.json()
-                    
-                    print_test_result(f"Create Lab Order for Patient {patient['id']}", True, result)
-                except Exception as e:
-                    print(f"Error creating lab order: {str(e)}")
-                    if 'response' in locals():
-                        print(f"Status code: {response.status_code}")
-                        print(f"Response text: {response.text}")
-                    print_test_result(f"Create Lab Order for Patient {patient['id']}", False)
+        # Summary
+        self.print_summary()
+        return True
+    
+    def print_summary(self):
+        """Print test summary"""
+        print("\n📊 TEST SUMMARY")
+        print("=" * 50)
         
-        # Add insurance cards for patients
-        for i in range(min(5, len(patient_ids))):
-            patient = patient_ids[i]
-            
-            insurance_data = {
-                "patient_id": patient["id"],
-                "insurance_type": "commercial",
-                "payer_name": "Blue Cross Blue Shield",
-                "payer_id": "BCBS123",
-                "member_id": f"XYZ{i}987654321",
-                "group_number": "GRP12345",
-                "policy_number": f"POL{i}987654",
-                "subscriber_name": patient["name"],
-                "subscriber_dob": "1980-01-01",  # Simplified for demo
-                "relationship_to_subscriber": "self",
-                "effective_date": "2023-01-01",
-                "copay_primary": 25.00,
-                "copay_specialist": 40.00,
-                "deductible": 1500.00,
-                "deductible_met": 500.00,
-                "out_of_pocket_max": 5000.00,
-                "out_of_pocket_met": 1200.00,
-                "is_primary": True
-            }
-            
-            try:
-                url = f"{API_URL}/insurance/cards"
-                headers = {"Authorization": f"Bearer {admin_token}"}
-                
-                response = requests.post(url, headers=headers, json=insurance_data)
-                response.raise_for_status()
-                result = response.json()
-                
-                insurance_card_id = result["id"]
-                print_test_result(f"Add Insurance Card for Patient {patient['id']}", True, result)
-                
-                # Test eligibility verification
-                eligibility_data = {
-                    "insurance_card_id": insurance_card_id,
-                    "service_date": date.today().isoformat(),
-                    "service_type": "office_visit"
-                }
-                
-                url = f"{API_URL}/insurance/verify-eligibility"
-                response = requests.post(url, headers=headers, json=eligibility_data)
-                response.raise_for_status()
-                eligibility_result = response.json()
-                
-                print_test_result(f"Verify Eligibility for Insurance Card {insurance_card_id}", True, eligibility_result)
-            except Exception as e:
-                print(f"Error with insurance operations: {str(e)}")
-                if 'response' in locals():
-                    print(f"Status code: {response.status_code}")
-                    print(f"Response text: {response.text}")
-                print_test_result(f"Insurance Operations for Patient {patient['id']}", False)
-    
-    # PHASE 5: FINANCIAL TESTING
-    print("\n" + "=" * 80)
-    print("PHASE 5: FINANCIAL TESTING")
-    print("=" * 80)
-    
-    if patient_ids:
-        # Create invoices with different payment statuses
-        statuses = ["draft", "sent", "paid", "overdue"]
+        total_tests = len(self.test_results)
+        passed_tests = sum(1 for result in self.test_results if result["success"])
+        failed_tests = total_tests - passed_tests
         
-        for i in range(min(8, len(patient_ids))):
-            patient = patient_ids[i]
-            
-            invoice_data = {
-                "patient_id": patient["id"],
-                "items": [
-                    {
-                        "description": "Office Visit - Established Patient",
-                        "quantity": 1,
-                        "unit_price": 150.00,
-                        "total": 150.00
-                    },
-                    {
-                        "description": "Blood Test - Complete Blood Count",
-                        "quantity": 1,
-                        "unit_price": 75.00,
-                        "total": 75.00
-                    }
-                ],
-                "tax_rate": 0.0,  # Medical services often tax-exempt
-                "due_days": 30,
-                "notes": "Please pay within 30 days of receipt."
-            }
-            
-            try:
-                url = f"{API_URL}/invoices"
-                headers = {"Authorization": f"Bearer {admin_token}"}
-                
-                response = requests.post(url, headers=headers, json=invoice_data)
-                response.raise_for_status()
-                result = response.json()
-                
-                invoice_id = result["id"]
-                print_test_result(f"Create Invoice for Patient {patient['id']}", True, result)
-                
-                # Update status for first 4 invoices
-                if i < 4:
-                    url = f"{API_URL}/invoices/{invoice_id}/status"
-                    params = {"status": statuses[i]}
-                    
-                    response = requests.put(url, headers=headers, params=params)
-                    response.raise_for_status()
-                    status_result = response.json()
-                    
-                    print_test_result(f"Update Invoice Status to {statuses[i]}", True, status_result)
-            except Exception as e:
-                print(f"Error with invoice operations: {str(e)}")
-                if 'response' in locals():
-                    print(f"Status code: {response.status_code}")
-                    print(f"Response text: {response.text}")
-                print_test_result(f"Invoice Operations for Patient {patient['id']}", False)
+        print(f"Total Tests: {total_tests}")
+        print(f"✅ Passed: {passed_tests}")
+        print(f"❌ Failed: {failed_tests}")
+        print(f"Success Rate: {(passed_tests/total_tests)*100:.1f}%")
+        
+        if failed_tests > 0:
+            print("\n❌ FAILED TESTS:")
+            for result in self.test_results:
+                if not result["success"]:
+                    print(f"   • {result['test']}: {result['message']}")
+        
+        print("\n🎯 CRITICAL FINDINGS:")
+        receipt_tests = [r for r in self.test_results if "receipt" in r["test"].lower()]
+        clock_tests = [r for r in self.test_results if "clock" in r["test"].lower() or "time" in r["test"].lower()]
+        
+        receipt_success = sum(1 for r in receipt_tests if r["success"])
+        clock_success = sum(1 for r in clock_tests if r["success"])
+        
+        print(f"   📄 Receipt Generation: {receipt_success}/{len(receipt_tests)} tests passed")
+        print(f"   ⏰ Employee Clock System: {clock_success}/{len(clock_tests)} tests passed")
+        
+        if passed_tests == total_tests:
+            print("\n🎉 ALL TESTS PASSED! The newly added functionality is working correctly.")
+        else:
+            print(f"\n⚠️  {failed_tests} tests failed. Review the issues above.")
+
+def main():
+    """Main function"""
+    tester = ClinicHubTester()
+    success = tester.run_all_tests()
     
-    print("\n" + "=" * 80)
-    print("CLINICHUB DEMO DATA INITIALIZATION COMPLETE")
-    print("=" * 80)
+    if not success:
+        sys.exit(1)
 
 if __name__ == "__main__":
-    # Choose which test to run
-    import sys
-    if len(sys.argv) > 1 and sys.argv[1] == "init":
-        init_demo_data()
-    else:
-        run_all_tests()
+    main()
