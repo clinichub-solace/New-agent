@@ -1431,40 +1431,53 @@ const PatientsModule = () => {
   // Vitals Submit
   const handleVitalsSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
+    
+    if (!selectedPatient) return;
+    
     try {
+      setLoading(true);
+      setError('');
+      
       const vitalsData = {
         patient_id: selectedPatient.id,
-        ...vitalsFormData,
+        encounter_id: selectedEncounter?.id,
         temperature: parseFloat(vitalsFormData.temperature) || 0,
-        blood_pressure_systolic: parseInt(vitalsFormData.blood_pressure_systolic) || 0,
-        blood_pressure_diastolic: parseInt(vitalsFormData.blood_pressure_diastolic) || 0,
+        systolic_bp: parseInt(vitalsFormData.systolic_bp) || 0,
+        diastolic_bp: parseInt(vitalsFormData.diastolic_bp) || 0,
         heart_rate: parseInt(vitalsFormData.heart_rate) || 0,
         respiratory_rate: parseInt(vitalsFormData.respiratory_rate) || 0,
         oxygen_saturation: parseFloat(vitalsFormData.oxygen_saturation) || 0,
         weight: parseFloat(vitalsFormData.weight) || 0,
-        height: parseFloat(vitalsFormData.height) || 0
+        height: parseFloat(vitalsFormData.height) || 0,
+        pain_scale: parseInt(vitalsFormData.pain_scale) || 0,
+        notes: vitalsFormData.notes || '',
+        // Calculate BMI if weight and height are provided
+        bmi: (vitalsFormData.weight && vitalsFormData.height) ? 
+              parseFloat(((vitalsFormData.weight / (vitalsFormData.height * vitalsFormData.height)) * 703).toFixed(1)) : 0
       };
-
-      await axios.post(`${API}/vital-signs`, vitalsData);
+      
+      await axios.post(`${API}/vital-signs`, vitalsData, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` }
+      });
       setSuccess('Vital signs added successfully!');
       
+      // Reset form
       setVitalsFormData({
         temperature: '',
-        blood_pressure_systolic: '',
-        blood_pressure_diastolic: '',
+        systolic_bp: '',
+        diastolic_bp: '',
         heart_rate: '',
         respiratory_rate: '',
         oxygen_saturation: '',
         weight: '',
         height: '',
+        pain_scale: '',
         notes: ''
       });
       setShowVitalsForm(false);
-      fetchAllPatientData(selectedPatient.id);
+      
+      // Refresh patient data
+      await fetchPatientDetails(selectedPatient.id);
     } catch (error) {
       console.error('Failed to save vital signs:', error);
       setError(error.response?.data?.detail || 'Failed to save vital signs. Please try again.');
