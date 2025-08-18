@@ -3418,7 +3418,8 @@ async def force_initialize_admin():
 
 # Patient Routes
 @api_router.post("/patients", response_model=Patient)
-async def create_patient(patient_data: PatientCreate):
+@audit_phi_access("patient", "create")
+async def create_patient(patient_data: PatientCreate, request: Request, current_user: User = Depends(get_current_active_user)):
     # Convert to FHIR-compliant format
     patient = Patient(
         name=[PatientName(
