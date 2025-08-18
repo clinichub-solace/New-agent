@@ -33,7 +33,7 @@ services:
              --slowms 100
              --profile 1
     healthcheck:
-      test: ["CMD", "mongo", "--quiet", "--eval", "db.adminCommand('ping')"]
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.runCommand({ping: 1})' || mongo --quiet --eval 'db.runCommand({ping: 1})'"]
       interval: 30s
       timeout: 10s
       retries: 3
