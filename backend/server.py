@@ -1465,6 +1465,7 @@ class AppointmentType(str, Enum):
     PHYSICAL_EXAM = "physical_exam"
     VACCINATION = "vaccination"
     LAB_WORK = "lab_work"
+    TELEMEDICINE = "telemedicine"
 
 class AppointmentStatus(str, Enum):
     SCHEDULED = "scheduled"
