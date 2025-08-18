@@ -1,7 +1,7 @@
 import React, { useState, useEffect, createContext, useContext } from "react";
 import "./App.css";
 import axios from "axios";
-import { formatErrorMessage } from './utils/errors';
+import { formatErrorMessage, toDisplayError } from './utils/errors';
 
 // Force correct backend URL since environment variables aren't loading properly
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
