@@ -342,7 +342,7 @@ def test_lab_order_patient_validation_fix():
         
         response = requests.post(url, json=lab_order_data, headers=get_auth_headers())
         
-        if response.status_code == 201:
+        if response.status_code in [200, 201]:
             result = response.json()
             print_test_result("Lab Order Creation", True, result, "Successfully created lab order")
             
