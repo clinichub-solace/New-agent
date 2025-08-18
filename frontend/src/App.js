@@ -2208,8 +2208,8 @@ const PatientsModule = () => {
                         <label className="block text-blue-200 text-sm font-medium mb-2">Systolic BP</label>
                         <input
                           type="number"
-                          name="blood_pressure_systolic"
-                          value={vitalsFormData.blood_pressure_systolic}
+                          name="systolic_bp"
+                          value={vitalsFormData.systolic_bp}
                           onChange={handleVitalsInputChange}
                           className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                           placeholder="120"
@@ -2219,8 +2219,8 @@ const PatientsModule = () => {
                         <label className="block text-blue-200 text-sm font-medium mb-2">Diastolic BP</label>
                         <input
                           type="number"
-                          name="blood_pressure_diastolic"
-                          value={vitalsFormData.blood_pressure_diastolic}
+                          name="diastolic_bp"
+                          value={vitalsFormData.diastolic_bp}
                           onChange={handleVitalsInputChange}
                           className="w-full p-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400"
                           placeholder="80"
