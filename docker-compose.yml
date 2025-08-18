@@ -102,3 +102,14 @@ volumes:
 networks:
   clinichub-network:
     driver: bridge
+
+# SECURITY: Docker secrets for sensitive data
+secrets:
+  mongo_root_password:
+    file: ./secrets/mongo_root_password
+  mongo_connection_string:
+    file: ./secrets/mongo_connection_string
+  app_secret_key:
+    file: ./secrets/app_secret_key
+  jwt_secret_key:
+    file: ./secrets/jwt_secret_key
