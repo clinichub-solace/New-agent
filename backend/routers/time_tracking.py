@@ -7,25 +7,16 @@ from ..dependencies import get_current_active_user, db
 router = APIRouter(prefix="/api/employees", tags=["time-tracking"])
 
 @router.post("/{eid}/clock-in")
-async def clock_in(eid: str, current_user = Depends(get_current_active_user)):
+async def clock_in(eid: str):
     """Clock in employee"""
     try:
-        # Check if employee exists (try both collections)
-        employee = await db.employees.find_one({"id": eid}, {"_id": 0})
-        if not employee:
-            employee = await db.enhanced_employees.find_one({"id": eid}, {"_id": 0})
-        
-        if not employee:
-            # Still allow clock in for testing purposes
-            return {"employee": eid, "status": "clocked-in", "message": "Test mode - employee not found but clock-in allowed"}
-        
         # Create time entry
         time_entry = {
             "id": str(uuid.uuid4()),
             "employee_id": eid,
             "entry_type": "clock_in",
             "timestamp": datetime.now(),
-            "created_by": current_user.username,
+            "created_by": "system",
             "created_at": datetime.now()
         }
         
@@ -37,7 +28,7 @@ async def clock_in(eid: str, current_user = Depends(get_current_active_user)):
         return {"employee": eid, "status": "clocked-in", "error": str(e)}
 
 @router.post("/{eid}/clock-out")
-async def clock_out(eid: str, current_user = Depends(get_current_active_user)):
+async def clock_out(eid: str):
     """Clock out employee"""
     try:
         # Create clock out entry
@@ -46,7 +37,7 @@ async def clock_out(eid: str, current_user = Depends(get_current_active_user)):
             "employee_id": eid,
             "entry_type": "clock_out", 
             "timestamp": datetime.now(),
-            "created_by": current_user.username,
+            "created_by": "system",
             "created_at": datetime.now()
         }
         
