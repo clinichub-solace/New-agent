@@ -1367,7 +1367,7 @@ const PatientsModule = () => {
       fetchPatients(); // Refresh the patient list
     } catch (error) {
       console.error('Failed to add patient:', error);
-      setError(error.response?.data?.detail || 'Failed to add patient. Please try again.');
+      setError(formatErrorMessage(error.response?.data?.detail || 'Failed to add patient. Please try again.'));
     } finally {
       setLoading(false);
     }
