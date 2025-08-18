@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 """
 Backend Fixes Verification Test
-Tests specific backend issues identified in frontend testing:
-1. Medications Endpoint Fix: GET /api/medications/patient/{id} - Verify 500 error is resolved
-2. FHIR Medications Endpoint Fix: GET /api/medications - Verify MongoDB ObjectId serialization fixed
-3. Patient Creation: POST /api/patients - Verify validation error handling works correctly
-4. General API Health: Test core EHR endpoints to ensure no regressions
+Tests the 3 specific backend issues that were just fixed:
+1. Appointment Enum Fix - Test GET /api/appointments to ensure 'telemedicine' type is now accepted
+2. Prescription Creation Fix - Test POST /api/prescriptions with basic prescription data
+3. Lab Order Patient Validation Fix - Test POST /api/lab-orders with proper patient and provider data
 """
 
 import requests
