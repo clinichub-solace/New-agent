@@ -34,7 +34,7 @@ services:
              --slowms 100
              --profile 1
     healthcheck:
-      test: ["CMD", "/usr/local/bin/mongo-healthcheck.sh"]
+      test: ["CMD-SHELL", "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok' --host localhost:27017 -u admin -p $$(cat /run/secrets/mongo_root_password) --authenticationDatabase admin || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
