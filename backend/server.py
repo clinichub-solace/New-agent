@@ -13875,7 +13875,7 @@ async def generate_soap_receipt(soap_note_id: str, current_user: User = Depends(
         }
         
         # Save receipt
-        await db.receipts.insert_one(receipt_data)
+        await db.receipts.insert_one(jsonable_encoder(receipt_data))
         
         # Update SOAP note status
         await db.soap_notes.update_one(
