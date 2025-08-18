@@ -87,6 +87,117 @@ SYNOLOGY_ENABLED = SYNOLOGY_DSM_URL is not None
 security = HTTPBearer()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
+# HIPAA Audit Logging System
+class AuditEvent(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    event_type: str  # create, read, update, delete, login, logout, access
+    resource_type: str  # patient, encounter, medication, etc.
+    resource_id: Optional[str] = None
+    user_id: str
+    user_name: str
+    ip_address: Optional[str] = None
+    user_agent: Optional[str] = None
+    action_details: Dict[str, Any] = {}
+    phi_accessed: bool = False  # Critical for HIPAA compliance
+    success: bool = True
+    error_message: Optional[str] = None
+
+async def create_audit_event(
+    event_type: str,
+    resource_type: str,
+    user_id: str,
+    user_name: str,
+    resource_id: str = None,
+    ip_address: str = None,
+    user_agent: str = None,
+    action_details: Dict[str, Any] = None,
+    phi_accessed: bool = False,
+    success: bool = True,
+    error_message: str = None
+):
+    """Create and store HIPAA-compliant audit event"""
+    try:
+        audit_event = AuditEvent(
+            event_type=event_type,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            user_id=user_id,
+            user_name=user_name,
+            ip_address=ip_address,
+            user_agent=user_agent,
+            action_details=action_details or {},
+            phi_accessed=phi_accessed,
+            success=success,
+            error_message=error_message
+        )
+        
+        # Store in database
+        await db.audit_events.insert_one(jsonable_encoder(audit_event))
+        
+        # Also log to stdout for external systems (ELK, Wazuh)
+        logging.info(f"AUDIT: {jsonable_encoder(audit_event)}")
+        
+    except Exception as e:
+        # Critical: audit failures should be logged but not break the app
+        logging.error(f"AUDIT FAILURE: Failed to create audit event: {e}")
+
+# Audit decorator for PHI-sensitive endpoints
+def audit_phi_access(resource_type: str, event_type: str = "read"):
+    def decorator(func):
+        async def wrapper(*args, **kwargs):
+            # Extract request info
+            request = kwargs.get('request') or (args[0] if args else None)
+            current_user = None
+            
+            # Find current_user in args/kwargs
+            for arg in args:
+                if hasattr(arg, 'username'):
+                    current_user = arg
+                    break
+            for value in kwargs.values():
+                if hasattr(value, 'username'):
+                    current_user = value
+                    break
+            
+            # Execute the function
+            try:
+                result = await func(*args, **kwargs)
+                
+                # Create audit event for successful access
+                if current_user:
+                    await create_audit_event(
+                        event_type=event_type,
+                        resource_type=resource_type,
+                        user_id=current_user.id if hasattr(current_user, 'id') else 'unknown',
+                        user_name=current_user.username,
+                        ip_address=request.client.host if request and hasattr(request, 'client') else None,
+                        user_agent=request.headers.get('user-agent') if request and hasattr(request, 'headers') else None,
+                        phi_accessed=True,
+                        success=True
+                    )
+                
+                return result
+                
+            except Exception as e:
+                # Audit failed access attempts
+                if current_user:
+                    await create_audit_event(
+                        event_type=event_type,
+                        resource_type=resource_type,
+                        user_id=current_user.id if hasattr(current_user, 'id') else 'unknown',
+                        user_name=current_user.username,
+                        ip_address=request.client.host if request and hasattr(request, 'client') else None,
+                        user_agent=request.headers.get('user-agent') if request and hasattr(request, 'headers') else None,
+                        phi_accessed=True,
+                        success=False,
+                        error_message=str(e)
+                    )
+                raise
+        
+        return wrapper
+    return decorator
+
 # Create the main app without a prefix
 app = FastAPI(title="ClinicHub API", description="AI-Powered Practice Management System")
 
