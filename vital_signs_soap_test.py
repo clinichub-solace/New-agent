@@ -77,9 +77,18 @@ class ClinicHubTester:
                 "zip_code": "78701"
             }
             
+            # Add headers to handle the audit decorator issue
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "ClinicHub-Test-Client/1.0"
+            }
+            if self.token:
+                headers["Authorization"] = f"Bearer {self.token}"
+            
             response = self.session.post(
                 f"{BACKEND_URL}/patients",
                 json=patient_data,
+                headers=headers,
                 timeout=30
             )
             
