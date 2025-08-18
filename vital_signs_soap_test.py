@@ -61,7 +61,236 @@ class ClinicHubTester:
             self.log_test("Authentication", False, f"Exception: {str(e)}")
             return False
     
-    def get_or_create_test_patient(self) -> Dict[str, Any]:
+    def test_vital_signs_directly(self) -> bool:
+        """Test vital signs creation and retrieval directly with a mock patient ID"""
+        try:
+            # Use a test patient ID - we'll create vital signs and test the field structure
+            test_patient_id = "test-patient-" + str(uuid.uuid4())
+            
+            # Test data with the corrected field names as specified in the review
+            vital_signs_data = {
+                "patient_id": test_patient_id,
+                "encounter_id": None,
+                "height": 165.0,  # cm
+                "weight": 70.0,   # kg
+                "systolic_bp": 120,  # Corrected field name
+                "diastolic_bp": 80,  # Corrected field name
+                "heart_rate": 72,
+                "respiratory_rate": 16,
+                "temperature": 36.5,  # Celsius
+                "oxygen_saturation": 98,
+                "pain_scale": 2,  # Corrected field name
+                "recorded_by": "admin"
+            }
+            
+            response = self.session.post(
+                f"{BACKEND_URL}/vital-signs",
+                json=vital_signs_data,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                vital_signs = response.json()
+                # Verify the corrected field names are present
+                expected_fields = ["systolic_bp", "diastolic_bp", "pain_scale"]
+                missing_fields = [field for field in expected_fields if field not in vital_signs or vital_signs[field] is None]
+                
+                if not missing_fields:
+                    self.log_test("Vital Signs Creation - Field Names", True, 
+                                f"Successfully created vital signs with corrected field names: systolic_bp={vital_signs['systolic_bp']}, diastolic_bp={vital_signs['diastolic_bp']}, pain_scale={vital_signs['pain_scale']}")
+                    
+                    # Test retrieval
+                    retrieval_response = self.session.get(
+                        f"{BACKEND_URL}/vital-signs/patient/{test_patient_id}",
+                        timeout=30
+                    )
+                    
+                    if retrieval_response.status_code == 200:
+                        vital_signs_list = retrieval_response.json()
+                        if vital_signs_list and len(vital_signs_list) > 0:
+                            self.log_test("Vital Signs Retrieval", True, 
+                                        f"Retrieved {len(vital_signs_list)} vital signs records with corrected field structure")
+                            return True
+                        else:
+                            self.log_test("Vital Signs Retrieval", False, "No vital signs found after creation")
+                            return False
+                    else:
+                        self.log_test("Vital Signs Retrieval", False, f"HTTP {retrieval_response.status_code}: {retrieval_response.text}")
+                        return False
+                else:
+                    self.log_test("Vital Signs Creation - Field Names", False, 
+                                f"Missing or null corrected fields: {missing_fields}")
+                    return False
+            else:
+                self.log_test("Vital Signs Creation - Field Names", False, 
+                            f"HTTP {response.status_code}: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_test("Vital Signs Direct Test", False, f"Exception: {str(e)}")
+            return False
+    
+    def test_soap_notes_directly(self) -> bool:
+        """Test SOAP notes creation and completion workflow directly"""
+        try:
+            # Use test IDs
+            test_patient_id = "test-patient-" + str(uuid.uuid4())
+            test_encounter_id = "test-encounter-" + str(uuid.uuid4())
+            
+            # Step 1: Create SOAP note
+            soap_note_data = {
+                "encounter_id": test_encounter_id,
+                "patient_id": test_patient_id,
+                "subjective": "Patient reports feeling well overall. No acute complaints. Some mild fatigue noted over the past week.",
+                "objective": "Vital signs stable. Physical examination reveals no acute distress. Heart rate regular, lungs clear to auscultation bilaterally.",
+                "assessment": "Healthy adult presenting for routine wellness visit. Mild fatigue likely related to recent work stress.",
+                "plan": "Continue current lifestyle. Recommend stress management techniques. Follow-up in 6 months for routine care.",
+                "provider": "Dr. Smith"
+            }
+            
+            response = self.session.post(
+                f"{BACKEND_URL}/soap-notes",
+                json=soap_note_data,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                soap_note = response.json()
+                soap_note_id = soap_note['id']
+                self.log_test("SOAP Note Creation", True, 
+                            f"Created SOAP note: {soap_note_id}, Status: {soap_note['status']}")
+                
+                # Step 2: Test status update
+                # First get the current SOAP note to preserve other fields
+                get_response = self.session.get(
+                    f"{BACKEND_URL}/soap-notes/{soap_note_id}",
+                    timeout=30
+                )
+                
+                if get_response.status_code == 200:
+                    current_soap_note = get_response.json()
+                    
+                    # Update with all required fields
+                    update_data = {
+                        "encounter_id": current_soap_note["encounter_id"],
+                        "patient_id": current_soap_note["patient_id"],
+                        "subjective": current_soap_note["subjective"],
+                        "objective": current_soap_note["objective"],
+                        "assessment": current_soap_note["assessment"],
+                        "plan": current_soap_note["plan"],
+                        "provider": current_soap_note["provider"],
+                        "status": "completed",
+                        "completed_at": datetime.now().isoformat(),
+                        "completed_by": "admin"
+                    }
+                    
+                    update_response = self.session.put(
+                        f"{BACKEND_URL}/soap-notes/{soap_note_id}",
+                        json=update_data,
+                        timeout=30
+                    )
+                    
+                    if update_response.status_code == 200:
+                        updated_soap_note = update_response.json()
+                        if updated_soap_note['status'] == 'completed':
+                            self.log_test("SOAP Note Status Update", True, 
+                                        f"Successfully updated SOAP note status to: {updated_soap_note['status']}")
+                            
+                            # Step 3: Test the CRITICAL complete workflow
+                            return self.test_soap_complete_workflow_direct(soap_note_id)
+                        else:
+                            self.log_test("SOAP Note Status Update", False, 
+                                        f"Status not updated correctly. Expected: completed, Got: {updated_soap_note['status']}")
+                            return False
+                    else:
+                        self.log_test("SOAP Note Status Update", False, f"HTTP {update_response.status_code}: {update_response.text}")
+                        return False
+                else:
+                    self.log_test("SOAP Note Retrieval for Update", False, f"HTTP {get_response.status_code}: {get_response.text}")
+                    return False
+            else:
+                self.log_test("SOAP Note Creation", False, f"HTTP {response.status_code}: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_test("SOAP Notes Direct Test", False, f"Exception: {str(e)}")
+            return False
+    
+    def test_soap_complete_workflow_direct(self, soap_note_id: str) -> bool:
+        """Test the CRITICAL complete workflow endpoint for automated receipt generation"""
+        try:
+            # Test the complete workflow with billable services and medications
+            completion_data = {
+                "billable_services": [
+                    {
+                        "description": "Office Visit - Consultation",
+                        "code": "99213",
+                        "quantity": 1,
+                        "unit_price": 150.00
+                    },
+                    {
+                        "description": "Vital Signs Assessment",
+                        "code": "99000",
+                        "quantity": 1,
+                        "unit_price": 25.00
+                    }
+                ],
+                "prescribed_medications": [
+                    {
+                        "medication_name": "Ibuprofen",
+                        "quantity_dispensed": 30,
+                        "sku": "IBU-200MG"
+                    }
+                ],
+                "session_duration": 45
+            }
+            
+            response = self.session.post(
+                f"{BACKEND_URL}/soap-notes/{soap_note_id}/complete",
+                json=completion_data,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                result = response.json()
+                
+                # Verify the automated workflows
+                workflows = result.get("automated_workflows", {})
+                
+                # Check invoice creation
+                invoice_created = workflows.get("invoice_created", {})
+                invoice_success = invoice_created.get("status") == "created"
+                
+                # Check activity logging
+                activity_logged = workflows.get("activity_logged", {})
+                activity_success = activity_logged.get("status") == "logged"
+                
+                # Check SOAP note status
+                soap_note = result.get("soap_note", {})
+                soap_completed = soap_note.get("status") == "completed"
+                
+                success_details = []
+                if invoice_success:
+                    success_details.append(f"Invoice created: {invoice_created.get('invoice_number')} (${invoice_created.get('total_amount')})")
+                if activity_success:
+                    success_details.append(f"Activity logged: {activity_logged.get('activity_id')}")
+                if soap_completed:
+                    success_details.append("SOAP note marked as completed")
+                
+                overall_success = invoice_success and activity_success and soap_completed
+                
+                self.log_test("SOAP Note Complete Workflow - CRITICAL", overall_success,
+                            f"Automated workflows: {'; '.join(success_details) if success_details else 'Some workflows failed'}")
+                
+                return overall_success
+            else:
+                self.log_test("SOAP Note Complete Workflow - CRITICAL", False, 
+                            f"HTTP {response.status_code}: {response.text}")
+                return False
+                
+        except Exception as e:
+            self.log_test("SOAP Note Complete Workflow - CRITICAL", False, f"Exception: {str(e)}")
+            return False
         """Get existing patient or create a test patient for testing"""
         try:
             # First try to get existing patients
