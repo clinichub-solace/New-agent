@@ -470,8 +470,8 @@ class ClinicHubTester:
             print("\n🔄 TESTING COMPLETE INTEGRATION WORKFLOW")
             print("=" * 60)
             
-            # Step 1: Create test patient
-            patient = self.create_test_patient()
+            # Step 1: Get existing patient or create test patient
+            patient = self.get_or_create_test_patient()
             if not patient:
                 return False
             
