@@ -2181,13 +2181,38 @@ const PatientsModule = () => {
                           SOAP Note - {new Date(note.created_at).toLocaleDateString()}
                         </div>
                         <div className="flex items-center space-x-2">
+                          <span className={`px-2 py-1 rounded text-xs ${
+                            note.status === 'completed' ? 'bg-green-600/20 text-green-300' : 
+                            note.status === 'draft' ? 'bg-yellow-600/20 text-yellow-300' : 
+                            'bg-gray-600/20 text-gray-300'
+                          }`}>
+                            {note.status}
+                          </span>
                           <span className="text-blue-300 text-sm">by {note.provider}</span>
-                          <button
-                            onClick={() => handleEditSoapNote(note)}
-                            className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs transition-colors"
-                          >
-                            Edit
-                          </button>
+                          {note.status !== 'completed' && (
+                            <>
+                              <button
+                                onClick={() => handleEditSoapNote(note)}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs transition-colors"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                onClick={() => handleCompleteSoapNote(note)}
+                                className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs transition-colors"
+                              >
+                                Complete & Generate Receipt
+                              </button>
+                            </>
+                          )}
+                          {note.status === 'completed' && (
+                            <button
+                              onClick={() => handleViewReceipt(note)}
+                              className="bg-purple-600 hover:bg-purple-700 text-white px-2 py-1 rounded text-xs transition-colors"
+                            >
+                              View Receipt
+                            </button>
+                          )}
                         </div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
