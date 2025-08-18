@@ -1,0 +1,2 @@
+2025-07-04 20:25:20,080 - main - INFO - Email sent to ['test@example.com']: Test Email from ClinicHub
+2025-07-04 20:25:20,152 - main - WARNING - Failed to log to ClinicHub: Cannot connect to host host.docker.internal:8001 ssl:default [Name or service not known]
