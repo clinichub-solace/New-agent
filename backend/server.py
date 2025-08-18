@@ -26,13 +26,55 @@ from openemr_integration import openemr
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
-# MongoDB connection
-mongo_url = os.environ['MONGO_URL']
-client = AsyncIOMotorClient(mongo_url)
-db = client[os.environ['DB_NAME']]
+# SECURITY: Helper function to read Docker secrets
+def read_secret(secret_name: str, fallback_env: str = None) -> str:
+    """Read Docker secret or fall back to environment variable"""
+    secret_file = f"/run/secrets/{secret_name}"
+    env_file = os.environ.get(f"{fallback_env}_FILE") if fallback_env else None
+    
+    # Try Docker secret first
+    if os.path.exists(secret_file):
+        with open(secret_file, 'r') as f:
+            return f.read().strip()
+    
+    # Try _FILE environment variable
+    if env_file and os.path.exists(env_file):
+        with open(env_file, 'r') as f:
+            return f.read().strip()
+    
+    # Fall back to direct environment variable
+    if fallback_env:
+        return os.environ.get(fallback_env, '')
+    
+    return ''
 
-# Authentication setup
-SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'your-secret-key-change-in-production')
+# MongoDB connection with secure secret handling
+try:
+    mongo_url = read_secret('mongo_connection_string', 'MONGO_URL')
+    if not mongo_url:
+        # Fallback for development
+        mongo_url = os.environ.get('MONGO_URL', 'mongodb://admin:changeme123@mongodb:27017/clinichub?authSource=admin')
+    
+    client = AsyncIOMotorClient(mongo_url)
+    db = client[os.environ.get('DB_NAME', 'clinichub')]
+except Exception as e:
+    logging.error(f"Failed to connect to MongoDB: {e}")
+    raise
+
+# Authentication setup with secure secrets
+try:
+    SECRET_KEY = read_secret('app_secret_key', 'SECRET_KEY')
+    JWT_SECRET_KEY = read_secret('jwt_secret_key', 'JWT_SECRET_KEY')
+    
+    if not SECRET_KEY:
+        SECRET_KEY = os.environ.get('SECRET_KEY', 'fallback-key-change-immediately')
+    if not JWT_SECRET_KEY:
+        JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'fallback-jwt-key-change-immediately')
+        
+except Exception as e:
+    logging.error(f"Failed to load authentication secrets: {e}")
+    raise
+
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
 
