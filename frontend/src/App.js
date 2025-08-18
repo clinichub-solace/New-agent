@@ -11342,3 +11342,22 @@ const DocumentManagementModule = ({ setActiveModule }) => {
 };
 
 export default App;
+
+/* -------- Error formatting helper (idempotent append) -------- */
+function formatErrorMessage(detail) {
+  if (!detail) return "An error occurred";
+  if (typeof detail === "string") return detail;
+  // FastAPI/Pydantic v2: { detail: [...] }
+  if (Array.isArray(detail)) {
+    return detail.map(err => err.msg || err.message || "Validation error").join(", ");
+  }
+  if (typeof detail === "object") {
+    return detail.msg || detail.message || JSON.stringify(detail);
+  }
+  return String(detail);
+}
+/* ------------------------------------------------------------- */
+/* Guard: stringify any arbitrary error for JSX rendering */
+function toDisplayError(err) {
+  return typeof err === "string" ? err : formatErrorMessage(err);
+}
