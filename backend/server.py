@@ -397,6 +397,10 @@ async def http_exception_handler(request, exc: HTTPException):
 async def all_exception_handler(request, exc: Exception):
     return await generic_exception_handler(request, exc)
 
+# Include additive routers
+from .routers import receipts
+app.include_router(receipts.router)
+
 # Add root route for health verification
 @app.get("/")
 async def root():
