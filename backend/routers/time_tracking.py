@@ -2,7 +2,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 import uuid
 from datetime import datetime
-from ..server import get_current_active_user, db
+from ..dependencies import get_current_active_user, db
 
 router = APIRouter(prefix="/api/employees", tags=["time-tracking"])
 
