@@ -11,13 +11,40 @@ from dotenv import load_dotenv
 ROOT_DIR = Path(__file__).parent.parent
 load_dotenv(ROOT_DIR / '.env')
 
+def read_secret(secret_name: str, fallback_env: str = None) -> str:
+    """Read secret from file or environment"""
+    secret_file = f'/run/secrets/{secret_name}'
+    env_file = os.environ.get(f'{fallback_env}_FILE') if fallback_env else None
+    
+    # Try Docker secret first
+    if os.path.exists(secret_file):
+        with open(secret_file, 'r') as f:
+            return f.read().strip()
+    
+    # Try _FILE environment variable  
+    if env_file and os.path.exists(env_file):
+        with open(env_file, 'r') as f:
+            return f.read().strip()
+    
+    # Fall back to direct environment variable
+    if fallback_env:
+        return os.environ.get(fallback_env, '')
+    
+    return ''
+
 # Database connection
-mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017/clinichub')
+mongo_url = read_secret('mongo_connection_string', 'MONGO_URL')
+if not mongo_url:
+    mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017/clinichub')
+
 client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ.get('DB_NAME', 'clinichub')]
 
-# JWT Configuration
-JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'your-secret-key')
+# JWT Configuration - use same logic as main server
+JWT_SECRET_KEY = read_secret('jwt_secret_key', 'JWT_SECRET_KEY')
+if not JWT_SECRET_KEY:
+    JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'fallback-jwt-key-change-immediately')
+
 JWT_ALGORITHM = os.environ.get('JWT_ALGORITHM', 'HS256')
 
 security = HTTPBearer()
