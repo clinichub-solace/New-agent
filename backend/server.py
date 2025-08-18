@@ -119,6 +119,132 @@ class EventPublisher:
 # Global event publisher
 event_publisher = EventPublisher()
 
+# FHIR R4 Resource Conversion Helpers
+class FHIRConverter:
+    """Convert ClinicHub data models to FHIR R4 resources"""
+    
+    @staticmethod
+    def patient_to_fhir(patient: "Patient") -> Dict[str, Any]:
+        """Convert Patient to FHIR Patient resource"""
+        fhir_patient = {
+            "resourceType": "Patient",
+            "id": patient.id,
+            "meta": {
+                "profile": ["http://hl7.org/fhir/R4/Patient"]
+            },
+            "active": patient.status == "active",
+            "name": [],
+            "telecom": [],
+            "gender": patient.gender.lower() if patient.gender else "unknown",
+            "birthDate": patient.birth_date.isoformat() if patient.birth_date else None,
+            "address": []
+        }
+        
+        # Convert names
+        if patient.name:
+            for name in patient.name:
+                fhir_name = {
+                    "use": "official",
+                    "family": name.family,
+                    "given": name.given
+                }
+                fhir_patient["name"].append(fhir_name)
+        
+        # Convert telecom
+        if patient.telecom:
+            for telecom in patient.telecom:
+                fhir_telecom = {
+                    "system": telecom.system,
+                    "value": telecom.value,
+                    "use": "home"
+                }
+                fhir_patient["telecom"].append(fhir_telecom)
+        
+        # Convert addresses
+        if patient.address:
+            for address in patient.address:
+                fhir_address = {
+                    "use": "home",
+                    "line": [address.line] if hasattr(address, 'line') and address.line else [],
+                    "city": address.city,
+                    "state": address.state,
+                    "postalCode": address.postal_code,
+                    "country": address.country or "US"
+                }
+                fhir_patient["address"].append(fhir_address)
+        
+        return fhir_patient
+    
+    @staticmethod
+    def encounter_to_fhir(encounter: "Encounter", patient: "Patient") -> Dict[str, Any]:
+        """Convert Encounter to FHIR Encounter resource"""
+        return {
+            "resourceType": "Encounter",
+            "id": encounter.id,
+            "meta": {
+                "profile": ["http://hl7.org/fhir/R4/Encounter"]
+            },
+            "status": encounter.status.lower(),
+            "class": {
+                "system": "http://terminology.hl7.org/CodeSystem/v3-ActCode",
+                "code": "AMB" if hasattr(encounter, 'encounter_type') and encounter.encounter_type == "outpatient" else "IMP",
+                "display": "ambulatory" if hasattr(encounter, 'encounter_type') and encounter.encounter_type == "outpatient" else "inpatient encounter"
+            },
+            "type": [{
+                "coding": [{
+                    "system": "http://snomed.info/sct",
+                    "code": "185349003",
+                    "display": "Encounter for check up"
+                }]
+            }],
+            "subject": {
+                "reference": f"Patient/{patient.id}",
+                "display": f"{patient.name[0].given[0]} {patient.name[0].family}" if patient.name else "Unknown"
+            },
+            "period": {
+                "start": encounter.start_time.isoformat() if hasattr(encounter, 'start_time') and encounter.start_time else None,
+                "end": encounter.end_time.isoformat() if hasattr(encounter, 'end_time') and encounter.end_time else None
+            }
+        }
+    
+    @staticmethod
+    def lab_order_to_fhir(lab_order: "LabOrder", patient: "Patient") -> Dict[str, Any]:
+        """Convert LabOrder to FHIR ServiceRequest resource"""
+        return {
+            "resourceType": "ServiceRequest",
+            "id": lab_order.id,
+            "meta": {
+                "profile": ["http://hl7.org/fhir/R4/ServiceRequest"]
+            },
+            "status": lab_order.status.lower(),
+            "intent": "order",
+            "category": [{
+                "coding": [{
+                    "system": "http://snomed.info/sct",
+                    "code": "108252007",
+                    "display": "Laboratory procedure"
+                }]
+            }],
+            "priority": lab_order.priority.lower() if hasattr(lab_order, 'priority') else "routine",
+            "code": {
+                "coding": [{
+                    "system": "http://loinc.org",
+                    "code": "33747-0",
+                    "display": "General laboratory studies"
+                }]
+            },
+            "subject": {
+                "reference": f"Patient/{patient.id}"
+            },
+            "authoredOn": lab_order.ordered_date.isoformat() if hasattr(lab_order, 'ordered_date') and lab_order.ordered_date else lab_order.created_at.isoformat(),
+            "requester": {
+                "display": lab_order.provider_name if hasattr(lab_order, 'provider_name') else lab_order.ordered_by if hasattr(lab_order, 'ordered_by') else "Unknown"
+            }
+        }
+
+# Global FHIR converter
+fhir_converter = FHIRConverter()
+
 # Synology DSM Integration Configuration
 SYNOLOGY_DSM_URL = os.environ.get('SYNOLOGY_DSM_URL', None)  # e.g., "https://your-nas:5001"
 SYNOLOGY_VERIFY_SSL = os.environ.get('SYNOLOGY_VERIFY_SSL', 'true').lower() == 'true'
