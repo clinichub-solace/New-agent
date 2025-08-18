@@ -2326,7 +2326,7 @@ const PatientsModule = () => {
                         </div>
                         <div>
                           <span className="text-blue-200">Blood Pressure:</span>
-                          <span className="text-white ml-2">{vitals.blood_pressure_systolic}/{vitals.blood_pressure_diastolic}</span>
+                          <span className="text-white ml-2">{vitals.systolic_bp}/{vitals.diastolic_bp}</span>
                         </div>
                         <div>
                           <span className="text-blue-200">O2 Sat:</span>
