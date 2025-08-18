@@ -13828,37 +13828,6 @@ async def get_openemr_status(
             "last_check": datetime.now().isoformat()
         }
 
-app.include_router(api_router)
-
-# Health endpoint for Docker health check
-@app.get("/api/health")
-async def health_check():
-    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
-
-@app.get("/health")
-async def root_health_check():
-    return {"status": "healthy", "service": "ClinicHub API"}
-
-# Root route for API verification
-@app.get("/")
-async def root():
-    return {
-        "message": "ClinicHub API is running", 
-        "status": "healthy", 
-        "version": "1.0.0",
-        "docs": "/docs",
-        "api_endpoints": "/api",
-        "health": "/health"
-    }
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_credentials=True,
-    allow_origins=["*"],
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 # ===== MISSING RECEIPT GENERATION ENDPOINTS =====
 
 @api_router.post("/receipts/soap-note/{soap_note_id}")
