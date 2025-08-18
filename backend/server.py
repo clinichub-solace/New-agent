@@ -13900,10 +13900,12 @@ async def root():
         "health": "/health"
     }
 
+FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+
 app.add_middleware(
     CORSMiddleware,
+    allow_origins=[FRONTEND_ORIGIN],
     allow_credentials=True,
-    allow_origins=["*"],
     allow_methods=["*"],
     allow_headers=["*"],
 )
