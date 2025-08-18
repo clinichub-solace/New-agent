@@ -7155,7 +7155,10 @@ async def create_prescription(prescription_data: dict, current_user: User = Depe
             # Timestamps
             "authored_on": datetime.utcnow(),
             "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow()
+            "updated_at": datetime.utcnow(),
+            
+            # Audit Trail
+            "created_by": current_user.id if hasattr(current_user, 'id') else current_user.username
         }
         
         # Create MedicationRequest object for validation
