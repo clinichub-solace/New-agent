@@ -21,6 +21,7 @@ services:
       - mongodb_logs:/data/logs
       - ./init-mongo.js:/docker-entrypoint-initdb.d/init-mongo.js:ro
       - ./mongo-keyfile:/data/keyfile:ro
+      - ./mongo-healthcheck.sh:/usr/local/bin/mongo-healthcheck.sh:ro
     networks:
       - clinichub-network
     command: >
