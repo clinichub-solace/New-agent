@@ -6653,7 +6653,7 @@ const SchedulingModule = ({ setActiveModule }) => {
       
       {error && (
         <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mb-6">
-          <p className="text-red-300">❌ {error}</p>
+          <p className="text-red-300">❌ {typeof error === 'object' ? JSON.stringify(error) : error}</p>
         </div>
       )}
 
