@@ -10629,8 +10629,29 @@ async def create_lab_order(lab_order_data: Dict[str, Any], current_user: User = 
         if not provider:
             raise HTTPException(status_code=404, detail="Provider not found")
         
-        patient_name = f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}"
-        provider_name = provider.get("name", f"{provider.get('first_name', '')} {provider.get('last_name', '')}").strip()
+        # Safely extract patient name
+        patient_name = "Unknown Patient"
+        if patient.get("name") and len(patient["name"]) > 0:
+            name_obj = patient["name"][0]
+            given_names = name_obj.get("given", [])
+            family_name = name_obj.get("family", "")
+            if given_names and family_name:
+                patient_name = f"{given_names[0]} {family_name}"
+            elif family_name:
+                patient_name = family_name
+            elif given_names:
+                patient_name = given_names[0]
+        
+        # Safely extract provider name
+        provider_name = "Unknown Provider"
+        if provider.get("name"):
+            provider_name = provider["name"]
+        elif provider.get("first_name") or provider.get("last_name"):
+            first_name = provider.get("first_name", "")
+            last_name = provider.get("last_name", "")
+            provider_name = f"{first_name} {last_name}".strip()
+        elif provider.get("provider_name"):
+            provider_name = provider["provider_name"]
         
         # Process tests data - handle both formats
         processed_tests = []
