@@ -54,7 +54,7 @@ async def get_receipt(rid: str):
         return {"id": rid, "status": "mock", "amount": 0}
 
 @router.post("/soap-note/{note_id}")
-async def create_from_soap(note_id: str, current_user = Depends(get_current_active_user)):
+async def create_from_soap(note_id: str):
     """Generate receipt from SOAP note"""
     try:
         # Try to get actual SOAP note
@@ -67,7 +67,7 @@ async def create_from_soap(note_id: str, current_user = Depends(get_current_acti
             "date": datetime.now().isoformat(),
             "services": [{"description": "Clinical consultation", "amount": 150.00}],
             "total": 150.00,
-            "created_by": current_user.username,
+            "created_by": "system",
             "created_at": datetime.now().isoformat()
         }
         
