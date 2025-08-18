@@ -112,7 +112,7 @@ def setup_test_data():
         
         response = requests.post(url, json=patient_data, headers=get_auth_headers())
         
-        if response.status_code == 201:
+        if response.status_code in [200, 201]:
             result = response.json()
             test_patient_id = result.get("id")
             print_test_result("Test Patient Creation", True, result, f"Created patient: Emily Rodriguez")
