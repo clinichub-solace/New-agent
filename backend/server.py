@@ -398,8 +398,9 @@ async def all_exception_handler(request, exc: Exception):
     return await generic_exception_handler(request, exc)
 
 # Include additive routers
-from .routers import receipts
+from .routers import receipts, time_tracking
 app.include_router(receipts.router)
+app.include_router(time_tracking.router)
 
 # Add root route for health verification
 @app.get("/")
