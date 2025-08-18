@@ -19,14 +19,14 @@ async def list_receipts():
     return receipts
 
 @router.post("")
-async def create_receipt(receipt_data: dict, current_user = Depends(get_current_active_user)):
+async def create_receipt(receipt_data: dict):
     """Create a new receipt"""
     try:
         receipt = {
             "id": str(uuid.uuid4()),
             "receipt_number": f"RCP-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:6].upper()}",
             "date": datetime.now().isoformat(),
-            "created_by": current_user.username,
+            "created_by": "system",
             "created_at": datetime.now().isoformat(),
             **receipt_data
         }
