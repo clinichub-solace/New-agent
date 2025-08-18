@@ -126,12 +126,11 @@ class ClinicHubTester:
             soap_data = {
                 "patient_id": patient_id,
                 "encounter_id": f"ENC-{datetime.now().strftime('%Y%m%d')}-TEST",
-                "chief_complaint": "Annual wellness check",
                 "subjective": "Patient reports feeling well overall. No acute complaints.",
                 "objective": "Vital signs stable. Physical exam unremarkable.",
                 "assessment": "Healthy adult, annual wellness visit",
                 "plan": "Continue current health maintenance. Return in 1 year for annual check.",
-                "provider_name": "Dr. Test Provider"
+                "provider": "Dr. Test Provider"
             }
             
             response = self.session.post(f"{API_BASE}/soap-notes", json=soap_data)
