@@ -1,19 +1,16 @@
 services:
-  # MongoDB Database with High Availability
+  # MongoDB Database
   mongodb:
-    image: mongo:6.0
+    image: mongo:4.4
     container_name: clinichub-mongodb
     restart: unless-stopped
-    # SECURITY: Removed host port mapping - only accessible internally
+    # SECURITY: Removed host port mapping - only accessible internally  
     expose:
       - "27017"
     environment:
       MONGO_INITDB_ROOT_USERNAME: admin
       MONGO_INITDB_ROOT_PASSWORD_FILE: /run/secrets/mongo_root_password
       MONGO_INITDB_DATABASE: clinichub
-      # Enable authentication and SSL
-      MONGO_REPLICA_SET_NAME: clinichub-rs
-      MONGO_SSL_ENABLED: "true"
     secrets:
       - mongo_root_password
     volumes:
