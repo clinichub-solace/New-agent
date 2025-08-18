@@ -11,7 +11,7 @@ from datetime import datetime, date
 import uuid
 
 # Configuration
-BACKEND_URL = "https://clinic-manager-31.preview.emergentagent.com/api"
+BACKEND_URL = "https://medical-practice-hub.preview.emergentagent.com/api"
 ADMIN_CREDENTIALS = {"username": "admin", "password": "admin123"}
 
 class LabInsuranceBackendTester:

@@ -262,7 +262,7 @@ def test_cors_configuration():
     try:
         url = f"{API_URL}/health"
         headers = {
-            "Origin": "https://clinic-manager-31.preview.emergentagent.com",
+            "Origin": "https://medical-practice-hub.preview.emergentagent.com",
             "Access-Control-Request-Method": "POST",
             "Access-Control-Request-Headers": "Content-Type"
         }
