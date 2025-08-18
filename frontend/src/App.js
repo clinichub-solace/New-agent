@@ -1181,13 +1181,14 @@ const PatientsModule = () => {
 
   const [vitalsFormData, setVitalsFormData] = useState({
     temperature: '',
-    blood_pressure_systolic: '',
-    blood_pressure_diastolic: '',
+    systolic_bp: '',
+    diastolic_bp: '',
     heart_rate: '',
     respiratory_rate: '',
     oxygen_saturation: '',
     weight: '',
     height: '',
+    pain_scale: '',
     notes: ''
   });
 
