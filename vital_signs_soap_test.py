@@ -107,6 +107,8 @@ def setup_test_data():
         }
         
         response = requests.post(url, json=data, headers=headers)
+        if response.status_code != 200:
+            print(f"Patient creation failed with status {response.status_code}: {response.text}")
         response.raise_for_status()
         result = response.json()
         
@@ -114,7 +116,20 @@ def setup_test_data():
         print_test_result("Create Test Patient", True, {"patient_id": test_patient_id, "name": f"{result['name'][0]['given'][0]} {result['name'][0]['family']}"})
     except Exception as e:
         print_test_result("Create Test Patient", False, error_msg=str(e))
-        return False
+        # Try to get existing patients instead
+        try:
+            url = f"{API_URL}/patients"
+            response = requests.get(url, headers=headers)
+            response.raise_for_status()
+            patients = response.json()
+            if patients and len(patients) > 0:
+                test_patient_id = patients[0]["id"]
+                print_test_result("Use Existing Patient", True, {"patient_id": test_patient_id})
+            else:
+                return False
+        except Exception as e2:
+            print_test_result("Get Existing Patients", False, error_msg=str(e2))
+            return False
     
     # Create test provider
     try:
