@@ -109,6 +109,8 @@ services:
 volumes:
   mongodb_data:
     driver: local
+  mongodb_logs:
+    driver: local
   backend_logs:
     driver: local
   frontend_node_modules:
