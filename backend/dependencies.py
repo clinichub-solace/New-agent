@@ -67,6 +67,10 @@ JWT_ALGORITHM = os.environ.get('JWT_ALGORITHM', 'HS256')
 
 security = HTTPBearer()
 
+async def get_db():
+    """Get database connection"""
+    return db
+
 async def get_current_active_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
     """Get current active user from JWT token"""
     try:
