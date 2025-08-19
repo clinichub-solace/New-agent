@@ -905,6 +905,16 @@ async def post_run(
         if "count" not in totals:
             totals["count"] = totals.get("employees", 0)
             run_doc["totals"] = totals
+    
+    # Audit log the run posting
+    from backend.utils.audit import audit_log
+    await audit_log(db, current_user,
+        action="payroll.run.post",
+        subject_type="payroll_run",
+        subject_id=run_id,
+        meta={"period_id": run_doc.get("period_id"), "totals": run_doc.get("totals")}
+    )
+    
     return run_doc
 
 @payroll_router.post("/runs/{run_id}/void")
