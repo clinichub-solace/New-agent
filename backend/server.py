@@ -11645,55 +11645,48 @@ async def verify_eligibility(verification_data: EligibilityCheckRequest, current
         if not card:
             raise HTTPException(status_code=404, detail="Insurance card not found")
         
-        # Mock eligibility response (in production, would call real payer APIs)
-        mock_response = {
+        # Use DI adapter
+        try:
+            if INSURANCE_ADAPTER == "mock":
+                adapter_resp = await mock_eligibility_adapter(patient, card, verification_data)
+            else:
+                raise HTTPException(status_code=501, detail="Eligibility adapter not configured")
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Eligibility adapter error: {str(e)}")
+
+        # Persist eligibility (compatibility with existing EligibilityResponse)
+        eligibility_doc = {
+            "id": str(uuid.uuid4()),
             "patient_id": patient_id,
             "insurance_card_id": insurance_card_id,
-            "eligibility_status": "active",
-            "benefits_summary": {
-                "plan_type": "PPO" if card["insurance_type"] == "commercial" else card["insurance_type"].upper(),
-                "network_status": "in_network",
-                "effective_date": card["effective_date"],
-                "plan_description": f"{card['payer_name']} {card['insurance_type'].title()} Plan"
-            },
-            "copay_amounts": {
-                "primary_care": card.get("copay_primary", 25.00),
-                "specialist": card.get("copay_specialist", 45.00),
-                "emergency_room": 150.00,
-                "urgent_care": 75.00
-            },
-            "deductible_info": {
-                "annual_deductible": card.get("deductible", 1500.00),
-                "deductible_met": card.get("deductible_met", 0.00),
-                "remaining_deductible": card.get("deductible", 1500.00) - card.get("deductible_met", 0.00)
-            },
-            "coverage_details": {
-                "preventive_care": "100% covered",
-                "lab_work": "80% after deductible",
-                "imaging": "70% after deductible",
-                "prescription_drugs": "Generic: $10, Brand: $35"
-            },
-            "prior_auth_required": [
-                "MRI", "CT Scan", "Specialist referrals", "Durable medical equipment"
-            ],
-            "raw_response": {
-                "mock_payer_response": "Eligibility verified successfully",
-                "transaction_id": str(uuid.uuid4()),
-                "response_time": datetime.utcnow().isoformat()
-            }
+            "eligibility_status": "active" if adapter_resp.eligible else "inactive",
+            "benefits_summary": {},
+            "copay_amounts": {},
+            "deductible_info": {},
+            "coverage_details": adapter_resp.coverage,
+            "prior_auth_required": [],
+            "checked_at": datetime.utcnow(),
+            "valid_until": datetime.combine(datetime.strptime(adapter_resp.valid_until, "%Y-%m-%d").date(), datetime.min.time()),
+            "raw_response": adapter_resp.raw,
         }
-        
-        # Create eligibility response record
-        eligibility = EligibilityResponse(
-            **mock_response,
-            checked_at=datetime.utcnow(),
-            valid_until=datetime.utcnow() + timedelta(hours=24)
+        await db.eligibility_responses.insert_one(jsonable_encoder(eligibility_doc))
+
+        # Audit
+        await create_audit_event(
+            event_type="Insurance.EligibilityChecked",
+            resource_type="insurance",
+            user_id=current_user.id,
+            user_name=current_user.username,
+            resource_id=eligibility_doc["id"],
+            action_details={"patient_id": patient_id, "card_id": insurance_card_id, "service_date": service_date},
+            phi_accessed=True,
+            success=True
         )
-        
-        eligibility_dict = jsonable_encoder(eligibility)
-        await db.eligibility_responses.insert_one(eligibility_dict)
-        
-        return eligibility
+
+        # Response for API contract
+        return adapter_resp
     except HTTPException:
         raise
     except Exception as e:
