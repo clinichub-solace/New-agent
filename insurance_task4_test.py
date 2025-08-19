@@ -496,6 +496,10 @@ class InsuranceTask4Tester:
             print("❌ Patient creation/selection failed - stopping test")
             return False
         
+        # Step 2.5: Create/Get Provider (needed for prior auth)
+        if not self.create_or_get_provider():
+            print("❌ Provider creation/selection failed - continuing without prior auth tests")
+        
         # Step 3: Create Insurance Card
         if not self.create_insurance_card():
             print("❌ Insurance card creation failed - stopping test")
