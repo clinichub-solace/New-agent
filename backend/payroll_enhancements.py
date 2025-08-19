@@ -456,10 +456,121 @@ def D(x) -> Decimal:
 payroll_router = APIRouter(prefix="/api/payroll", tags=["payroll"])
 
 @payroll_router.post("/calculate/{payroll_record_id}")
-async def calculate_payroll(payroll_record_id: str):
-    """Calculate payroll for a specific record"""
-    # Implementation for payroll calculations
-    pass
+async def calculate_payroll(
+    payroll_record_id: str,
+    request: Request,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Calculate payroll for a specific record (gross → net).
+    - Pulls time entries for period
+    - Applies pre/post-tax deductions and taxes
+    - Updates payroll_record totals and sets status=calculated
+    """
+    await ensure_indexes(db)
+
+    record = await get_payroll_record(db, payroll_record_id)
+    period = await get_pay_period(db, record["payroll_period_id"])
+    employee = await get_employee_profile(db, record["employee_id"])
+
+    # Pull hours from time_entries (if hours not already finalized in record)
+    entries = await list_time_entries(db, record["employee_id"], date.fromisoformat(period["start_date"]), date.fromisoformat(period["end_date"]))
+    hours_reg = sum(D(e.get("hours_regular", 0)) for e in entries)
+    hours_ot  = sum(D(e.get("hours_ot", 0)) for e in entries)
+    hours_dt  = sum(D(e.get("hours_double", 0)) for e in entries)
+
+    # Resolve rates
+    regular_rate = D(record.get("regular_rate") or employee.get("hourly_rate") or 0)
+    overtime_rate = D(record.get("overtime_rate") or (regular_rate * D("1.5")))
+    double_rate = D(record.get("double_time_rate") or (regular_rate * D("2.0")))
+
+    calc = PayrollCalculator()
+
+    regular_pay = calc.calculate_regular_pay(hours_reg, regular_rate)
+    overtime_pay = calc.calculate_overtime_pay(hours_ot, regular_rate, D("1.5"))
+    double_pay = calc.calculate_overtime_pay(hours_dt, regular_rate, D("2.0"))
+
+    # Other earnings from record (defaults 0)
+    bonus = D(record.get("bonus_pay"))
+    commission = D(record.get("commission_pay"))
+    holiday = D(record.get("holiday_pay"))
+    sick = D(record.get("sick_pay"))
+    vacation = D(record.get("vacation_pay"))
+    other = D(record.get("other_earnings"))
+
+    gross_pay = sum([regular_pay, overtime_pay, double_pay, bonus, commission, holiday, sick, vacation, other]).quantize(Decimal("0.01"))
+
+    # Pre-tax deductions
+    pretax = sum([
+        D(record.get("health_insurance")),
+        D(record.get("dental_insurance")),
+        D(record.get("vision_insurance")),
+        D(record.get("retirement_401k")),
+        D(record.get("hsa_contribution")),
+        D(record.get("parking")),
+    ]).quantize(Decimal("0.01"))
+
+    taxable_wages = calc.calculate_taxable_wages(gross_pay, pretax)
+
+    # Tax info
+    tax_info = (record.get("tax_info") or {})  # could embed a light structure on the record
+    filing_status = TaxFilingStatus(tax_info.get("filing_status", "single"))
+    state_code = StateCode(tax_info.get("state_code", "TX"))
+    fed_allow = int(tax_info.get("federal_allowances", 1) or 1)
+    addl_fed = D(tax_info.get("additional_federal_withholding"))
+    addl_state = D(tax_info.get("additional_state_withholding"))
+    pay_freq = PayFrequency(record.get("pay_frequency", "biweekly"))
+
+    # YTD taxable wages (simplified: sum posted payroll_records for employee this year)
+    this_year = str(datetime.utcnow().year)
+    ytd_cur = db.payroll_records.aggregate([
+        {"$match": {"employee_id": record["employee_id"], "status": "paid", "created_at": {"$gte": datetime(int(this_year), 1, 1)}}},
+        {"$group": {"_id": None, "ytd_taxable": {"$sum": "$taxable_wages"}}}
+    ])
+    ytd_doc = None
+    async for d in ytd_cur:
+        ytd_doc = d
+    ytd_taxable = D((ytd_doc or {}).get("ytd_taxable", 0))
+
+    # Taxes (simplified but deterministic)
+    federal_tax = calc.calculate_federal_tax(taxable_wages, filing_status, fed_allow, addl_fed, pay_freq)
+    state_tax = calc.calculate_state_tax(taxable_wages, state_code, filing_status, fed_allow, addl_state, pay_freq)
+    ss_tax = calc.calculate_social_security_tax(taxable_wages, ytd_taxable)
+    medicare_tax = calc.calculate_medicare_tax(taxable_wages, ytd_taxable)
+
+    total_taxes = sum([federal_tax, state_tax, ss_tax, medicare_tax]).quantize(Decimal("0.01"))
+
+    # Post-tax deductions
+    posttax = sum([
+        D(record.get("roth_401k")),
+        D(record.get("union_dues")),
+        D(record.get("life_insurance")),
+        D(record.get("garnishments")),
+        D(record.get("other_deductions")),
+    ]).quantize(Decimal("0.01"))
+
+    total_deductions = (pretax + posttax + total_taxes).quantize(Decimal("0.01"))
+    net_pay = calc.calculate_net_pay(gross_pay, total_taxes, pretax + posttax)
+
+    # Persist computed fields
+    updates = {
+        "regular_hours": str(hours_reg), "overtime_hours": str(hours_ot), "double_time_hours": str(hours_dt),
+        "regular_rate": str(regular_rate), "overtime_rate": str(overtime_rate), "double_time_rate": str(double_rate),
+        "regular_pay": str(regular_pay), "overtime_pay": str(overtime_pay), "double_time_pay": str(double_pay),
+        "gross_pay": str(gross_pay), "taxable_wages": str(taxable_wages),
+        "federal_tax": str(federal_tax), "state_tax": str(state_tax),
+        "social_security_tax": str(ss_tax), "medicare_tax": str(medicare_tax),
+        "total_taxes": str(total_taxes), "total_pre_tax_deductions": str(pretax),
+        "total_post_tax_deductions": str(posttax), "total_deductions": str(total_deductions),
+        "net_pay": str(net_pay),
+        "status": "calculated",
+        "calculated_at": datetime.utcnow(),
+        "updated_by": current_user.username,
+    }
+    await db.payroll_records.update_one({"id": payroll_record_id}, {"$set": updates})
+    record.update(updates)
+    return record
 
 @payroll_router.get("/paystub/{payroll_record_id}")
 async def generate_paystub(payroll_record_id: str):
