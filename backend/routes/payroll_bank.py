@@ -21,6 +21,15 @@ async def put_employee_bank(employee_id: str, payload: dict, db=Depends(get_db),
         "updated_by": getattr(user, "id", "system"),
     }
     await db["payroll_employee_bank"].update_one({"employee_id": employee_id}, {"$set": doc}, upsert=True)
+    
+    # Audit log the employee bank information update
+    await audit_log(db, user,
+        action="payroll.employee.bank.put",
+        subject_type="employee_bank",
+        subject_id=employee_id,
+        meta={"name": doc.get("name"), "account_type": doc.get("account_type")}
+    )
+    
     out = dict(doc); out["account_number"] = _mask(out["account_number"]) 
     return out
 
