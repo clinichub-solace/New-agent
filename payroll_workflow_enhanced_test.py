@@ -275,7 +275,8 @@ def create_payroll_run():
         response.raise_for_status()
         result = response.json()
         
-        payroll_run_id = result.get("_id") or result.get("id")
+        payroll_run_id = result.get("id") or result.get("_id")
+        print(f"DEBUG: Full run creation response: {json.dumps(result, indent=2, default=str)}")
         print_test_result("Create Payroll Run (Enhanced)", True, {"run_id": payroll_run_id, "period_id": pay_period_id})
         return True
     except Exception as e:
