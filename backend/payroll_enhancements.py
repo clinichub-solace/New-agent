@@ -573,9 +573,70 @@ async def calculate_payroll(
     return record
 
 @payroll_router.get("/paystub/{payroll_record_id}")
-async def generate_paystub(payroll_record_id: str):
-    """Generate paystub for employee"""
-    pass
+async def generate_paystub(
+    payroll_record_id: str,
+    db=Depends(get_db),
+):
+    """
+    Generate a paystub JSON (PDF rendering can be handled by a separate service or added later).
+    Returns structured PaystubData; FE/print service can convert to PDF.
+    """
+    record = await get_payroll_record(db, payroll_record_id)
+    emp = await get_employee_profile(db, record["employee_id"])
+    period = await get_pay_period(db, record["payroll_period_id"])
+
+    stub = {
+        "payroll_record_id": payroll_record_id,
+        "company_info": {"name": "Your Clinic", "address": "—"},
+        "employee_info": {"name": emp.get("name"), "employee_id": emp.get("id"), "last4": (emp.get("ssn_last4") or "XXXX")},
+        "pay_period_info": {"start_date": period["start_date"], "end_date": period["end_date"], "pay_date": record.get("check_date") or date.today().isoformat()},
+        "earnings_details": {
+            "regular_hours": record.get("regular_hours"), "regular_pay": record.get("regular_pay"),
+            "overtime_hours": record.get("overtime_hours"), "overtime_pay": record.get("overtime_pay"),
+            "double_time_hours": record.get("double_time_hours"), "double_time_pay": record.get("double_time_pay"),
+            "other_earnings": {
+                "bonus_pay": record.get("bonus_pay"), "commission_pay": record.get("commission_pay"),
+                "holiday_pay": record.get("holiday_pay"), "sick_pay": record.get("sick_pay"),
+                "vacation_pay": record.get("vacation_pay"), "other_earnings": record.get("other_earnings"),
+            },
+            "gross_pay": record.get("gross_pay"),
+        },
+        "deductions_details": {
+            "pre_tax": {
+                "health_insurance": record.get("health_insurance"),
+                "dental_insurance": record.get("dental_insurance"),
+                "vision_insurance": record.get("vision_insurance"),
+                "retirement_401k": record.get("retirement_401k"),
+                "hsa_contribution": record.get("hsa_contribution"),
+                "parking": record.get("parking"),
+            },
+            "post_tax": {
+                "roth_401k": record.get("roth_401k"),
+                "union_dues": record.get("union_dues"),
+                "life_insurance": record.get("life_insurance"),
+                "garnishments": record.get("garnishments"),
+                "other_deductions": record.get("other_deductions"),
+            }
+        },
+        "tax_details": {
+            "federal_tax": record.get("federal_tax"),
+            "state_tax": record.get("state_tax"),
+            "social_security_tax": record.get("social_security_tax"),
+            "medicare_tax": record.get("medicare_tax"),
+            "total_taxes": record.get("total_taxes"),
+        },
+        "net_pay_info": {"net_pay": record.get("net_pay")},
+        "ytd_totals": {
+            "ytd_gross_pay": record.get("ytd_gross_pay", "0.00"),
+            "ytd_federal_tax": record.get("ytd_federal_tax", "0.00"),
+            "ytd_state_tax": record.get("ytd_state_tax", "0.00"),
+            "ytd_social_security_tax": record.get("ytd_social_security_tax", "0.00"),
+            "ytd_medicare_tax": record.get("ytd_medicare_tax", "0.00"),
+            "ytd_net_pay": record.get("ytd_net_pay", "0.00"),
+        },
+        "generated_at": datetime.utcnow().isoformat(),
+    }
+    return stub
 
 @payroll_router.post("/check/print/{payroll_record_id}")
 async def print_check(payroll_record_id: str):
