@@ -63,6 +63,21 @@ async def export_paystubs_csv(
         meta={"record_count": len(records), "period_id": period.get("id")}
     )
     
+    # Notification for CSV export
+    from backend.utils.notify import notify_user
+    target_user_id = getattr(current_user, "id", "system")
+    
+    await notify_user(db,
+        user_id=target_user_id,
+        type="payroll.export.csv",
+        title="CSV report generated",
+        body=f"Paystub CSV export completed for run {run_id}. Records: {len(records)}",
+        subject_type="payroll_run",
+        subject_id=str(run_id),
+        severity="info",
+        meta={"record_count": len(records), "period_id": period.get("id")}
+    )
+    
     return Response(
         content=csv_content,
         media_type="text/csv",
