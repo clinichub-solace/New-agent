@@ -870,7 +870,7 @@ async def void_run(
 @payroll_router.get("/runs/{run_id}/paystubs")
 async def list_run_paystubs(
     run_id: str,
-    format: Optional[str] = Query(default="json", regex="^(json|pdf)$"),
+    format: Optional[str] = Query(default="json", pattern="^(json|pdf)$"),
     db=Depends(get_db),
 ):
     run = await _get_run(db, run_id)
