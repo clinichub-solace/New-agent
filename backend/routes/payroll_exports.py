@@ -139,6 +139,21 @@ async def export_ach_file(
         meta={"mode": mode, "entries": entry_count, "total_amount": total_amount / 100, "period_id": period.get("id")}
     )
     
+    # Notification for ACH export
+    from backend.utils.notify import notify_user
+    target_user_id = getattr(current_user, "id", "system")
+    
+    await notify_user(db,
+        user_id=target_user_id,
+        type="payroll.export.ach",
+        title="ACH file generated",
+        body=f"ACH file created for run {run_id} ({mode.upper()} mode). Entries: {entry_count}, Total: ${total_amount/100:,.2f}",
+        subject_type="payroll_run",
+        subject_id=str(run_id),
+        severity="info",
+        meta={"mode": mode, "entries": entry_count, "total_amount": total_amount / 100}
+    )
+    
     filename_suffix = "_test" if mode == "test" else ""
     
     return Response(
