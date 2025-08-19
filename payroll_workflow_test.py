@@ -311,8 +311,8 @@ def seed_test_payroll_records():
     """Step 8: Seed test payroll records (ENV-gated)"""
     print("\n=== STEP 8: SEED TEST PAYROLL RECORDS ===")
     
-    if not run_id:
-        print("❌ Cannot seed payroll records - no run ID available")
+    if not run_id or not period_id or not employee_id:
+        print("❌ Cannot seed payroll records - missing required IDs")
         return False
     
     headers = {"Authorization": f"Bearer {auth_token}"}
@@ -320,26 +320,17 @@ def seed_test_payroll_records():
     try:
         url = f"{API_URL}/payroll/_test/seed/payroll_records"
         
-        # Seed data for the payroll run
+        # Seed data for the payroll run using the correct format
         seed_data = {
-            "run_id": run_id,
-            "employee_id": employee_id,
-            "regular_hours": 80.0,
-            "overtime_hours": 5.0,
-            "bonus_pay": 500.0,
-            "deductions": [
+            "period_id": period_id,
+            "records": [
                 {
-                    "deduction_type": "health_insurance",
-                    "description": "Health Insurance Premium",
-                    "amount": 150.0,
-                    "is_pre_tax": True
-                },
-                {
-                    "deduction_type": "retirement_401k",
-                    "description": "401k Contribution",
-                    "amount": 200.0,
-                    "percentage": 3.0,
-                    "is_pre_tax": True
+                    "employee_id": employee_id,
+                    "record_id": f"{employee_id}-{period_id}",
+                    "gross": 2500.00,
+                    "net": 1850.00,
+                    "deductions": 350.00,
+                    "taxes": 300.00
                 }
             ]
         }
