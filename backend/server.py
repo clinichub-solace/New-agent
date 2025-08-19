@@ -11616,8 +11616,8 @@ async def create_insurance_card(card_data: InsuranceCardV2Create, current_user: 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating insurance card: {str(e)}")
 
-@api_router.get("/insurance/patient/{patient_id}")
-async def get_patient_insurance(patient_id: str, current_user: User = Depends(get_current_active_user)):
+@api_router.get("/insurance/cards/patient/{patient_id}")
+async def get_patient_insurance_cards(patient_id: str, current_user: User = Depends(get_current_active_user)):
     """Get insurance cards for a patient"""
     try:
         cards = await db.insurance_cards.find({
