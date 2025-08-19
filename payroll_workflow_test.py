@@ -288,12 +288,9 @@ def create_payroll_run():
     try:
         url = f"{API_URL}/payroll/runs"
         
-        # Create payroll run
+        # Create payroll run using the correct format
         run_data = {
-            "period_id": period_id,
-            "run_name": f"Payroll Run - {datetime.now().strftime('%Y-%m-%d')}",
-            "description": "Test payroll run for end-to-end workflow testing",
-            "created_by": "admin"
+            "period_id": period_id
         }
         
         response = requests.post(url, json=run_data, headers=headers)
