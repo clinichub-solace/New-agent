@@ -746,7 +746,7 @@ async def _ensure_run_indexes(db):
 class PayPeriodIn(BaseModel):
     start_date: str  # YYYY-MM-DD
     end_date: str    # YYYY-MM-DD
-    frequency: str = Field(..., regex="^(weekly|biweekly|semimonthly|monthly|quarterly|annually)$")
+    frequency: str = Field(..., pattern="^(weekly|biweekly|semimonthly|monthly|quarterly|annually)$")
     closed: bool = False
 
 class RunCreateIn(BaseModel):
