@@ -312,8 +312,18 @@ class InsuranceWorkflowTester:
                 # If that fails, try alternative endpoints
                 print("   Trying alternative endpoint patterns...")
                 response = self.session.put(f"{API_BASE}/insurance/prior-auth/{self.prior_auth_id}", json=update_data)
+                
+                if response.status_code == 404:
+                    # Try PATCH method
+                    print("   Trying PATCH method...")
+                    response = self.session.patch(f"{API_BASE}/insurance/prior-auth/{self.prior_auth_id}", json=update_data)
             
             response_data = response.json() if response.content else {}
+            
+            # If all methods fail, note that the endpoint is missing
+            if response.status_code == 404:
+                self.log_result(7, 404, 200, {"error": "PUT endpoint not implemented"}, "Update prior auth to APPROVED - ENDPOINT MISSING")
+                return False
             
             self.log_result(7, response.status_code, 200, response_data, "Update prior auth to APPROVED")
             
