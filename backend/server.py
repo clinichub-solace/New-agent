@@ -440,7 +440,7 @@ async def all_exception_handler(request, exc: Exception):
 
 # Include additive routers
 from .routers import receipts, time_tracking
-from .payroll_enhancements import payroll_router
+from .payroll_enhancements import payroll_router, ensure_indexes
 app.include_router(receipts.router)
 app.include_router(time_tracking.router)
 app.include_router(payroll_router)
