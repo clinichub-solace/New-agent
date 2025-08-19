@@ -8815,6 +8815,49 @@ async def get_message_templates(template_type: str = None):
 @api_router.post("/communications/templates")
 async def create_message_template(template_data: dict):
     try:
+        # Enforce fields: title, body, variables (list of placeholders)
+        required = ["title", "body"]
+        missing = [f for f in required if f not in template_data or not template_data.get(f)]
+        if missing:
+            raise HTTPException(status_code=422, detail=f"Missing fields: {', '.join(missing)}")
+        template_data["id"] = str(uuid.uuid4())
+        template_data["variables"] = template_data.get("variables", [])
+        template_data["created_at"] = datetime.utcnow()
+        await db.communication_templates.insert_one(jsonable_encoder(template_data))
+        return {"message": "Template created successfully", "id": template_data["id"]}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating template: {str(e)}")
+
+@api_router.put("/communications/templates/{template_id}")
+async def update_message_template(template_id: str, template_data: dict):
+    try:
+        update = {k: v for k, v in template_data.items() if k not in ("id", "created_at")}
+        update["updated_at"] = datetime.utcnow()
+        result = await db.communication_templates.update_one({"id": template_id}, {"$set": jsonable_encoder(update)})
+        if result.matched_count == 0:
+            raise HTTPException(status_code=404, detail="Template not found")
+        return {"message": "Template updated successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error updating template: {str(e)}")
+
+@api_router.delete("/communications/templates/{template_id}")
+async def delete_message_template(template_id: str):
+    try:
+        result = await db.communication_templates.delete_one({"id": template_id})
+        if result.deleted_count == 0:
+            raise HTTPException(status_code=404, detail="Template not found")
+        return {"message": "Template deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error deleting template: {str(e)}")
+
+async def create_message_template(template_data: dict):
+    try:
         template_data["id"] = str(uuid.uuid4())
         template_data["created_at"] = datetime.utcnow()
         
