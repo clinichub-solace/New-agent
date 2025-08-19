@@ -457,6 +457,10 @@ async def on_startup():
 
 app.include_router(payroll_router)
 app.include_router(payroll_config.router)
+app.include_router(payroll_bank.router)
+app.include_router(payroll_ach_config.router)
+app.include_router(payroll_exports.router)
+
 
 # Add root route for health verification
 @app.get("/")
