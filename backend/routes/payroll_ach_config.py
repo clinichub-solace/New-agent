@@ -9,6 +9,15 @@ async def put_ach_config(payload: dict, db=Depends(get_db), user=Depends(get_cur
     key = {"_id": "ACH_DEFAULT"}
     payload = {**payload, "updated_by": getattr(user, "id", "system")}
     await db["payroll_ach_config"].update_one(key, {"$set": payload}, upsert=True)
+    
+    # Audit log the ACH configuration update
+    await audit_log(db, user,
+        action="payroll.ach.put",
+        subject_type="payroll_ach_config",
+        subject_id="ACH_DEFAULT",
+        meta={"company_name": payload.get("company_name"), "company_id": payload.get("company_id")}
+    )
+    
     return await db["payroll_ach_config"].find_one(key)
 
 @router.get("/ach")
