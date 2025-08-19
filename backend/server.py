@@ -8183,37 +8183,71 @@ async def get_provider_schedule(provider_id: str, date: str = None):
 
 # Appointment Management
 @api_router.post("/appointments", response_model=Appointment)
-async def create_appointment(appointment_data: dict):
+async def create_appointment(appointment_data: dict, current_user: User = Depends(get_current_active_user)):
     try:
+        # Basic required fields
+        required = ["patient_id", "provider_id", "appointment_date", "start_time", "end_time", "appointment_type", "reason", "scheduled_by"]
+        missing = [f for f in required if f not in appointment_data or appointment_data.get(f) in (None, "")]
+        if missing:
+            raise HTTPException(status_code=422, detail=f"Missing required fields: {', '.join(missing)}")
+
         # Verify patient exists and get patient name
         patient = await db.patients.find_one({"id": appointment_data["patient_id"]}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
-        
-        # Extract patient name from FHIR structure
         patient_name = f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}"
-        
+
         # Verify provider exists and get provider name
         provider = await db.providers.find_one({"id": appointment_data["provider_id"]}, {"_id": 0})
         if not provider:
             raise HTTPException(status_code=404, detail="Provider not found")
-        
         provider_name = provider.get("name", f"{provider.get('first_name', '')} {provider.get('last_name', '')}").strip()
-        
+
+        # Compute duration_minutes if not provided
+        from datetime import datetime as _dt
+        try:
+            start_dt = _dt.strptime(f"{appointment_data['appointment_date']} {appointment_data['start_time']}", "%Y-%m-%d %H:%M")
+            end_dt = _dt.strptime(f"{appointment_data['appointment_date']} {appointment_data['end_time']}", "%Y-%m-%d %H:%M")
+        except Exception:
+            raise HTTPException(status_code=422, detail="Invalid date/time format. Use YYYY-MM-DD and HH:MM")
+        duration_minutes = int((end_dt - start_dt).total_seconds() / 60)
+        if duration_minutes <= 0:
+            raise HTTPException(status_code=422, detail="end_time must be after start_time")
+        appointment_data["duration_minutes"] = duration_minutes
+
+        # Check provider availability (schedule)
+        day_of_week = start_dt.date().weekday()
+        provider_schedule = await db.provider_schedules.find_one({
+            "provider_id": appointment_data["provider_id"],
+            "day_of_week": day_of_week,
+            "is_available": True
+        })
+        if not provider_schedule:
+            raise HTTPException(status_code=409, detail="Provider not available on this day")
+        # Within schedule hours
+        sch_start = _dt.strptime(provider_schedule["start_time"], "%H:%M").time()
+        sch_end = _dt.strptime(provider_schedule["end_time"], "%H:%M").time()
+        if not (sch_start <= start_dt.time() and end_dt.time() <= sch_end):
+            raise HTTPException(status_code=409, detail="Appointment time outside provider schedule")
+
+        # Check conflicts (overlaps)
+        conflicts = await check_appointment_conflicts(
+            provider_id=appointment_data["provider_id"],
+            appointment_date=start_dt.date(),
+            start_time=appointment_data["start_time"],
+            duration_minutes=duration_minutes
+        )
+        if conflicts:
+            raise HTTPException(status_code=409, detail="Provider has a conflicting appointment at that time")
+
         # Create appointment with populated names
         appointment_data_with_names = {
             **appointment_data,
             "patient_name": patient_name,
             "provider_name": provider_name
         }
-        
-        appointment = Appointment(
-            id=str(uuid.uuid4()),
-            **appointment_data_with_names
-        )
-        
-        appointment_dict = jsonable_encoder(appointment)
-        await db.appointments.insert_one(appointment_dict)
+        appointment = Appointment(id=str(uuid.uuid4()), **appointment_data_with_names)
+        await db.appointments.insert_one(jsonable_encoder(appointment))
         return appointment
     except HTTPException:
         raise
