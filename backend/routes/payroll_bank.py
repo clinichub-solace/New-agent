@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from backend.dependencies import get_db, get_current_active_user as get_current_user
+from backend.utils.audit import audit_log
 
 router = APIRouter(prefix="/api/payroll", tags=["Payroll • Bank"])
 
