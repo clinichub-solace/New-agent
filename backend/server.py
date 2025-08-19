@@ -96,6 +96,29 @@ except Exception as e:
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
 
+# Insurance adapter DI (Task 4)
+INSURANCE_ADAPTER = os.environ.get("INSURANCE_ADAPTER", "mock").lower()
+
+async def mock_eligibility_adapter(patient: Dict[str, Any], card: Dict[str, Any], payload: "EligibilityCheckRequest") -> "EligibilityCheckResponse":
+    """Deterministic MOCK adapter returns coverage & valid_until."""
+    from datetime import datetime as _dt, timedelta as _td
+    base_copay = 25.0
+    deductible = 1000.0
+    coins = 0.2
+    plan = (card.get("plan_name") or "").lower()
+    if "gold" in plan:
+        base_copay, deductible, coins = 15.0, 500.0, 0.1
+    elif "silver" in plan:
+        base_copay, deductible, coins = 25.0, 1000.0, 0.2
+    elif "bronze" in plan:
+        base_copay, deductible, coins = 40.0, 3000.0, 0.3
+    return EligibilityCheckResponse(
+        eligible=True,
+        coverage={"copay": base_copay, "deductible": deductible, "coinsurance": coins},
+        valid_until=(_dt.utcnow() + _td(days=1)).date().isoformat(),
+        raw={"adapter": "mock", "transaction_id": str(uuid.uuid4())}
+    )
+
 # Domain Event Publishing System for Interoperability
 class DomainEvent(BaseModel):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
