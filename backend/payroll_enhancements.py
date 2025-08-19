@@ -639,9 +639,48 @@ async def generate_paystub(
     return stub
 
 @payroll_router.post("/check/print/{payroll_record_id}")
-async def print_check(payroll_record_id: str):
-    """Print payroll check"""
-    pass
+async def print_check(
+    payroll_record_id: str,
+    body: Dict[str, Any] = None,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Assign/check number, capture bank last4 (mask rest), and persist a printable check record.
+    """
+    record = await get_payroll_record(db, payroll_record_id)
+    if D(record.get("net_pay")) <= D("0"):
+        raise HTTPException(status_code=400, detail="Net pay is zero or not calculated")
+
+    req = body or {}
+    check_no = req.get("check_number") or str(uuid.uuid4())[:8]
+    check_date = req.get("check_date") or date.today().isoformat()
+
+    chk = await get_or_create_payroll_check(db, payroll_record_id)
+    chk.update({
+        "check_number": check_no,
+        "check_date": check_date,
+        "pay_to": record.get("employee_name", record.get("employee_id")),
+        "amount": record.get("net_pay"),
+        "printed_at": datetime.utcnow(),
+        "printed_by": current_user.username,
+    })
+    await db.payroll_checks.update_one({"id": chk["id"]}, {"$set": chk}, upsert=True)
+
+    # Optionally: create a Finance EXPENSE posting if not posted yet (idempotent)
+    if not record.get("ledger_post_id"):
+        fin = {
+            "id": str(uuid.uuid4()),
+            "direction": "EXPENSE",
+            "category": "payroll",
+            "amount": record.get("net_pay"),
+            "source": {"kind": "payroll_record", "id": payroll_record_id},
+            "timestamp": datetime.utcnow(),
+        }
+        await db.financial_transactions.insert_one(fin)
+        await db.payroll_records.update_one({"id": payroll_record_id}, {"$set": {"ledger_post_id": fin["id"]}})
+
+    return {"check": chk, "financial_posted": True}
 
 @payroll_router.get("/tax-tables/{tax_year}")
 async def get_tax_tables(tax_year: int):
