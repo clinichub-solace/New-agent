@@ -92,14 +92,15 @@ def setup_tax_configuration():
     try:
         url = f"{API_URL}/payroll/config/tax"
         
-        # Tax configuration data
+        # Tax configuration data - using the correct format expected by the endpoint
         tax_config = {
+            "jurisdiction": "TX",
+            "effective_date": "2025-01-01",
             "federal_tax_rate": 0.22,
             "state_tax_rate": 0.05,
             "social_security_rate": 0.062,
             "medicare_rate": 0.0145,
             "unemployment_rate": 0.006,
-            "state": "TX",
             "federal_exemptions": {
                 "single": 12950,
                 "married_filing_jointly": 25900,
