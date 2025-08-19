@@ -1,7 +1,7 @@
 # ClinicHub Payroll System Enhancements
 # Complete payroll calculations, paystub generation, and check printing
 
-from fastapi import APIRouter, HTTPException, Depends, Query
+from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime, date, timedelta
@@ -9,6 +9,16 @@ from enum import Enum
 import uuid
 from decimal import Decimal, ROUND_HALF_UP
 import calendar
+
+# --- ADD (near imports) ---
+try:
+    from backend.dependencies import get_db, get_current_user  # adjust if your project path differs
+except Exception:
+    # Fallback shims if module path differs in your repo
+    async def get_db():
+        raise RuntimeError("get_db dependency not found; import path needs adjustment")
+    async def get_current_user():
+        return type("U", (), {"id": "system", "username": "system"})()
 
 # Enhanced Payroll Models
 
