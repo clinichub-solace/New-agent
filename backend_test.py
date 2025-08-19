@@ -58,15 +58,209 @@ class ClinicHubTester:
                 data = response.json()
                 self.auth_token = data.get("access_token")
                 self.session.headers.update({"Authorization": f"Bearer {self.auth_token}"})
-                self.log_result("Authentication", True, f"Successfully authenticated as {ADMIN_USERNAME}")
+                self.log_result("Authentication", True, f"Successfully authenticated as {ADMIN_USERNAME}", 
+                              status_code=response.status_code, payload={"username": ADMIN_USERNAME})
                 return True
             else:
-                self.log_result("Authentication", False, f"Failed to authenticate: {response.status_code} - {response.text}")
+                self.log_result("Authentication", False, f"Failed to authenticate: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
                 return False
                 
         except Exception as e:
             self.log_result("Authentication", False, f"Authentication error: {str(e)}")
             return False
+
+    def test_authentication_endpoints(self):
+        """Test all authentication endpoints (/api/auth/*)"""
+        print("\n🔐 TESTING AUTHENTICATION ENDPOINTS")
+        print("=" * 50)
+        
+        # Test 1: Health check
+        try:
+            response = self.session.get(f"{API_BASE}/health")
+            if response.status_code == 200:
+                health_data = response.json()
+                self.log_result("GET /api/health", True, "Backend health check passed", 
+                              status_code=response.status_code, payload=health_data)
+            else:
+                self.log_result("GET /api/health", False, f"Health check failed: {response.status_code}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/health", False, f"Error: {str(e)}")
+        
+        # Test 2: Login endpoint (already tested in authenticate)
+        self.log_result("POST /api/auth/login", True, "Login functionality verified during authentication")
+        
+        # Test 3: Get current user info
+        try:
+            response = self.session.get(f"{API_BASE}/auth/me")
+            if response.status_code == 200:
+                user_data = response.json()
+                self.log_result("GET /api/auth/me", True, f"Retrieved user info for {user_data.get('username')}", 
+                              status_code=response.status_code, payload=user_data)
+            else:
+                self.log_result("GET /api/auth/me", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/auth/me", False, f"Error: {str(e)}")
+        
+        # Test 4: Synology status
+        try:
+            response = self.session.get(f"{API_BASE}/auth/synology-status")
+            if response.status_code == 200:
+                synology_data = response.json()
+                self.log_result("GET /api/auth/synology-status", True, f"Synology integration status retrieved", 
+                              status_code=response.status_code, payload=synology_data)
+            else:
+                self.log_result("GET /api/auth/synology-status", False, f"Failed: {response.status_code}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/auth/synology-status", False, f"Error: {str(e)}")
+
+    def test_patients_crud_ehr(self):
+        """Test Patients CRUD + EHR flows (encounters, vital signs, SOAP notes)"""
+        print("\n👥 TESTING PATIENTS CRUD + EHR FLOWS")
+        print("=" * 50)
+        
+        # Test 1: Create Patient
+        patient_data = {
+            "first_name": "Emily",
+            "last_name": "Rodriguez",
+            "email": "emily.rodriguez@email.com",
+            "phone": "555-0789",
+            "date_of_birth": "1990-05-20",
+            "gender": "female",
+            "address_line1": "456 Oak Avenue",
+            "city": "Austin",
+            "state": "TX",
+            "zip_code": "78702"
+        }
+        
+        try:
+            response = self.session.post(f"{API_BASE}/patients", json=patient_data)
+            if response.status_code == 200:
+                patient = response.json()
+                patient_id = patient.get("id")
+                self.test_data["patient_id"] = patient_id
+                self.log_result("POST /api/patients", True, f"Created patient Emily Rodriguez with ID: {patient_id}", 
+                              status_code=response.status_code, payload=patient)
+            else:
+                self.log_result("POST /api/patients", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+                return False
+        except Exception as e:
+            self.log_result("POST /api/patients", False, f"Error: {str(e)}")
+            return False
+        
+        # Test 2: Get All Patients
+        try:
+            response = self.session.get(f"{API_BASE}/patients")
+            if response.status_code == 200:
+                patients = response.json()
+                self.log_result("GET /api/patients", True, f"Retrieved {len(patients)} patients", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/patients", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/patients", False, f"Error: {str(e)}")
+        
+        # Test 3: Get Specific Patient
+        if self.test_data.get("patient_id"):
+            try:
+                response = self.session.get(f"{API_BASE}/patients/{self.test_data['patient_id']}")
+                if response.status_code == 200:
+                    patient = response.json()
+                    self.log_result("GET /api/patients/{id}", True, f"Retrieved patient: {patient.get('name', [{}])[0].get('given', [''])[0]} {patient.get('name', [{}])[0].get('family', '')}", 
+                                  status_code=response.status_code, payload=patient)
+                else:
+                    self.log_result("GET /api/patients/{id}", False, f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("GET /api/patients/{id}", False, f"Error: {str(e)}")
+        
+        # Test 4: Create Encounter
+        if self.test_data.get("patient_id"):
+            encounter_data = {
+                "patient_id": self.test_data["patient_id"],
+                "encounter_type": "consultation",
+                "status": "completed",
+                "reason": "Annual wellness visit",
+                "provider": "Dr. Jennifer Martinez"
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/encounters", json=encounter_data)
+                if response.status_code == 200:
+                    encounter = response.json()
+                    encounter_id = encounter.get("id")
+                    self.test_data["encounter_id"] = encounter_id
+                    self.log_result("POST /api/encounters", True, f"Created encounter with ID: {encounter_id}", 
+                                  status_code=response.status_code, payload=encounter)
+                else:
+                    self.log_result("POST /api/encounters", False, f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/encounters", False, f"Error: {str(e)}")
+        
+        # Test 5: Create Vital Signs
+        if self.test_data.get("patient_id"):
+            vital_signs_data = {
+                "patient_id": self.test_data["patient_id"],
+                "encounter_id": self.test_data.get("encounter_id"),
+                "systolic_bp": 120,
+                "diastolic_bp": 80,
+                "heart_rate": 72,
+                "temperature": 98.6,
+                "respiratory_rate": 16,
+                "oxygen_saturation": 98,
+                "weight": 150.0,
+                "height": 65.0,
+                "pain_scale": 2,
+                "notes": "Patient reports feeling well"
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/vital-signs", json=vital_signs_data)
+                if response.status_code == 200:
+                    vital_signs = response.json()
+                    vital_signs_id = vital_signs.get("id")
+                    self.test_data["vital_signs_id"] = vital_signs_id
+                    self.log_result("POST /api/vital-signs", True, f"Created vital signs with ID: {vital_signs_id}", 
+                                  status_code=response.status_code, payload=vital_signs)
+                else:
+                    self.log_result("POST /api/vital-signs", False, f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/vital-signs", False, f"Error: {str(e)}")
+        
+        # Test 6: Create SOAP Note
+        if self.test_data.get("patient_id"):
+            soap_data = {
+                "patient_id": self.test_data["patient_id"],
+                "encounter_id": self.test_data.get("encounter_id"),
+                "subjective": "Patient reports feeling well overall. No acute complaints. Sleeping well, good appetite.",
+                "objective": "Vital signs stable. Physical exam unremarkable. Alert and oriented x3.",
+                "assessment": "Healthy adult, annual wellness visit. No acute issues identified.",
+                "plan": "Continue current health maintenance. Return in 1 year for annual check. Discussed preventive care.",
+                "provider": "Dr. Jennifer Martinez"
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/soap-notes", json=soap_data)
+                if response.status_code == 200:
+                    soap_note = response.json()
+                    soap_id = soap_note.get("id")
+                    self.test_data["soap_id"] = soap_id
+                    self.log_result("POST /api/soap-notes", True, f"Created SOAP note with ID: {soap_id}", 
+                                  status_code=response.status_code, payload=soap_note)
+                else:
+                    self.log_result("POST /api/soap-notes", False, f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/soap-notes", False, f"Error: {str(e)}")
+        
+        return True
     
     def create_test_patient(self):
         """Create a test patient for receipt generation"""
