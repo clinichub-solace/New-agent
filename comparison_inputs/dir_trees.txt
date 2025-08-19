@@ -56,8 +56,6 @@
   ./clinichub-alpine-deployment/frontend/src
   ./clinichub-alpine-deployment/backend
 
-== TREE extract_6a379y1b_alpine-chub-main-2025-08-18__server.py.endpoints.txt ==
-
 == TREE extract_aun2oja8_alpine-chub-20250818-221839 ==
   .
   ./alpine-chub-20250818-221839
@@ -89,8 +87,6 @@
   ./alpine-chub-20250818-221839/clinichub-alpine-deployment/nginx
   ./alpine-chub-20250818-221839/clinichub-alpine-deployment/frontend
   ./alpine-chub-20250818-221839/clinichub-alpine-deployment/backend
-
-== TREE extract_aun2oja8_alpine-chub-20250818-221839__server.py.endpoints.txt ==
 
 == TREE extract_cpura4mg_alpine-chub ==
   .
@@ -127,8 +123,6 @@
   ./ClinicApp/clinichub-alpine-deployment/frontend
   ./ClinicApp/clinichub-alpine-deployment/backend
 
-== TREE extract_cpura4mg_alpine-chub__server.py.endpoints.txt ==
-
 == TREE extract_fxq991dh_alpine-chub-main-2025-08-18.tar.gz ==
   .
 
@@ -159,6 +153,4 @@
   ./ClinicApp/clinichub-alpine-deployment/nginx
   ./ClinicApp/clinichub-alpine-deployment/frontend
   ./ClinicApp/clinichub-alpine-deployment/backend
-
-== TREE extract_k8o6lsaj_ClinicApp__server.py.endpoints.txt ==
 
