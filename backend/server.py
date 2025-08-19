@@ -462,9 +462,13 @@ app.include_router(payroll_ach_config.router)
 app.include_router(payroll_exports.router)
 
 # Gate the test-only seeder by ENV
+print(f"[DEBUG] ENV value: {os.getenv('ENV')}")
 if os.getenv("ENV") in {"TEST", "DEV", "DEVELOPMENT"}:
+    print("[DEBUG] Including test routes")
     from .routes import payroll_test_helpers
     app.include_router(payroll_test_helpers.router)
+else:
+    print("[DEBUG] Not including test routes")
 
 
 # Add root route for health verification
