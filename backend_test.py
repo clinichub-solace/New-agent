@@ -262,7 +262,672 @@ class ClinicHubTester:
         
         return True
     
-    def create_test_patient(self):
+    def test_receipts_api(self):
+        """Test Receipts API (/api/receipts, /api/receipts/soap-note/{id})"""
+        print("\n🧾 TESTING RECEIPTS API")
+        print("=" * 50)
+        
+        # Test 1: Get All Receipts
+        try:
+            response = self.session.get(f"{API_BASE}/receipts")
+            if response.status_code == 200:
+                receipts = response.json()
+                self.log_result("GET /api/receipts", True, f"Retrieved {len(receipts)} receipts", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/receipts", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/receipts", False, f"Error: {str(e)}")
+        
+        # Test 2: Generate Receipt from SOAP Note
+        if self.test_data.get("soap_id"):
+            try:
+                response = self.session.post(f"{API_BASE}/receipts/soap-note/{self.test_data['soap_id']}")
+                if response.status_code == 200:
+                    result = response.json()
+                    receipt_id = result.get("receipt", {}).get("id")
+                    receipt_number = result.get("receipt", {}).get("receipt_number")
+                    self.test_data["receipt_id"] = receipt_id
+                    self.log_result("POST /api/receipts/soap-note/{id}", True, 
+                                  f"Generated receipt {receipt_number} with ID: {receipt_id}", 
+                                  status_code=response.status_code, payload=result)
+                else:
+                    self.log_result("POST /api/receipts/soap-note/{id}", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/receipts/soap-note/{id}", False, f"Error: {str(e)}")
+        
+        # Test 3: Get Specific Receipt
+        if self.test_data.get("receipt_id"):
+            try:
+                response = self.session.get(f"{API_BASE}/receipts/{self.test_data['receipt_id']}")
+                if response.status_code == 200:
+                    receipt = response.json()
+                    patient_name = receipt.get("patient_name")
+                    total = receipt.get("total")
+                    self.log_result("GET /api/receipts/{id}", True, 
+                                  f"Retrieved receipt for {patient_name}, total: ${total}", 
+                                  status_code=response.status_code, payload=receipt)
+                else:
+                    self.log_result("GET /api/receipts/{id}", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("GET /api/receipts/{id}", False, f"Error: {str(e)}")
+
+    def test_employee_time_tracking(self):
+        """Test Employee time-tracking (/api/employees/*, clock-in/out, time-status, today entries)"""
+        print("\n👨‍⚕️ TESTING EMPLOYEE TIME-TRACKING")
+        print("=" * 50)
+        
+        # Test 1: Create Employee
+        employee_data = {
+            "first_name": "Michael",
+            "last_name": "Davis",
+            "email": "michael.davis@clinichub.com",
+            "phone": "555-0456",
+            "role": "nurse",
+            "department": "Emergency",
+            "hire_date": "2024-01-15",
+            "hourly_rate": 35.00
+        }
+        
+        try:
+            response = self.session.post(f"{API_BASE}/employees", json=employee_data)
+            if response.status_code == 200:
+                employee = response.json()
+                employee_id = employee.get("id")
+                self.test_data["employee_id"] = employee_id
+                self.log_result("POST /api/employees", True, f"Created employee Michael Davis with ID: {employee_id}", 
+                              status_code=response.status_code, payload=employee)
+            else:
+                self.log_result("POST /api/employees", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+                return False
+        except Exception as e:
+            self.log_result("POST /api/employees", False, f"Error: {str(e)}")
+            return False
+        
+        # Test 2: Get All Employees
+        try:
+            response = self.session.get(f"{API_BASE}/employees")
+            if response.status_code == 200:
+                employees = response.json()
+                self.log_result("GET /api/employees", True, f"Retrieved {len(employees)} employees", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/employees", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/employees", False, f"Error: {str(e)}")
+        
+        # Test 3: Get Employee Time Status
+        if self.test_data.get("employee_id"):
+            try:
+                response = self.session.get(f"{API_BASE}/employees/{self.test_data['employee_id']}/time-status")
+                if response.status_code == 200:
+                    status = response.json()
+                    current_status = status.get("status")
+                    self.log_result("GET /api/employees/{id}/time-status", True, 
+                                  f"Employee status: {current_status}", 
+                                  status_code=response.status_code, payload=status)
+                else:
+                    self.log_result("GET /api/employees/{id}/time-status", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("GET /api/employees/{id}/time-status", False, f"Error: {str(e)}")
+        
+        # Test 4: Clock In
+        if self.test_data.get("employee_id"):
+            try:
+                response = self.session.post(f"{API_BASE}/employees/{self.test_data['employee_id']}/clock-in", 
+                                           params={"location": "Emergency Department"})
+                if response.status_code == 200:
+                    result = response.json()
+                    timestamp = result.get("timestamp")
+                    location = result.get("location")
+                    self.log_result("POST /api/employees/{id}/clock-in", True, 
+                                  f"Clocked in at {location}, time: {timestamp}", 
+                                  status_code=response.status_code, payload=result)
+                else:
+                    self.log_result("POST /api/employees/{id}/clock-in", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/employees/{id}/clock-in", False, f"Error: {str(e)}")
+        
+        # Wait a moment to simulate work time
+        time.sleep(2)
+        
+        # Test 5: Clock Out
+        if self.test_data.get("employee_id"):
+            try:
+                response = self.session.post(f"{API_BASE}/employees/{self.test_data['employee_id']}/clock-out")
+                if response.status_code == 200:
+                    result = response.json()
+                    hours_worked = result.get("hours_worked")
+                    total_shift_time = result.get("total_shift_time")
+                    self.log_result("POST /api/employees/{id}/clock-out", True, 
+                                  f"Clocked out, Hours: {hours_worked}, Shift: {total_shift_time}", 
+                                  status_code=response.status_code, payload=result)
+                else:
+                    self.log_result("POST /api/employees/{id}/clock-out", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/employees/{id}/clock-out", False, f"Error: {str(e)}")
+        
+        # Test 6: Get Today's Time Entries
+        if self.test_data.get("employee_id"):
+            try:
+                response = self.session.get(f"{API_BASE}/employees/{self.test_data['employee_id']}/time-entries/today")
+                if response.status_code == 200:
+                    result = response.json()
+                    entries = result.get("entries", [])
+                    total_hours = result.get("total_hours_today", 0)
+                    date_str = result.get("date")
+                    self.log_result("GET /api/employees/{id}/time-entries/today", True, 
+                                  f"Retrieved {len(entries)} entries for {date_str}, Total hours: {total_hours}", 
+                                  status_code=response.status_code, payload=result)
+                else:
+                    self.log_result("GET /api/employees/{id}/time-entries/today", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("GET /api/employees/{id}/time-entries/today", False, f"Error: {str(e)}")
+
+    def test_inventory_management(self):
+        """Test Inventory (/api/inventory, transactions)"""
+        print("\n📦 TESTING INVENTORY MANAGEMENT")
+        print("=" * 50)
+        
+        # Test 1: Create Inventory Item
+        inventory_data = {
+            "name": "Surgical Gloves",
+            "category": "Medical Supplies",
+            "sku": "SG-001",
+            "current_stock": 500,
+            "min_stock_level": 50,
+            "unit_cost": 0.25,
+            "supplier": "MedSupply Corp",
+            "location": "Storage Room A",
+            "notes": "Latex-free surgical gloves, size M"
+        }
+        
+        try:
+            response = self.session.post(f"{API_BASE}/inventory", json=inventory_data)
+            if response.status_code == 200:
+                inventory_item = response.json()
+                item_id = inventory_item.get("id")
+                self.test_data["inventory_id"] = item_id
+                self.log_result("POST /api/inventory", True, f"Created inventory item with ID: {item_id}", 
+                              status_code=response.status_code, payload=inventory_item)
+            else:
+                self.log_result("POST /api/inventory", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+                return False
+        except Exception as e:
+            self.log_result("POST /api/inventory", False, f"Error: {str(e)}")
+            return False
+        
+        # Test 2: Get All Inventory Items
+        try:
+            response = self.session.get(f"{API_BASE}/inventory")
+            if response.status_code == 200:
+                inventory_items = response.json()
+                self.log_result("GET /api/inventory", True, f"Retrieved {len(inventory_items)} inventory items", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/inventory", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/inventory", False, f"Error: {str(e)}")
+        
+        # Test 3: Create Inventory Transaction
+        if self.test_data.get("inventory_id"):
+            transaction_data = {
+                "transaction_type": "out",
+                "quantity": 10,
+                "reference_id": self.test_data.get("patient_id"),
+                "notes": "Used for patient procedure",
+                "created_by": "admin"
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/inventory/{self.test_data['inventory_id']}/transactions", 
+                                           json=transaction_data)
+                if response.status_code == 200:
+                    transaction = response.json()
+                    transaction_id = transaction.get("id")
+                    self.log_result("POST /api/inventory/{id}/transactions", True, 
+                                  f"Created inventory transaction with ID: {transaction_id}", 
+                                  status_code=response.status_code, payload=transaction)
+                else:
+                    self.log_result("POST /api/inventory/{id}/transactions", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/inventory/{id}/transactions", False, f"Error: {str(e)}")
+
+    def test_invoices_finance(self):
+        """Test Invoices & finance (/api/invoices, /api/financial-transactions)"""
+        print("\n💰 TESTING INVOICES & FINANCE")
+        print("=" * 50)
+        
+        # Test 1: Create Invoice
+        if self.test_data.get("patient_id"):
+            invoice_data = {
+                "patient_id": self.test_data["patient_id"],
+                "items": [
+                    {
+                        "description": "Annual Wellness Visit",
+                        "quantity": 1,
+                        "unit_price": 250.00,
+                        "total": 250.00
+                    },
+                    {
+                        "description": "Vital Signs Assessment",
+                        "quantity": 1,
+                        "unit_price": 50.00,
+                        "total": 50.00
+                    }
+                ],
+                "tax_rate": 0.08,
+                "due_days": 30,
+                "notes": "Annual wellness visit and assessment"
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/invoices", json=invoice_data)
+                if response.status_code == 200:
+                    invoice = response.json()
+                    invoice_id = invoice.get("id")
+                    invoice_number = invoice.get("invoice_number")
+                    total_amount = invoice.get("total_amount")
+                    self.test_data["invoice_id"] = invoice_id
+                    self.log_result("POST /api/invoices", True, 
+                                  f"Created invoice {invoice_number} with ID: {invoice_id}, Total: ${total_amount}", 
+                                  status_code=response.status_code, payload=invoice)
+                else:
+                    self.log_result("POST /api/invoices", False, f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/invoices", False, f"Error: {str(e)}")
+        
+        # Test 2: Get All Invoices
+        try:
+            response = self.session.get(f"{API_BASE}/invoices")
+            if response.status_code == 200:
+                invoices = response.json()
+                self.log_result("GET /api/invoices", True, f"Retrieved {len(invoices)} invoices", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/invoices", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/invoices", False, f"Error: {str(e)}")
+        
+        # Test 3: Create Financial Transaction
+        transaction_data = {
+            "transaction_type": "income",
+            "amount": 300.00,
+            "payment_method": "credit_card",
+            "description": "Payment for annual wellness visit",
+            "category": "patient_payment",
+            "patient_id": self.test_data.get("patient_id"),
+            "invoice_id": self.test_data.get("invoice_id"),
+            "created_by": "admin"
+        }
+        
+        try:
+            response = self.session.post(f"{API_BASE}/financial-transactions", json=transaction_data)
+            if response.status_code == 200:
+                transaction = response.json()
+                transaction_id = transaction.get("id")
+                transaction_number = transaction.get("transaction_number")
+                self.test_data["financial_transaction_id"] = transaction_id
+                self.log_result("POST /api/financial-transactions", True, 
+                              f"Created financial transaction {transaction_number} with ID: {transaction_id}", 
+                              status_code=response.status_code, payload=transaction)
+            else:
+                self.log_result("POST /api/financial-transactions", False, 
+                              f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("POST /api/financial-transactions", False, f"Error: {str(e)}")
+        
+        # Test 4: Get All Financial Transactions
+        try:
+            response = self.session.get(f"{API_BASE}/financial-transactions")
+            if response.status_code == 200:
+                transactions = response.json()
+                self.log_result("GET /api/financial-transactions", True, f"Retrieved {len(transactions)} financial transactions", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/financial-transactions", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/financial-transactions", False, f"Error: {str(e)}")
+
+    def test_appointments_scheduling(self):
+        """Test Appointments (/api/appointments + status/calendar if present)"""
+        print("\n📅 TESTING APPOINTMENTS & SCHEDULING")
+        print("=" * 50)
+        
+        # Test 1: Create Provider first
+        provider_data = {
+            "first_name": "Jennifer",
+            "last_name": "Martinez",
+            "title": "Dr.",
+            "specialties": ["Family Medicine", "Internal Medicine"],
+            "email": "dr.martinez@clinichub.com",
+            "phone": "555-0321",
+            "license_number": "TX12345",
+            "npi_number": "1234567890"
+        }
+        
+        try:
+            response = self.session.post(f"{API_BASE}/providers", json=provider_data)
+            if response.status_code == 200:
+                provider = response.json()
+                provider_id = provider.get("id")
+                self.test_data["provider_id"] = provider_id
+                self.log_result("POST /api/providers", True, f"Created provider Dr. Martinez with ID: {provider_id}", 
+                              status_code=response.status_code, payload=provider)
+            else:
+                self.log_result("POST /api/providers", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("POST /api/providers", False, f"Error: {str(e)}")
+        
+        # Test 2: Create Appointment
+        if self.test_data.get("patient_id") and self.test_data.get("provider_id"):
+            appointment_data = {
+                "patient_id": self.test_data["patient_id"],
+                "provider_id": self.test_data["provider_id"],
+                "appointment_date": "2025-01-20",
+                "start_time": "10:00",
+                "end_time": "10:30",
+                "appointment_type": "consultation",
+                "reason": "Follow-up consultation",
+                "scheduled_by": "admin"
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/appointments", json=appointment_data)
+                if response.status_code == 200:
+                    appointment = response.json()
+                    appointment_id = appointment.get("id")
+                    appointment_number = appointment.get("appointment_number")
+                    self.test_data["appointment_id"] = appointment_id
+                    self.log_result("POST /api/appointments", True, 
+                                  f"Created appointment {appointment_number} with ID: {appointment_id}", 
+                                  status_code=response.status_code, payload=appointment)
+                else:
+                    self.log_result("POST /api/appointments", False, f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/appointments", False, f"Error: {str(e)}")
+        
+        # Test 3: Get All Appointments
+        try:
+            response = self.session.get(f"{API_BASE}/appointments")
+            if response.status_code == 200:
+                appointments = response.json()
+                self.log_result("GET /api/appointments", True, f"Retrieved {len(appointments)} appointments", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/appointments", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/appointments", False, f"Error: {str(e)}")
+        
+        # Test 4: Calendar View (if present)
+        try:
+            response = self.session.get(f"{API_BASE}/appointments/calendar", 
+                                      params={"date": "2025-01-20", "view": "week"})
+            if response.status_code == 200:
+                calendar_data = response.json()
+                self.log_result("GET /api/appointments/calendar", True, "Calendar view retrieved successfully", 
+                              status_code=response.status_code, payload=calendar_data)
+            else:
+                self.log_result("GET /api/appointments/calendar", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/appointments/calendar", False, f"Error: {str(e)}")
+
+    def test_erx_prescriptions(self):
+        """Test eRx (/api/erx/*, prescriptions)"""
+        print("\n💊 TESTING eRx & PRESCRIPTIONS")
+        print("=" * 50)
+        
+        # Test 1: Initialize eRx System
+        try:
+            response = self.session.post(f"{API_BASE}/erx/init")
+            if response.status_code == 200:
+                result = response.json()
+                self.log_result("POST /api/erx/init", True, f"eRx system initialized: {result.get('message')}", 
+                              status_code=response.status_code, payload=result)
+            else:
+                self.log_result("POST /api/erx/init", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("POST /api/erx/init", False, f"Error: {str(e)}")
+        
+        # Test 2: Get eRx Medications
+        try:
+            response = self.session.get(f"{API_BASE}/erx/medications")
+            if response.status_code == 200:
+                medications = response.json()
+                self.log_result("GET /api/erx/medications", True, f"Retrieved {len(medications)} eRx medications", 
+                              status_code=response.status_code)
+                # Store first medication for prescription testing
+                if medications:
+                    self.test_data["medication_id"] = medications[0].get("id")
+            else:
+                self.log_result("GET /api/erx/medications", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/erx/medications", False, f"Error: {str(e)}")
+        
+        # Test 3: Create Prescription
+        if self.test_data.get("patient_id") and self.test_data.get("provider_id") and self.test_data.get("medication_id"):
+            prescription_data = {
+                "medication_id": self.test_data["medication_id"],
+                "patient_id": self.test_data["patient_id"],
+                "prescriber_id": self.test_data["provider_id"],
+                "prescriber_name": "Dr. Jennifer Martinez",
+                "dosage_text": "Take 1 tablet by mouth twice daily with food",
+                "dose_quantity": 1.0,
+                "dose_unit": "tablet",
+                "frequency": "BID",
+                "route": "oral",
+                "quantity": 60.0,
+                "days_supply": 30,
+                "refills": 2,
+                "indication": "Hypertension management",
+                "diagnosis_codes": ["I10"],
+                "created_by": "admin"
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/prescriptions", json=prescription_data)
+                if response.status_code == 200:
+                    prescription = response.json()
+                    prescription_id = prescription.get("id")
+                    prescription_number = prescription.get("prescription_number")
+                    self.test_data["prescription_id"] = prescription_id
+                    self.log_result("POST /api/prescriptions", True, 
+                                  f"Created prescription {prescription_number} with ID: {prescription_id}", 
+                                  status_code=response.status_code, payload=prescription)
+                else:
+                    self.log_result("POST /api/prescriptions", False, f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/prescriptions", False, f"Error: {str(e)}")
+        
+        # Test 4: Get All Prescriptions
+        try:
+            response = self.session.get(f"{API_BASE}/prescriptions")
+            if response.status_code == 200:
+                prescriptions = response.json()
+                self.log_result("GET /api/prescriptions", True, f"Retrieved {len(prescriptions)} prescriptions", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/prescriptions", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/prescriptions", False, f"Error: {str(e)}")
+
+    def test_lab_orders_catalog(self):
+        """Test Lab orders (/api/lab-orders, catalog)"""
+        print("\n🧪 TESTING LAB ORDERS & CATALOG")
+        print("=" * 50)
+        
+        # Test 1: Get Lab Test Catalog
+        try:
+            response = self.session.get(f"{API_BASE}/lab-tests")
+            if response.status_code == 200:
+                lab_tests = response.json()
+                self.log_result("GET /api/lab-tests", True, f"Retrieved {len(lab_tests)} lab tests from catalog", 
+                              status_code=response.status_code)
+                # Store first lab test for order testing
+                if lab_tests:
+                    self.test_data["lab_test_id"] = lab_tests[0].get("id")
+            else:
+                self.log_result("GET /api/lab-tests", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/lab-tests", False, f"Error: {str(e)}")
+        
+        # Test 2: Create Lab Order
+        if self.test_data.get("patient_id") and self.test_data.get("provider_id"):
+            lab_order_data = {
+                "patient_id": self.test_data["patient_id"],
+                "provider_id": self.test_data["provider_id"],
+                "lab_tests": [self.test_data.get("lab_test_id")] if self.test_data.get("lab_test_id") else ["CBC"],
+                "icd10_codes": ["Z00.00"],
+                "priority": "routine",
+                "clinical_notes": "Annual wellness lab work",
+                "ordered_by": "admin"
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/lab-orders", json=lab_order_data)
+                if response.status_code == 200:
+                    lab_order = response.json()
+                    lab_order_id = lab_order.get("id")
+                    order_number = lab_order.get("order_number")
+                    self.test_data["lab_order_id"] = lab_order_id
+                    self.log_result("POST /api/lab-orders", True, 
+                                  f"Created lab order {order_number} with ID: {lab_order_id}", 
+                                  status_code=response.status_code, payload=lab_order)
+                else:
+                    self.log_result("POST /api/lab-orders", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/lab-orders", False, f"Error: {str(e)}")
+        
+        # Test 3: Get All Lab Orders
+        try:
+            response = self.session.get(f"{API_BASE}/lab-orders")
+            if response.status_code == 200:
+                lab_orders = response.json()
+                self.log_result("GET /api/lab-orders", True, f"Retrieved {len(lab_orders)} lab orders", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/lab-orders", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/lab-orders", False, f"Error: {str(e)}")
+
+    def test_additional_endpoints(self):
+        """Test Communications, Clinical Templates, Quality Measures, Documents, Referrals, Telehealth"""
+        print("\n🔧 TESTING ADDITIONAL ENDPOINTS")
+        print("=" * 50)
+        
+        # Test 1: Clinical Templates
+        try:
+            response = self.session.get(f"{API_BASE}/clinical-templates")
+            if response.status_code == 200:
+                templates = response.json()
+                self.log_result("GET /api/clinical-templates", True, f"Retrieved {len(templates)} clinical templates", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/clinical-templates", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/clinical-templates", False, f"Error: {str(e)}")
+        
+        # Test 2: Quality Measures
+        try:
+            response = self.session.get(f"{API_BASE}/quality-measures")
+            if response.status_code == 200:
+                measures = response.json()
+                self.log_result("GET /api/quality-measures", True, f"Retrieved {len(measures)} quality measures", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/quality-measures", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/quality-measures", False, f"Error: {str(e)}")
+        
+        # Test 3: Document Management
+        try:
+            response = self.session.get(f"{API_BASE}/documents")
+            if response.status_code == 200:
+                documents = response.json()
+                self.log_result("GET /api/documents", True, f"Retrieved {len(documents)} documents", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/documents", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/documents", False, f"Error: {str(e)}")
+        
+        # Test 4: Referrals
+        try:
+            response = self.session.get(f"{API_BASE}/referrals")
+            if response.status_code == 200:
+                referrals = response.json()
+                self.log_result("GET /api/referrals", True, f"Retrieved {len(referrals)} referrals", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/referrals", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/referrals", False, f"Error: {str(e)}")
+        
+        # Test 5: Communications
+        try:
+            response = self.session.get(f"{API_BASE}/communications/templates")
+            if response.status_code == 200:
+                comm_templates = response.json()
+                self.log_result("GET /api/communications/templates", True, f"Retrieved {len(comm_templates)} communication templates", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/communications/templates", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/communications/templates", False, f"Error: {str(e)}")
+        
+        # Test 6: Telehealth
+        try:
+            response = self.session.get(f"{API_BASE}/telehealth/sessions")
+            if response.status_code == 200:
+                sessions = response.json()
+                self.log_result("GET /api/telehealth/sessions", True, f"Retrieved {len(sessions)} telehealth sessions", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/telehealth/sessions", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/telehealth/sessions", False, f"Error: {str(e)}")
+
+        return True
         """Create a test patient for receipt generation"""
         try:
             patient_data = {
