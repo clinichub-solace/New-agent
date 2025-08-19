@@ -8879,11 +8879,15 @@ async def send_message(message_data: dict):
         if "template_id" in message_data:
             template = await db.communication_templates.find_one({"id": message_data["template_id"]}, {"_id": 0})
             if template:
-                content = template["content_template"]
-                subject = template.get("subject_template", "")
+                # Unified 'title' and 'body' fields preferred; fallback to legacy subject/content templates
+                subject = template.get("title") or template.get("subject_template", "")
+                content = template.get("body") or template.get("content_template", "")
                 
-                # Replace variables with actual values
-                variables = message_data.get("variables", {})
+                # Build default variables from patient/appointment/invoice context when available
+                variables = {
+                    "patient_name": f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}"
+                }
+                variables.update(message_data.get("variables", {}))
                 for var, value in variables.items():
                     content = content.replace(f"{{{{{var}}}}}", str(value))
                     subject = subject.replace(f"{{{{{var}}}}}", str(value))
