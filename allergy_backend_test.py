@@ -249,35 +249,56 @@ class AllergyTester:
     def verify_audit_events(self):
         """Verify audit event created for allergy resource_type"""
         try:
-            # Note: This would require direct database access or an audit endpoint
-            # For now, we'll check if there's an audit endpoint available
-            response = self.session.get(f"{API_BASE}/audit-events")
+            # Direct MongoDB access to verify audit events
+            import asyncio
+            from motor.motor_asyncio import AsyncIOMotorClient
             
-            if response.status_code == 200:
-                audit_events = response.json()
-                
-                # Look for recent allergy audit events
-                allergy_events = [event for event in audit_events if event.get("resource_type") == "allergy"]
-                recent_events = [event for event in allergy_events if 
-                               datetime.fromisoformat(event.get("timestamp", "").replace("Z", "+00:00")) > 
-                               datetime.now().replace(tzinfo=None) - timedelta(minutes=5)]
-                
-                if recent_events:
-                    self.log_result("Audit Events Verification", True, 
-                                  f"Found {len(recent_events)} recent allergy audit events", 
-                                  response_data={"recent_allergy_events": len(recent_events)})
-                else:
-                    self.log_result("Audit Events Verification", False, 
-                                  "No recent allergy audit events found", 
-                                  response_data={"total_allergy_events": len(allergy_events)})
-            elif response.status_code == 404:
-                self.log_result("Audit Events Verification", False, 
-                              "Audit events endpoint not available (404)", 
-                              status_code=response.status_code)
-            else:
-                self.log_result("Audit Events Verification", False, 
-                              f"Failed to retrieve audit events: {response.status_code}",
-                              status_code=response.status_code)
+            async def check_audit():
+                try:
+                    mongo_url = 'mongodb://localhost:27017/clinichub'
+                    client = AsyncIOMotorClient(mongo_url)
+                    db = client['clinichub']
+                    
+                    # Get recent audit events for allergy resource type
+                    cursor = db.audit_events.find({
+                        "resource_type": "allergy",
+                        "timestamp": {"$gte": datetime.now() - timedelta(minutes=5)}
+                    }).sort("timestamp", -1)
+                    
+                    events = await cursor.to_list(length=10)
+                    
+                    if events:
+                        # Look for our specific allergy creation event
+                        allergy_id = self.test_data.get("allergy_id")
+                        matching_event = None
+                        
+                        if allergy_id:
+                            matching_event = next((e for e in events if e.get("resource_id") == allergy_id), None)
+                        
+                        if matching_event:
+                            self.log_result("Audit Events Verification", True, 
+                                          f"Found audit event for created allergy. Event type: {matching_event.get('event_type')}, User: {matching_event.get('user_name')}", 
+                                          response_data={
+                                              "audit_event_id": matching_event.get("id"),
+                                              "event_type": matching_event.get("event_type"),
+                                              "resource_id": matching_event.get("resource_id"),
+                                              "user_name": matching_event.get("user_name"),
+                                              "phi_accessed": matching_event.get("phi_accessed"),
+                                              "success": matching_event.get("success")
+                                          })
+                        else:
+                            self.log_result("Audit Events Verification", True, 
+                                          f"Found {len(events)} recent allergy audit events (specific event may not match)", 
+                                          response_data={"recent_allergy_events": len(events)})
+                    else:
+                        self.log_result("Audit Events Verification", False, 
+                                      "No recent allergy audit events found in database")
+                        
+                except Exception as e:
+                    self.log_result("Audit Events Verification", False, f"Error accessing MongoDB: {str(e)}")
+            
+            # Run the async function
+            asyncio.run(check_audit())
                 
         except Exception as e:
             self.log_result("Audit Events Verification", False, f"Error checking audit events: {str(e)}")
