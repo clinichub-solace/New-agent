@@ -11579,7 +11579,7 @@ async def create_insurance_card(card_data: InsuranceCardV2Create, current_user: 
     """Add insurance card information for a patient"""
     try:
         # Verify patient exists
-        patient = await db.patients.find_one({"id": card_data["patient_id"]}, {"_id": 0})
+        patient = await db.patients.find_one({"id": card_data.patient_id}, {"_id": 0})
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
