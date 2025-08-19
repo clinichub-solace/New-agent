@@ -32,7 +32,7 @@ async def list_audit(
     if since:        q["ts"] = {"$gte": since}
 
     try:
-        cur = db[AUDIT_COLL].find(q).sort("ts", -1).limit(limit)
+        cur = db[AUDIT_COLL].find(q, {"_id": 0}).sort("ts", -1).limit(limit)
         items = await cur.to_list(None)
         return items
     except Exception as e:
