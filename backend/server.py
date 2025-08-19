@@ -6778,10 +6778,39 @@ async def get_patient_vital_signs(patient_id: str):
 
 # Allergies
 @api_router.post("/allergies", response_model=Allergy)
-async def create_allergy(allergy_data: AllergyCreate):
-    allergy = Allergy(**allergy_data.dict())
-    allergy_dict = jsonable_encoder(allergy)
-    await db.allergies.insert_one(allergy_dict)
+async def create_allergy(allergy_data: AllergyCreate, current_user: User = Depends(get_current_user)):
+    # Validate patient_id
+    pid = allergy_data.patient_id
+    if not pid:
+        raise HTTPException(status_code=400, detail="patient_id is required")
+    patient = await db.patients.find_one({"id": pid}, {"_id": 0})
+    if not patient:
+        raise HTTPException(status_code=400, detail="Invalid patient_id")
+
+    # Build record with attribution
+    allergy = Allergy(
+        patient_id=pid,
+        allergen=allergy_data.allergen,
+        reaction=allergy_data.reaction,
+        severity=allergy_data.severity,
+        onset_date=allergy_data.onset_date,
+        notes=allergy_data.notes,
+        created_by=current_user.username,
+    )
+
+    await db.allergies.insert_one(jsonable_encoder(allergy))
+
+    await create_audit_event(
+        event_type="create",
+        resource_type="allergy",
+        user_id=current_user.id,
+        user_name=current_user.username,
+        resource_id=allergy.id,
+        action_details={"patient_id": pid, "allergen": allergy.allergen, "severity": allergy.severity},
+        phi_accessed=True,
+        success=True,
+    )
+
     return allergy
 
 @api_router.get("/allergies/patient/{patient_id}", response_model=List[Allergy])
