@@ -8279,23 +8279,25 @@ async def get_appointments(
 
 # Calendar View (must be before {appointment_id} route)
 @api_router.get("/appointments/calendar")
-async def get_calendar_view(date: str, view: str = "week"):
+async def get_calendar_view(provider_id: str, date: str, view: str = "day"):
+    """Return normalized slots for a provider and date range.
+    Response structure: { view, start_date, end_date, slots: [{appointment_id, patient_id, provider_id, start_time, end_time, status}] }
+    """
     try:
         from datetime import datetime, timedelta
-        
+
         # Parse date
-        base_date = datetime.fromisoformat(date)
-        
+        base_date = datetime.strptime(date, "%Y-%m-%d")
+
+        # Compute range
         if view == "day":
             start_date = base_date.date()
             end_date = start_date
         elif view == "week":
-            # Get start of week (Monday)
             start_date = (base_date - timedelta(days=base_date.weekday())).date()
             end_date = start_date + timedelta(days=6)
         elif view == "month":
             start_date = base_date.replace(day=1).date()
-            # Get last day of month
             if base_date.month == 12:
                 next_month = base_date.replace(year=base_date.year + 1, month=1, day=1)
             else:
@@ -8303,20 +8305,43 @@ async def get_calendar_view(date: str, view: str = "week"):
             end_date = (next_month - timedelta(days=1)).date()
         else:
             raise HTTPException(status_code=400, detail="Invalid view type. Use 'day', 'week', or 'month'")
-        
-        # Get appointments in date range
-        appointments = await db.appointments.find({
-            "appointment_date": {
-                "$gte": start_date.isoformat(),
-                "$lte": end_date.isoformat()
-            }
-        }).sort("appointment_date", 1).to_list(1000)
-        
+
+        # Query provider's appointments in range (exclude cancelled/no_show)
+        appts = await db.appointments.find({
+            "provider_id": provider_id,
+            "status": {"$nin": ["cancelled", "no_show"]},
+            "appointment_date": {"$gte": start_date.isoformat(), "$lte": end_date.isoformat()}
+        }, {"_id": 0}).sort([("appointment_date", 1), ("start_time", 1)]).to_list(2000)
+
+        # Normalize to slots shape
+        slots = []
+        for a in appts:
+            slots.append({
+                "appointment_id": a.get("id"),
+                "patient_id": a.get("patient_id"),
+                "provider_id": a.get("provider_id"),
+                "start_time": f"{a.get('appointment_date')}T{a.get('start_time')}:00",
+                "end_time": f"{a.get('appointment_date')}T{a.get('end_time')}:00",
+                "status": a.get("status", "scheduled")
+            })
+
+        # Validate no overlaps in output for the same provider
+        def _to_dt(ts):
+            return datetime.strptime(ts, "%Y-%m-%dT%H:%M:%S")
+        for i in range(len(slots)):
+            si, ei = _to_dt(slots[i]["start_time"]), _to_dt(slots[i]["end_time"])
+            for j in range(i+1, len(slots)):
+                sj, ej = _to_dt(slots[j]["start_time"]), _to_dt(slots[j]["end_time"])
+                if si < ej and ei > sj:
+                    # Overlap detected; this should not happen due to create validation
+                    # Log and continue; frontend will still receive consistent slots
+                    logging.warning(f"Calendar overlap detected for provider {provider_id}: {slots[i]['appointment_id']} with {slots[j]['appointment_id']}")
+
         return {
             "view": view,
             "start_date": start_date.isoformat(),
             "end_date": end_date.isoformat(),
-            "appointments": [Appointment(**apt) for apt in appointments]
+            "slots": slots
         }
     except HTTPException:
         raise
