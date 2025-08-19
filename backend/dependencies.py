@@ -81,7 +81,7 @@ async def get_current_active_user(credentials: HTTPAuthorizationCredentials = De
     """Get current active user from JWT token"""
     try:
         token = credentials.credentials
-        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+        payload = jwt.decode(token, JWT_SECRET_FOR_DECODE, algorithms=[JWT_ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             raise HTTPException(
@@ -94,6 +94,7 @@ async def get_current_active_user(credentials: HTTPAuthorizationCredentials = De
         class User:
             def __init__(self, username):
                 self.username = username
+                self.id = username  # Add id attribute
                 
         return User(username)
         
