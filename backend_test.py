@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ClinicHub Backend Testing - Receipt Generation and Employee Clock-In/Out
-Testing the newly added Receipt Generation and Employee Clock-In/Out functionality
+ClinicHub Comprehensive Backend Testing
+Testing all major backend endpoints as requested in the review
 """
 
 import requests
@@ -9,9 +9,10 @@ import json
 import sys
 from datetime import datetime, date
 import time
+import os
 
-# Configuration
-BACKEND_URL = "http://localhost:8001"
+# Configuration - Use production URL from frontend/.env
+BACKEND_URL = "https://medical-practice-hub.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
 
 # Test credentials
