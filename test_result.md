@@ -144,6 +144,9 @@
 ##     -agent: "main"  # or "testing" or "user"
 ##     -message: "Communication message between agents"
 
+  - agent: "main"
+    message: "User requested a comprehensive audit of backend, frontend and endpoints. Preparing to run full backend automated tests followed by frontend automated UI tests on preview domain. Confirmed preview login works; will include endpoint-by-endpoint pass/fail and performance in report."
+
 # Protocol Guidelines for Main agent
 #
 # 1. Update Test Result File Before Testing:
