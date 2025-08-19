@@ -12,7 +12,7 @@ import time
 import os
 
 # Configuration - Use production URL from frontend/.env
-BACKEND_URL = "https://cffb1258-929a-4ba4-8f4c-37a06dc9dc29.preview.emergentagent.com"
+BACKEND_URL = "https://medoffice-suite.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
 
 # Test credentials

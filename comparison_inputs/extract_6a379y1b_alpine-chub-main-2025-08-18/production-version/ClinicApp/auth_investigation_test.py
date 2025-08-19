@@ -262,7 +262,7 @@ def test_cors_configuration():
     try:
         url = f"{API_URL}/health"
         headers = {
-            "Origin": "https://ecf9c07e-b68e-4d07-9324-af4a7e057b56.preview.emergentagent.com",
+            "Origin": "https://medoffice-suite.preview.emergentagent.com",
             "Access-Control-Request-Method": "POST",
             "Access-Control-Request-Headers": "Content-Type"
         }

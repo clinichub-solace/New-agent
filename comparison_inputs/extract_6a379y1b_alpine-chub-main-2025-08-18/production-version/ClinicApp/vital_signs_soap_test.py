@@ -12,7 +12,7 @@ from typing import Dict, Any, List
 import uuid
 
 # Configuration
-BACKEND_URL = "https://ecf9c07e-b68e-4d07-9324-af4a7e057b56.preview.emergentagent.com/api"
+BACKEND_URL = "https://medoffice-suite.preview.emergentagent.com/api"
 ADMIN_CREDENTIALS = {"username": "admin", "password": "admin123"}
 
 class ClinicHubTester:
