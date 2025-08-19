@@ -814,6 +814,21 @@ async def create_pay_period(
         meta={"start_date": period["start_date"], "end_date": period["end_date"], "frequency": period["frequency"]}
     )
     
+    # Notification for period creation
+    from backend.utils.notify import notify_user
+    target_user_id = getattr(current_user, "id", "system")
+    
+    await notify_user(db,
+        user_id=target_user_id,
+        type="payroll.period.create",
+        title="Pay period created",
+        body=f"New {period['frequency']} pay period created: {period['start_date']} to {period['end_date']}",
+        subject_type="payroll_period",
+        subject_id=str(period["id"]),
+        severity="success",
+        meta={"start_date": period["start_date"], "end_date": period["end_date"], "frequency": period["frequency"]}
+    )
+    
     return _with_api_id(period)
 
 @payroll_router.get("/periods")
