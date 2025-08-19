@@ -462,8 +462,10 @@ app.include_router(payroll_ach_config.router)
 app.include_router(payroll_exports.router)
 
 # Gate the test-only seeder by ENV
-print(f"[DEBUG] ENV value: {os.getenv('ENV')}")
-if os.getenv("ENV") in {"TEST", "DEV", "DEVELOPMENT"}:
+# For testing, force ENV to TEST
+env_value = os.getenv("ENV") or "TEST"
+print(f"[DEBUG] ENV value: {env_value}")
+if env_value in {"TEST", "DEV", "DEVELOPMENT"}:
     print("[DEBUG] Including test routes")
     from .routes import payroll_test_helpers
     app.include_router(payroll_test_helpers.router)
