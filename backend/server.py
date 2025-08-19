@@ -11629,8 +11629,8 @@ async def get_patient_insurance_cards(patient_id: str, current_user: User = Depe
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving insurance cards: {str(e)}")
 
-@api_router.post("/insurance/verify-eligibility")
-async def verify_eligibility(verification_data: dict, current_user: User = Depends(get_current_active_user)):
+@api_router.post("/insurance/eligibility/check")
+async def verify_eligibility(verification_data: EligibilityCheckRequest, current_user: User = Depends(get_current_active_user)):
     """Verify insurance eligibility (mock implementation)"""
     try:
         patient_id = verification_data["patient_id"]
