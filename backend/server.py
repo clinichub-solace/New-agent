@@ -443,6 +443,17 @@ from .routers import receipts, time_tracking
 from .payroll_enhancements import payroll_router, ensure_indexes
 app.include_router(receipts.router)
 app.include_router(time_tracking.router)
+
+# Startup: ensure indexes for payroll
+@app.on_event("startup")
+async def on_startup():
+    try:
+        # We have a global db via dependencies; import here to avoid cycles
+        from .dependencies import db as _db
+        await ensure_indexes(_db)
+    except Exception as e:
+        print(f"[startup] ensure_indexes failed: {e}")
+
 app.include_router(payroll_router)
 
 # Add root route for health verification
