@@ -20,6 +20,28 @@ except Exception:
     async def get_current_user():
         return type("U", (), {"id": "system", "username": "system"})()
 
+# --- API shape helpers ---
+
+def _with_api_id(doc: dict | None) -> dict | None:
+    if not doc:
+        return doc
+    _id = doc.get("_id") or doc.get("id")
+    if _id is not None:
+        doc["_id"] = str(_id)
+    return doc
+
+def _with_api_id_list(docs: list[dict]) -> list[dict]:
+    return [_with_api_id(d) for d in (docs or [])]
+
+def _ensure_totals_count(totals: dict | None) -> dict:
+    totals = totals or {}
+    if "count" not in totals:
+        if "employees" in totals:
+            totals["count"] = totals.get("employees", 0)
+        else:
+            totals["count"] = 0
+    return totals
+
 # Enhanced Payroll Models
 
 class PayFrequency(str, Enum):
@@ -443,14 +465,6 @@ def D(x) -> Decimal:
         return x
     return Decimal(str(x or "0")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
-    bank_account_number: str
-    check_format: CheckPrintFormat = CheckPrintFormat.STANDARD
-    is_void: bool = False
-    void_reason: Optional[str] = None
-    void_date: Optional[date] = None
-    printed_at: Optional[datetime] = None
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-
 # API Endpoints Router
 
 payroll_router = APIRouter(prefix="/api/payroll", tags=["payroll"])
@@ -712,3 +726,207 @@ async def setup_direct_deposit(
     # Return masked
     di_masked = {**di, "routing_number": "*********", "account_number": f"****{di['account_last4']}" if di.get("account_last4") else None}
     return di_masked
+
+# ---------- helpers for periods/runs ----------
+async def _period_exists(db, start_date: str, end_date: str) -> bool:
+    return await db.pay_periods.find_one({"start_date": start_date, "end_date": end_date}) is not None
+
+async def _get_run(db, run_id: str):
+    run = await db.payroll_runs.find_one({"id": run_id})
+    if not run:
+        raise HTTPException(status_code=404, detail="Payroll run not found")
+    return run
+
+async def _ensure_run_indexes(db):
+    await db.pay_periods.create_index([("start_date", 1), ("end_date", 1)], name="period_range", background=True)
+    await db.payroll_records.create_index([("payroll_period_id", 1)], name="payrec_period", background=True)
+    await db.payroll_runs.create_index([("period_id", 1), ("status", 1)], name="run_period_status", background=True)
+
+# ---------- models for periods/runs ----------
+class PayPeriodIn(BaseModel):
+    start_date: str  # YYYY-MM-DD
+    end_date: str    # YYYY-MM-DD
+    frequency: str = Field(..., regex="^(weekly|biweekly|semimonthly|monthly|quarterly|annually)$")
+    closed: bool = False
+
+class RunCreateIn(BaseModel):
+    period_id: str
+
+# ---------- endpoints for periods/runs ----------
+@payroll_router.post("/periods")
+async def create_pay_period(
+    body: PayPeriodIn,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    await _ensure_run_indexes(db)
+    if await _period_exists(db, body.start_date, body.end_date):
+        existing = await db.pay_periods.find_one({"start_date": body.start_date, "end_date": body.end_date})
+        return _with_api_id(existing)
+
+    period = {
+        "id": str(uuid.uuid4()),
+        "start_date": body.start_date,
+        "end_date": body.end_date,
+        "frequency": body.frequency,
+        "closed": body.closed,
+        "created_at": datetime.utcnow(),
+        "created_by": current_user.username,
+    }
+    await db.pay_periods.insert_one(period)
+    return _with_api_id(period)
+
+@payroll_router.get("/periods")
+async def list_pay_periods(
+    open: Optional[bool] = Query(None),
+    db=Depends(get_db),
+):
+    q = {}
+    if open is True:
+        q["closed"] = False
+    cur = db.pay_periods.find(q).sort("start_date", 1)
+    items = [p async for p in cur]
+    return _with_api_id_list(items)
+
+@payroll_router.post("/runs")
+async def create_run(
+    body: RunCreateIn,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    await _ensure_run_indexes(db)
+    period = await get_pay_period(db, body.period_id)
+
+    existing = await db.payroll_runs.find_one({"period_id": period["id"], "status": {"$in": ["DRAFT", "POSTED"]}})
+    if existing:
+        existing["totals"] = _ensure_totals_count(existing.get("totals"))
+        return _with_api_id(existing)
+
+    run = {
+        "id": str(uuid.uuid4()),
+        "period_id": period["id"],
+        "status": "DRAFT",
+        "created_at": datetime.utcnow(),
+        "created_by": current_user.username,
+        "totals": {
+            "employees": 0, "gross": "0.00", "taxes": "0.00",
+            "deductions": "0.00", "net": "0.00"
+        }
+    }
+    await db.payroll_runs.insert_one(run)
+    run["totals"] = _ensure_totals_count(run.get("totals"))
+    return _with_api_id(run)
+
+@payroll_router.get("/runs/{run_id}")
+async def get_run(run_id: str, db=Depends(get_db)):
+    run = await _get_run(db, run_id)
+    run["totals"] = _ensure_totals_count(run.get("totals"))
+    return _with_api_id(run)
+
+@payroll_router.post("/runs/{run_id}/post")
+async def post_run(
+    run_id: str,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    run = await _get_run(db, run_id)
+    if run.get("status") == "POSTED":
+        run["totals"] = _ensure_totals_count(run.get("totals"))
+        return _with_api_id(run)
+
+    period = await get_pay_period(db, run["period_id"])
+
+    recs_cur = db.payroll_records.find({
+        "payroll_period_id": period["id"],
+        "status": {"$in": ["calculated", "approved", "paid"]}
+    })
+    recs = [r async for r in recs_cur]
+
+    employees = len({r.get("employee_id") for r in recs})
+    gross = sum(D(r.get("gross_pay")) for r in recs)
+    taxes = sum(D(r.get("total_taxes")) for r in recs)
+    ded   = sum(D(r.get("total_pre_tax_deductions")) + D(r.get("total_post_tax_deductions")) for r in recs)
+    net   = sum(D(r.get("net_pay")) for r in recs)
+
+    for r in recs:
+        upd = {"status": "paid"}
+        if not r.get("paid_at"):
+            upd["paid_at"] = datetime.utcnow()
+        if not r.get("ledger_post_id"):
+            fin = {
+                "id": str(uuid.uuid4()),
+                "direction": "EXPENSE",
+                "category": "payroll",
+                "amount": r.get("net_pay"),
+                "source": {"kind": "payroll_record", "id": r.get("id")},
+                "timestamp": datetime.utcnow(),
+            }
+            await db.financial_transactions.insert_one(fin)
+            upd["ledger_post_id"] = fin["id"]
+        await db.payroll_records.update_one({"id": r.get("id")}, {"$set": upd})
+
+    totals = {
+        "employees": employees,
+        "gross": str(gross),
+        "taxes": str(taxes),
+        "deductions": str(ded),
+        "net": str(net),
+    }
+    totals = _ensure_totals_count(totals)
+
+    await db.payroll_runs.update_one(
+        {"id": run_id},
+        {"$set": {"status": "POSTED", "posted_at": datetime.utcnow(), "posted_by": current_user.username, "totals": totals}}
+    )
+
+    run.update({"status": "POSTED", "posted_at": datetime.utcnow(), "posted_by": current_user.username, "totals": totals})
+    return _with_api_id(run)
+
+@payroll_router.post("/runs/{run_id}/void")
+async def void_run(
+    run_id: str,
+    reason: Optional[str] = Body(default=""),
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    run = await _get_run(db, run_id)
+    if run.get("status") == "VOID":
+        run["totals"] = _ensure_totals_count(run.get("totals"))
+        return _with_api_id(run)
+
+    await db.payroll_runs.update_one(
+        {"id": run_id},
+        {"$set": {"status": "VOID", "void_at": datetime.utcnow(), "void_by": current_user.username, "void_reason": reason or ""}}
+    )
+    run.update({"status": "VOID", "void_at": datetime.utcnow(), "void_by": current_user.username, "void_reason": reason or ""})
+    run["totals"] = _ensure_totals_count(run.get("totals"))
+    return _with_api_id(run)
+
+@payroll_router.get("/runs/{run_id}/paystubs")
+async def list_run_paystubs(
+    run_id: str,
+    format: Optional[str] = Query(default="json", regex="^(json|pdf)$"),
+    db=Depends(get_db),
+):
+    run = await _get_run(db, run_id)
+    period = await get_pay_period(db, run["period_id"])
+    recs_cur = db.payroll_records.find({"payroll_period_id": period["id"]})
+    recs = [r async for r in recs_cur]
+    stubs = []
+    for r in recs:
+        stubs.append({
+            "payroll_record_id": r.get("id"),
+            "employee_id": r.get("employee_id"),
+            "employee_name": r.get("employee_name"),
+            "period": {"start_date": period["start_date"], "end_date": period["end_date"]},
+            "gross": r.get("gross_pay"), "taxes": r.get("total_taxes"),
+            "deductions": str(D(r.get("total_pre_tax_deductions")) + D(r.get("total_post_tax_deductions"))),
+            "net": r.get("net_pay"),
+        })
+    if format == "json":
+        return stubs
+    elif format == "pdf":
+        # Placeholder PDF bundle
+        return stubs
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported format")
