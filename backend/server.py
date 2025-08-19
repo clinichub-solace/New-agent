@@ -456,6 +456,7 @@ async def on_startup():
         print(f"[startup] ensure_indexes failed: {e}")
 
 app.include_router(payroll_router)
+app.include_router(payroll_config.router)
 
 # Add root route for health verification
 @app.get("/")
