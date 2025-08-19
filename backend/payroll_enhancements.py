@@ -12,7 +12,7 @@ import calendar
 
 # --- ADD (near imports) ---
 try:
-    from backend.dependencies import get_db, get_current_user  # adjust if your project path differs
+    from backend.dependencies import get_db, get_current_active_user as get_current_user  # adjust if your project path differs
 except Exception:
     # Fallback shims if module path differs in your repo
     async def get_db():
