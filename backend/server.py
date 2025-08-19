@@ -2710,13 +2710,16 @@ class Allergy(BaseModel):
     updated_at: datetime = Field(default_factory=datetime.utcnow)
 
 class AllergyCreate(BaseModel):
-    patient_id: str
-    allergen: str
+    # patient_id handled explicitly to return 400 on missing/invalid
+    patient_id: Optional[str] = None
+    allergen: str = Field(..., alias="allergy_name")
     reaction: str
     severity: AllergySeverity
     onset_date: Optional[date] = None
     notes: Optional[str] = None
-    created_by: str
+
+    class Config:
+        allow_population_by_field_name = True
 
 # Medication Model
 class Medication(BaseModel):
