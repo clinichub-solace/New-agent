@@ -394,6 +394,55 @@ class PayrollCheck(BaseModel):
     amount_in_words: str
     memo: str
     bank_routing_number: str
+
+# --- Repo helpers ---
+
+async def ensure_indexes(db):
+    await db.time_entries.create_index([("employee_id", 1), ("date", 1)], name="time_entries_emp_date", background=True)
+    await db.payroll_runs.create_index([("period_id", 1), ("status", 1)], name="runs_period_status", background=True)
+    await db.financial_transactions.create_index([("source.kind", 1), ("source.id", 1)], name="fin_src", background=True)
+    await db.payroll_records.create_index([("payroll_period_id", 1), ("employee_id", 1)], name="payrec_period_emp", background=True)
+
+async def get_payroll_record(db, payroll_record_id: str) -> Dict[str, Any]:
+    rec = await db.payroll_records.find_one({"id": payroll_record_id})
+    if not rec:
+        raise HTTPException(status_code=404, detail="Payroll record not found")
+    return rec
+
+async def get_pay_period(db, period_id: str) -> Dict[str, Any]:
+    p = await db.pay_periods.find_one({"id": period_id})
+    if not p:
+        raise HTTPException(status_code=400, detail="Invalid payroll_period_id")
+    return p
+
+async def list_time_entries(db, employee_id: str, start_dt: date, end_dt: date) -> List[Dict[str, Any]]:
+    cur = db.time_entries.find({"employee_id": employee_id, "date": {"$gte": start_dt.isoformat(), "$lte": end_dt.isoformat()}})
+    return [e async for e in cur]
+
+async def get_employee_profile(db, employee_id: str) -> Dict[str, Any]:
+    emp = await db.employees.find_one({"id": employee_id})
+    if not emp:
+        raise HTTPException(status_code=400, detail="Employee not found")
+    return emp
+
+async def get_or_create_payroll_check(db, payroll_record_id: str) -> Dict[str, Any]:
+    chk = await db.payroll_checks.find_one({"payroll_record_id": payroll_record_id})
+    if chk:
+        return chk
+    chk = {
+        "id": str(uuid.uuid4()),
+        "payroll_record_id": payroll_record_id,
+        "is_void": False,
+        "created_at": datetime.utcnow(),
+    }
+    await db.payroll_checks.insert_one(chk)
+    return chk
+
+def D(x) -> Decimal:
+    if isinstance(x, Decimal):
+        return x
+    return Decimal(str(x or "0")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
     bank_account_number: str
     check_format: CheckPrintFormat = CheckPrintFormat.STANDARD
     is_void: bool = False
