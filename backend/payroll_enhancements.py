@@ -965,6 +965,21 @@ async def void_run(
         meta={"reason": reason or "", "period_id": run.get("period_id")}
     )
     
+    # Notification for run voiding
+    from backend.utils.notify import notify_user
+    target_user_id = getattr(current_user, "id", "system")
+    
+    await notify_user(db,
+        user_id=target_user_id,
+        type="payroll.run.void",
+        title="Payroll run voided",
+        body=f"Run {run.get('id')} has been marked as VOID. Reason: {reason or 'No reason provided'}",
+        subject_type="payroll_run",
+        subject_id=str(run.get("id")),
+        severity="warning",
+        meta={"reason": reason or "", "period_id": run.get("period_id")}
+    )
+    
     return _with_api_id(run)
 
 @payroll_router.get("/runs/{run_id}/paystubs")
