@@ -9,7 +9,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment variables
-ROOT_DIR = Path(__file__).parent.parent
+ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 def read_secret(secret_name: str, fallback_env: str = None) -> str:
