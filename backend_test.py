@@ -24,19 +24,26 @@ class ClinicHubTester:
         self.session = requests.Session()
         self.auth_token = None
         self.test_results = []
+        self.test_data = {}  # Store created test data for cross-test usage
         
-    def log_result(self, test_name, success, message, details=None):
-        """Log test result"""
+    def log_result(self, test_name, success, message, details=None, status_code=None, payload=None):
+        """Log test result with enhanced details"""
         status = "✅ PASS" if success else "❌ FAIL"
         print(f"{status} {test_name}: {message}")
         if details:
             print(f"   Details: {details}")
+        if status_code:
+            print(f"   Status Code: {status_code}")
+        if payload and isinstance(payload, dict):
+            print(f"   Sample Payload: {json.dumps(payload, indent=2, default=str)[:200]}...")
         
         self.test_results.append({
             "test": test_name,
             "success": success,
             "message": message,
-            "details": details
+            "details": details,
+            "status_code": status_code,
+            "payload": payload
         })
     
     def authenticate(self):
