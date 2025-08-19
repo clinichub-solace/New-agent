@@ -8888,9 +8888,15 @@ async def send_message(message_data: dict):
                     "patient_name": f"{patient['name'][0]['given'][0]} {patient['name'][0]['family']}"
                 }
                 variables.update(message_data.get("variables", {}))
+                # Replace placeholders in content: support both {{VAR}} and {var}
+                # Normalize variables: allow lower/upper and underscores
                 for var, value in variables.items():
+                    # Legacy double-brace style
                     content = content.replace(f"{{{{{var}}}}}", str(value))
                     subject = subject.replace(f"{{{{{var}}}}}", str(value))
+                    # Curly-brace style used in new spec
+                    content = content.replace(f"{{{var}}}", str(value))
+                    subject = subject.replace(f"{{{var}}}", str(value))
                 
                 message_data["content"] = content
                 message_data["subject"] = subject
