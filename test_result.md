@@ -1259,9 +1259,9 @@ test_plan:
 
   - task: "Insurance Verification System"
     implemented: true
-    working: true
+    working: false
     file: "/app/backend/server.py"
-    stuck_count: 0
+    stuck_count: 1
     priority: "high"
     needs_retesting: false
     status_history:
@@ -1280,6 +1280,9 @@ test_plan:
       - working: true
         agent: "testing"
         comment: "✅ COMPREHENSIVE INSURANCE VERIFICATION TESTING COMPLETED: Successfully tested all insurance verification systems as requested in the review. Insurance Plans Management working perfectly (✅ 1/1 tests passed): GET /api/insurance-plans returns 3 available plans. Insurance Policy Management working perfectly (✅ 1/1 tests passed): POST /api/insurance-policies successfully creates policies with proper validation. Insurance Verification working perfectly (✅ 1/1 tests passed): POST /api/insurance-verification successfully verifies eligibility with status 'verified'. Verification History working perfectly (✅ 2/2 tests passed): GET /api/insurance-verifications retrieves all verifications, patient-specific filtering works correctly. Mock insurance service integration is functional and returns appropriate verification responses. All core insurance verification workflows are operational and ready for production use. Minor issue: GET /api/insurance-policies endpoint returns 405 Method Not Allowed, but this doesn't affect core functionality as policies can be created and verified successfully."
+      - working: false
+        agent: "testing"
+        comment: "🏥💳 TASK 4 INSURANCE WORKFLOW WITH MOCK ADAPTER TESTING COMPLETED: Conducted comprehensive testing of the complete insurance verification workflow as requested in the review. AUTHENTICATION: ✅ admin/admin123 credentials working perfectly. WORKFLOW RESULTS (60% success rate, 6/10 tests passed): ✅ WORKING COMPONENTS: 1) Authentication system fully functional, 2) Patient creation/management working correctly, 3) Prior authorization creation working (POST /api/insurance/prior-auth), 4) Prior authorization retrieval working (GET /api/insurance/prior-auth/patient/{id}), 5) Error handling for invalid patient_id working correctly (400 response with detail field). ❌ CRITICAL ISSUES IDENTIFIED: 1) Insurance card creation failing with 500 error - backend date parsing bug in line 11596 of server.py where birth_date string is treated as date object, 2) Eligibility check failing due to card_id being None (card creation prerequisite), 3) PUT endpoint for prior auth updates MISSING - PUT /api/insurance/prior-auth/requests/{id} returns 404, 4) MOCK adapter not fully functional due to card creation failure preventing eligibility testing. BACKEND BUGS FOUND: Date handling issue in insurance card creation endpoint where patient birth_date (already string) is being processed with .isoformat() method. MISSING ENDPOINTS: PUT /api/insurance/prior-auth/requests/{id} for updating prior authorization status to APPROVED. ASSESSMENT: Core insurance workflow is partially functional but requires backend fixes for production use. Prior authorization workflow works but cannot be updated to APPROVED status due to missing PUT endpoint."
 
   - task: "Synology DSM Authentication Integration"
     implemented: true
