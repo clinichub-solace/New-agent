@@ -11633,10 +11633,14 @@ async def get_patient_insurance_cards(patient_id: str, current_user: User = Depe
 async def verify_eligibility(verification_data: EligibilityCheckRequest, current_user: User = Depends(get_current_active_user)):
     """Verify insurance eligibility (mock implementation)"""
     try:
-        patient_id = verification_data["patient_id"]
-        insurance_card_id = verification_data["insurance_card_id"]
+        patient_id = verification_data.patient_id
+        insurance_card_id = verification_data.card_id
+        service_date = verification_data.service_date
         
-        # Get insurance card
+        # Get patient and card
+        patient = await db.patients.find_one({"id": patient_id}, {"_id": 0})
+        if not patient:
+            raise HTTPException(status_code=400, detail="Invalid patient_id")
         card = await db.insurance_cards.find_one({"id": insurance_card_id}, {"_id": 0})
         if not card:
             raise HTTPException(status_code=404, detail="Insurance card not found")
