@@ -11575,7 +11575,7 @@ async def send_critical_value_alert(lab_result: LabResult):
 # Insurance Verification & Eligibility API Endpoints
 
 @api_router.post("/insurance/cards")
-async def create_insurance_card(card_data: dict, current_user: User = Depends(get_current_active_user)):
+async def create_insurance_card(card_data: InsuranceCardV2Create, current_user: User = Depends(get_current_active_user)):
     """Add insurance card information for a patient"""
     try:
         # Verify patient exists
