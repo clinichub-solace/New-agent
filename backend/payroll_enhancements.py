@@ -823,64 +823,29 @@ async def get_run(run_id: str, db=Depends(get_db)):
     run["totals"] = _ensure_totals_count(run.get("totals"))
     return _with_api_id(run)
 
+from backend.payroll_enhancements_taxhook import post_payroll_run_apply_taxes
+
 @payroll_router.post("/runs/{run_id}/post")
 async def post_run(
     run_id: str,
     db=Depends(get_db),
     current_user=Depends(get_current_user),
 ):
-    run = await _get_run(db, run_id)
-    if run.get("status") == "POSTED":
-        run["totals"] = _ensure_totals_count(run.get("totals"))
-        return _with_api_id(run)
-
-    period = await get_pay_period(db, run["period_id"])
-
-    recs_cur = db.payroll_records.find({
-        "payroll_period_id": period["id"],
-        "status": {"$in": ["calculated", "approved", "paid"]}
-    })
-    recs = [r async for r in recs_cur]
-
-    employees = len({r.get("employee_id") for r in recs})
-    gross = sum(D(r.get("gross_pay")) for r in recs)
-    taxes = sum(D(r.get("total_taxes")) for r in recs)
-    ded   = sum(D(r.get("total_pre_tax_deductions")) + D(r.get("total_post_tax_deductions")) for r in recs)
-    net   = sum(D(r.get("net_pay")) for r in recs)
-
-    for r in recs:
-        upd = {"status": "paid"}
-        if not r.get("paid_at"):
-            upd["paid_at"] = datetime.utcnow()
-        if not r.get("ledger_post_id"):
-            fin = {
-                "id": str(uuid.uuid4()),
-                "direction": "EXPENSE",
-                "category": "payroll",
-                "amount": r.get("net_pay"),
-                "source": {"kind": "payroll_record", "id": r.get("id")},
-                "timestamp": datetime.utcnow(),
-            }
-            await db.financial_transactions.insert_one(fin)
-            upd["ledger_post_id"] = fin["id"]
-        await db.payroll_records.update_one({"id": r.get("id")}, {"$set": upd})
-
-    totals = {
-        "employees": employees,
-        "gross": str(gross),
-        "taxes": str(taxes),
-        "deductions": str(ded),
-        "net": str(net),
-    }
-    totals = _ensure_totals_count(totals)
-
-    await db.payroll_runs.update_one(
-        {"id": run_id},
-        {"$set": {"status": "POSTED", "posted_at": datetime.utcnow(), "posted_by": current_user.username, "totals": totals}}
-    )
-
-    run.update({"status": "POSTED", "posted_at": datetime.utcnow(), "posted_by": current_user.username, "totals": totals})
-    return _with_api_id(run)
+    # uses the async tax hook: computes taxes if first time, persists breakdown,
+    # posts EXPENSE idempotently, marks paid, aggregates totals
+    run_doc = await post_payroll_run_apply_taxes(db, run_id, current_user)
+    # ensure consistent API shape
+    try:
+        run_doc["_id"] = str(run_doc.get("_id") or run_doc.get("id"))
+    except Exception:
+        pass
+    # ensure totals.count alias exists (for tests/consumers expecting it)
+    if isinstance(run_doc, dict) and "totals" in run_doc:
+        totals = run_doc.get("totals") or {}
+        if "count" not in totals:
+            totals["count"] = totals.get("employees", 0)
+            run_doc["totals"] = totals
+    return run_doc
 
 @payroll_router.post("/runs/{run_id}/void")
 async def void_run(
