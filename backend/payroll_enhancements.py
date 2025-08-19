@@ -915,6 +915,26 @@ async def post_run(
         meta={"period_id": run_doc.get("period_id"), "totals": run_doc.get("totals")}
     )
     
+    # Notification for run posting
+    from backend.utils.notify import notify_user
+    target_user_id = getattr(current_user, "id", "system")
+    net_amount = run_doc.get('totals', {}).get('net', 0)
+    try:
+        net_float = float(net_amount)
+    except (ValueError, TypeError):
+        net_float = 0.0
+    
+    await notify_user(db,
+        user_id=target_user_id,
+        type="payroll.run.post",
+        title="Payroll run posted",
+        body=f"Run {run_doc.get('_id')} posted successfully. Net payroll: ${net_float:,.2f}",
+        subject_type="payroll_run",
+        subject_id=str(run_doc.get("_id")),
+        severity="success",
+        meta={"period_id": run_doc.get("period_id"), "totals": run_doc.get("totals")}
+    )
+    
     return run_doc
 
 @payroll_router.post("/runs/{run_id}/void")
