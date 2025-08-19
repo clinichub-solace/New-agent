@@ -227,16 +227,17 @@ class InsuranceWorkflowTester:
             return False
     
     def create_prior_auth_request(self):
-        """Step 6: POST /api/insurance/prior-auth/requests with expected response"""
+        """Step 6: POST /api/insurance/prior-auth with expected response"""
         print("📝 STEP 6: Prior Authorization Request Creation")
         
-        # Note: The review mentions /prior-auth/requests but the backend has /prior-auth
-        # Let's try the actual endpoint first
+        # Based on the backend PriorAuthorization model, we need different fields
         prior_auth_data = {
             "patient_id": self.patient_id,
-            "card_id": self.card_id,
-            "cpt_codes": ["90686"],  # Influenza vaccine
-            "icd10_codes": ["Z23"],  # Encounter for immunization
+            "insurance_card_id": self.card_id or "dummy-card-id",  # Required field
+            "provider_id": "dummy-provider-id",  # Required field - need to create or use existing
+            "service_code": "90686",  # Single CPT code (not array)
+            "service_description": "Influenza vaccination",  # Required field
+            "diagnosis_codes": ["Z23"],  # ICD-10 codes array
             "notes": "Annual influenza vaccination"
         }
         
