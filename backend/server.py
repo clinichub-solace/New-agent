@@ -2595,6 +2595,51 @@ class LabResult(BaseModel):
     notes: Optional[str] = None
 
 # Insurance Models
+
+# Task 4 additions: V2 models for cards, eligibility, prior auth (lightweight)
+class InsuranceCardV2Create(BaseModel):
+    patient_id: str
+    payer_name: str
+    member_id: str
+    group_number: Optional[str] = None
+    plan_name: Optional[str] = None
+    effective_date: Optional[str] = None  # YYYY-MM-DD
+    valid_until: Optional[str] = None     # optional metadata only; not used by eligibility req
+
+class InsuranceCardV2Update(BaseModel):
+    payer_name: Optional[str] = None
+    member_id: Optional[str] = None
+    group_number: Optional[str] = None
+    plan_name: Optional[str] = None
+    effective_date: Optional[str] = None
+    valid_until: Optional[str] = None
+    is_active: Optional[bool] = None
+
+class EligibilityCheckRequest(BaseModel):
+    patient_id: str
+    card_id: str
+    service_date: str  # YYYY-MM-DD
+    cpt_codes: Optional[List[str]] = []
+    place_of_service: Optional[str] = None
+
+class EligibilityCheckResponse(BaseModel):
+    eligible: bool
+    coverage: Dict[str, Any] = {}
+    valid_until: str
+    raw: Optional[Dict[str, Any]] = None
+
+class PriorAuthRequestCreate(BaseModel):
+    patient_id: str
+    card_id: str
+    cpt_codes: List[str]
+    icd10_codes: List[str]
+    notes: Optional[str] = None
+
+class PriorAuthRequestUpdate(BaseModel):
+    status: str  # PENDING|APPROVED|DENIED|EXPIRED
+    approval_code: Optional[str] = None
+    reason: Optional[str] = None
+
 class InsuranceType(str, Enum):
     COMMERCIAL = "commercial"
     MEDICARE = "medicare"
