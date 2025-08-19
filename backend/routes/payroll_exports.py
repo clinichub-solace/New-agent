@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from fastapi.responses import Response
 from typing import Optional
 from backend.dependencies import get_db, get_current_active_user as get_current_user
+from backend.utils.audit import audit_log
 import csv
 import io
 
@@ -53,6 +54,14 @@ async def export_paystubs_csv(
     
     csv_content = output.getvalue()
     output.close()
+    
+    # Audit log the CSV export
+    await audit_log(db, current_user,
+        action="payroll.export.csv",
+        subject_type="payroll_run",
+        subject_id=run_id,
+        meta={"record_count": len(records), "period_id": period.get("id")}
+    )
     
     return Response(
         content=csv_content,
@@ -121,6 +130,14 @@ async def export_ach_file(
         lines.append("9" * 94)
     
     ach_content = "\n".join(lines)
+    
+    # Audit log the ACH export
+    await audit_log(db, current_user,
+        action="payroll.export.ach",
+        subject_type="payroll_run",
+        subject_id=run_id,
+        meta={"mode": mode, "entries": entry_count, "total_amount": total_amount / 100, "period_id": period.get("id")}
+    )
     
     filename_suffix = "_test" if mode == "test" else ""
     
