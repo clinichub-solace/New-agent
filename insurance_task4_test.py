@@ -236,15 +236,65 @@ class InsuranceTask4Tester:
             self.log_result("Eligibility Check", False, f"Eligibility check error: {str(e)}")
             return False
     
+    def create_or_get_provider(self):
+        """Create or get a provider for prior auth requests"""
+        try:
+            # First try to get existing providers
+            response = self.session.get(f"{API_BASE}/providers")
+            if response.status_code == 200:
+                providers = response.json()
+                if providers and len(providers) > 0:
+                    provider = providers[0]
+                    self.test_data['provider_id'] = provider['id']
+                    provider_name = f"{provider.get('title', 'Dr.')} {provider.get('first_name', '')} {provider.get('last_name', '')}"
+                    self.log_result("Provider Selection", True, f"Reusing existing provider: {provider_name} (ID: {provider['id']})", 
+                                  status_code=response.status_code)
+                    return True
+            
+            # Create new provider if none exist
+            provider_data = {
+                "first_name": "Sarah",
+                "last_name": "Johnson",
+                "title": "Dr.",
+                "specialties": ["Family Medicine"],
+                "email": "dr.johnson@clinic.com",
+                "phone": "555-0199"
+            }
+            
+            response = self.session.post(f"{API_BASE}/providers", json=provider_data)
+            
+            if response.status_code == 200:
+                provider = response.json()
+                self.test_data['provider_id'] = provider['id']
+                self.log_result("Provider Creation", True, f"Created new provider: Dr. Sarah Johnson (ID: {provider['id']})", 
+                              status_code=response.status_code, payload=provider)
+                return True
+            else:
+                self.log_result("Provider Creation", False, f"Failed to create provider", 
+                              details=response.text, status_code=response.status_code)
+                return False
+                
+        except Exception as e:
+            self.log_result("Provider Creation", False, f"Provider creation error: {str(e)}")
+            return False
+
     def create_prior_auth_request(self):
         """Step 6: POST /api/insurance/prior-auth/requests with {patient_id, card_id, cpt_codes:["90686"], icd10_codes:["Z23"]} expect 200 and id"""
         try:
-            # Note: The actual endpoint might be /api/insurance/prior-auth based on the server code
+            # Ensure we have a provider
+            if 'provider_id' not in self.test_data:
+                if not self.create_or_get_provider():
+                    self.log_result("Prior Auth Request Creation", False, "No provider available for prior auth request")
+                    return False
+            
+            # Note: The actual endpoint is /api/insurance/prior-auth and expects different fields
             prior_auth_data = {
                 "patient_id": self.test_data['patient_id'],
-                "card_id": self.test_data['card_id'],
-                "cpt_codes": ["90686"],
-                "icd10_codes": ["Z23"]
+                "insurance_card_id": self.test_data['card_id'],  # Note: field name is insurance_card_id, not card_id
+                "provider_id": self.test_data['provider_id'],
+                "service_code": "90686",  # Single CPT code, not array
+                "service_description": "Influenza virus vaccine administration",
+                "diagnosis_codes": ["Z23"]  # ICD-10 codes array
             }
             
             # Try the expected endpoint first
