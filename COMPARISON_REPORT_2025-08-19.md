@@ -1,0 +1,174 @@
+# Comparison Report: Uploaded Artifacts vs Current Repo
+Date: 2025-08-19
+
+- Current repo unique endpoints: 301
+- extract_6a379y1b_alpine-chub-main-2025-08-18: unique endpoints 0 | only-in-artifact 0 | only-in-current 301
+- extract_aun2oja8_alpine-chub-20250818-221839: unique endpoints 0 | only-in-artifact 0 | only-in-current 301
+- extract_cpura4mg_alpine-chub: unique endpoints 0 | only-in-artifact 0 | only-in-current 301
+- extract_k8o6lsaj_ClinicApp: unique endpoints 0 | only-in-artifact 0 | only-in-current 301
+
+Endpoint samples (per artifact):
+## extract_6a379y1b_alpine-chub-main-2025-08-18
+  - sample only-in-current:
+    - DELETE /appointments/{appointment_id}
+    - DELETE /documents/{document_id}
+    - DELETE /employees/{employee_id}
+    - DELETE /forms/{form_id}
+    - DELETE /inventory/{item_id}
+    - DELETE /soap-notes/{soap_note_id}
+    - DELETE /users/{user_id}
+    - GET /allergies/patient/{patient_id}
+    - GET /appointments
+    - GET /appointments/available-slots
+## extract_aun2oja8_alpine-chub-20250818-221839
+  - sample only-in-current:
+    - DELETE /appointments/{appointment_id}
+    - DELETE /documents/{document_id}
+    - DELETE /employees/{employee_id}
+    - DELETE /forms/{form_id}
+    - DELETE /inventory/{item_id}
+    - DELETE /soap-notes/{soap_note_id}
+    - DELETE /users/{user_id}
+    - GET /allergies/patient/{patient_id}
+    - GET /appointments
+    - GET /appointments/available-slots
+## extract_cpura4mg_alpine-chub
+  - sample only-in-current:
+    - DELETE /appointments/{appointment_id}
+    - DELETE /documents/{document_id}
+    - DELETE /employees/{employee_id}
+    - DELETE /forms/{form_id}
+    - DELETE /inventory/{item_id}
+    - DELETE /soap-notes/{soap_note_id}
+    - DELETE /users/{user_id}
+    - GET /allergies/patient/{patient_id}
+    - GET /appointments
+    - GET /appointments/available-slots
+## extract_k8o6lsaj_ClinicApp
+  - sample only-in-current:
+    - DELETE /appointments/{appointment_id}
+    - DELETE /documents/{document_id}
+    - DELETE /employees/{employee_id}
+    - DELETE /forms/{form_id}
+    - DELETE /inventory/{item_id}
+    - DELETE /soap-notes/{soap_note_id}
+    - DELETE /users/{user_id}
+    - GET /allergies/patient/{patient_id}
+    - GET /appointments
+    - GET /appointments/available-slots
+
+Frontend dependencies (selected):
+- Current frontend/package.json:
+  - react: ^18.2.0
+  - react-dom: ^18.2.0
+  - react-router-dom: ^6.28.0
+  - axios: ^1.8.4
+  - tailwindcss: ^3.4.17
+- extract_6a379y1b_alpine-chub-main-2025-08-18 frontend package.json (/app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/clinichub-alpine/frontend/package.json):
+  - react: ^18.2.0
+  - react-dom: ^18.2.0
+  - axios: ^1.3.4
+  - tailwindcss: ^3.2.7
+- extract_aun2oja8_alpine-chub-20250818-221839 frontend package.json (/app/comparison_inputs/extract_aun2oja8_alpine-chub-20250818-221839/alpine-chub-20250818-221839/clinichub-alpine/frontend/package.json):
+  - react: ^18.2.0
+  - react-dom: ^18.2.0
+  - axios: ^1.3.4
+  - tailwindcss: ^3.2.7
+- extract_cpura4mg_alpine-chub frontend package.json (/app/comparison_inputs/extract_cpura4mg_alpine-chub/ClinicApp/clinichub-alpine/frontend/package.json):
+  - react: ^18.2.0
+  - react-dom: ^18.2.0
+  - axios: ^1.3.4
+  - tailwindcss: ^3.2.7
+- extract_k8o6lsaj_ClinicApp frontend package.json (/app/comparison_inputs/extract_k8o6lsaj_ClinicApp/ClinicApp/clinichub-alpine/frontend/package.json):
+  - react: ^18.2.0
+  - react-dom: ^18.2.0
+  - axios: ^1.3.4
+  - tailwindcss: ^3.2.7
+
+Backend requirements (top entries):
+- Current backend/requirements.txt:
+  - fastapi==0.110.1
+  - uvicorn==0.25.0
+  - boto3>=1.34.129
+  - requests-oauthlib>=2.0.0
+  - cryptography>=42.0.8
+  - python-dotenv>=1.0.1
+  - pymongo==4.5.0
+  - pydantic>=2.6.4
+  - email-validator>=2.2.0
+  - pyjwt>=2.10.1
+  - passlib>=1.7.4
+  - tzdata>=2024.2
+  - motor==3.3.1
+  - pytest>=8.0.0
+  - black>=24.1.1
+  - isort>=5.13.2
+  - flake8>=7.0.0
+  - mypy>=1.8.0
+  - python-jose>=3.3.0
+  - requests>=2.31.0
+- extract_6a379y1b_alpine-chub-main-2025-08-18 backend requirements.txt (/app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/clinichub-alpine/backend/requirements.txt):
+  - fastapi==0.110.1
+  - uvicorn==0.25.0
+  - pymongo==4.5.0
+  - pydantic>=2.6.4
+  - python-dotenv>=1.0.1
+  - python-jose>=3.3.0
+  - python-multipart>=0.0.9
+  - bcrypt>=4.0.0
+  - passlib>=1.7.4
+  - email-validator>=2.2.0
+  - pyjwt>=2.10.1
+  - requests>=2.31.0
+  - aiohttp>=3.9.0
+  - motor==3.3.1
+- extract_aun2oja8_alpine-chub-20250818-221839 backend requirements.txt (/app/comparison_inputs/extract_aun2oja8_alpine-chub-20250818-221839/alpine-chub-20250818-221839/clinichub-alpine/backend/requirements.txt):
+  - fastapi==0.110.1
+  - uvicorn==0.25.0
+  - pymongo==4.5.0
+  - pydantic>=2.6.4
+  - python-dotenv>=1.0.1
+  - python-jose>=3.3.0
+  - python-multipart>=0.0.9
+  - bcrypt>=4.0.0
+  - passlib>=1.7.4
+  - email-validator>=2.2.0
+  - pyjwt>=2.10.1
+  - requests>=2.31.0
+  - aiohttp>=3.9.0
+  - motor==3.3.1
+- extract_cpura4mg_alpine-chub backend requirements.txt (/app/comparison_inputs/extract_cpura4mg_alpine-chub/ClinicApp/clinichub-alpine/backend/requirements.txt):
+  - fastapi==0.110.1
+  - uvicorn==0.25.0
+  - pymongo==4.5.0
+  - pydantic>=2.6.4
+  - python-dotenv>=1.0.1
+  - python-jose>=3.3.0
+  - python-multipart>=0.0.9
+  - bcrypt>=4.0.0
+  - passlib>=1.7.4
+  - email-validator>=2.2.0
+  - pyjwt>=2.10.1
+  - requests>=2.31.0
+  - aiohttp>=3.9.0
+  - motor==3.3.1
+- extract_k8o6lsaj_ClinicApp backend requirements.txt (/app/comparison_inputs/extract_k8o6lsaj_ClinicApp/ClinicApp/clinichub-alpine/backend/requirements.txt):
+  - fastapi==0.110.1
+  - uvicorn==0.25.0
+  - pymongo==4.5.0
+  - pydantic>=2.6.4
+  - python-dotenv>=1.0.1
+  - python-jose>=3.3.0
+  - python-multipart>=0.0.9
+  - bcrypt>=4.0.0
+  - passlib>=1.7.4
+  - email-validator>=2.2.0
+  - pyjwt>=2.10.1
+  - requests>=2.31.0
+  - aiohttp>=3.9.0
+  - motor==3.3.1
+
+Environment files detected:
+- extract_6a379y1b_alpine-chub-main-2025-08-18:
+  - /app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/frontend/.env
+  - /app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/backend/.env
