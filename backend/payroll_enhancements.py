@@ -683,9 +683,16 @@ async def print_check(
     return {"check": chk, "financial_posted": True}
 
 @payroll_router.get("/tax-tables/{tax_year}")
-async def get_tax_tables(tax_year: int):
-    """Get tax tables for calculations"""
-    pass
+async def get_tax_tables(
+    tax_year: int,
+    db=Depends(get_db),
+):
+    """
+    Retrieve tax tables (federal/state) for offline calc; shipped & overrideable.
+    """
+    cur = db.tax_tables.find({"tax_year": tax_year})
+    tables = [t async for t in cur]
+    return {"tax_year": tax_year, "tables": tables}
 
 @payroll_router.post("/direct-deposit")
 async def setup_direct_deposit(deposit_info: DirectDepositInfo):
