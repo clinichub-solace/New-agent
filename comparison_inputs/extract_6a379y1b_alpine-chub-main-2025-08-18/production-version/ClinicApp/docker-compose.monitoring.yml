@@ -1,0 +1,239 @@
+version: '3.8'
+
+services:
+  # Prometheus - Metrics Collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: clinichub-prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./monitoring/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - clinichub-network
+
+  # Grafana - Metrics Visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: clinichub-grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD_FILE: /run/secrets/grafana_admin_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    secrets:
+      - grafana_admin_password
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    networks:
+      - clinichub-network
+    depends_on:
+      - prometheus
+
+  # Node Exporter - System Metrics
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: clinichub-node-exporter
+    restart: unless-stopped
+    ports:
+      - "9100:9100"
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    networks:
+      - clinichub-network
+
+  # MongoDB Exporter - Database Metrics
+  mongodb-exporter:
+    image: percona/mongodb_exporter:latest
+    container_name: clinichub-mongodb-exporter
+    restart: unless-stopped
+    ports:
+      - "9216:9216"
+    environment:
+      MONGODB_URI_FILE: /run/secrets/mongo_connection_string
+    secrets:
+      - mongo_connection_string
+    networks:
+      - clinichub-network
+    depends_on:
+      - mongodb
+
+  # Wazuh Manager - SIEM and Security Monitoring
+  wazuh-manager:
+    image: wazuh/wazuh-manager:latest
+    container_name: clinichub-wazuh-manager
+    restart: unless-stopped
+    ports:
+      - "1514:1514/udp"  # Syslog
+      - "1515:1515"      # Agent registration
+      - "55000:55000"    # API
+    environment:
+      WAZUH_MANAGER_CONF: |
+        <ossec_config>
+          <global>
+            <jsonout_output>yes</jsonout_output>
+            <alerts_log>yes</alerts_log>
+            <logall>no</logall>
+            <logall_json>no</logall_json>
+          </global>
+          <rules>
+            <include>rules_config.xml</include>
+            <include>pam_rules.xml</include>
+            <include>sshd_rules.xml</include>
+            <include>telnetd_rules.xml</include>
+            <include>syslog_rules.xml</include>
+            <include>arpwatch_rules.xml</include>
+            <include>symantec-av_rules.xml</include>
+            <include>symantec-ws_rules.xml</include>
+            <include>pix_rules.xml</include>
+            <include>named_rules.xml</include>
+            <include>smbd_rules.xml</include>
+            <include>vsftpd_rules.xml</include>
+            <include>pure-ftpd_rules.xml</include>
+            <include>proftpd_rules.xml</include>
+            <include>ms_ftpd_rules.xml</include>
+            <include>ftpd_rules.xml</include>
+            <include>hordeimp_rules.xml</include>
+            <include>roundcube_rules.xml</include>
+            <include>wordpress_rules.xml</include>
+            <include>cimserver_rules.xml</include>
+            <include>vpopmail_rules.xml</include>
+            <include>vmpop3d_rules.xml</include>
+            <include>courier_rules.xml</include>
+            <include>web_rules.xml</include>
+            <include>web_appsec_rules.xml</include>
+            <include>apache_rules.xml</include>
+            <include>nginx_rules.xml</include>
+            <include>php_rules.xml</include>
+            <include>mysql_rules.xml</include>
+            <include>postgresql_rules.xml</include>
+            <include>ids_rules.xml</include>
+            <include>squid_rules.xml</include>
+            <include>firewall_rules.xml</include>
+            <include>cisco-ios_rules.xml</include>
+            <include>netscreenfw_rules.xml</include>
+            <include>sonicwall_rules.xml</include>
+            <include>postfix_rules.xml</include>
+            <include>sendmail_rules.xml</include>
+            <include>imapd_rules.xml</include>
+            <include>mailscanner_rules.xml</include>
+            <include>dovecot_rules.xml</include>
+            <include>ms-exchange_rules.xml</include>
+            <include>racoon_rules.xml</include>
+            <include>vpn_concentrator_rules.xml</include>
+            <include>spamd_rules.xml</include>
+            <include>msauth_rules.xml</include>
+            <include>mcafee_av_rules.xml</include>
+            <include>trend-osce_rules.xml</include>
+            <include>ms-se_rules.xml</include>
+            <include>zeus_rules.xml</include>
+            <include>solaris_bsm_rules.xml</include>
+            <include>vmware_rules.xml</include>
+            <include>ms_dhcp_rules.xml</include>
+            <include>asterisk_rules.xml</include>
+            <include>ossec_rules.xml</include>
+            <include>attack_rules.xml</include>
+            <include>local_rules.xml</include>
+          </rules>
+        </ossec_config>
+    volumes:
+      - wazuh_data:/var/ossec/data
+      - ./monitoring/wazuh/rules:/var/ossec/etc/rules:ro
+    networks:
+      - clinichub-network
+
+  # Wazuh Indexer - OpenSearch for log storage
+  wazuh-indexer:
+    image: wazuh/wazuh-indexer:latest
+    container_name: clinichub-wazuh-indexer
+    restart: unless-stopped
+    ports:
+      - "9200:9200"
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - wazuh_indexer_data:/usr/share/wazuh-indexer/data
+    networks:
+      - clinichub-network
+
+  # Wazuh Dashboard - Security Analytics UI
+  wazuh-dashboard:
+    image: wazuh/wazuh-dashboard:latest
+    container_name: clinichub-wazuh-dashboard
+    restart: unless-stopped
+    ports:
+      - "5601:5601"
+    environment:
+      INDEXER_URL: https://wazuh-indexer:9200
+      WAZUH_API_URL: https://wazuh-manager:55000
+    depends_on:
+      - wazuh-indexer
+      - wazuh-manager
+    networks:
+      - clinichub-network
+
+  # Filebeat - Log Shipping
+  filebeat:
+    image: elastic/filebeat:8.8.0
+    container_name: clinichub-filebeat
+    restart: unless-stopped
+    user: root
+    command: filebeat -e -strict.perms=false
+    volumes:
+      - ./monitoring/filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - backend_logs:/app/backend/logs:ro
+      - /var/log:/var/log:ro
+    networks:
+      - clinichub-network
+    depends_on:
+      - wazuh-indexer
+
+volumes:
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+  wazuh_data:
+    driver: local
+  wazuh_indexer_data:
+    driver: local
+  backend_logs:
+    external: true
+
+networks:
+  clinichub-network:
+    external: true
+
+secrets:
+  grafana_admin_password:
+    file: ./secrets/grafana_admin_password
+  mongo_connection_string:
+    external: true

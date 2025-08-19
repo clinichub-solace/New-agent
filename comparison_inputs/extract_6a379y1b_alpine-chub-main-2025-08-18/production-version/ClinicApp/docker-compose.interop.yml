@@ -1,0 +1,162 @@
+version: '3.8'
+
+services:
+  # HAPI FHIR Server for Standards-Compliant FHIR R4 Storage
+  postgres-fhir:
+    image: postgres:15
+    container_name: clinichub-postgres-fhir
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: hapi
+      POSTGRES_USER: hapi
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_fhir_password
+    secrets:
+      - postgres_fhir_password
+    volumes:
+      - postgres_fhir_data:/var/lib/postgresql/data
+    networks:
+      - clinichub-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hapi"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # HAPI FHIR JPA Server
+  hapi-fhir:
+    image: hapiproject/hapi:latest
+    container_name: clinichub-hapi-fhir
+    restart: unless-stopped
+    depends_on:
+      - postgres-fhir
+    ports:
+      - "8082:8080"  # FHIR API endpoint
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-fhir:5432/hapi
+      SPRING_DATASOURCE_USERNAME: hapi
+      SPRING_DATASOURCE_PASSWORD_FILE: /run/secrets/postgres_fhir_password
+      SPRING_DATASOURCE_DRIVERCLASSNAME: org.postgresql.Driver
+      SPRING_JPA_PROPERTIES_HIBERNATE_DIALECT: ca.uhn.fhir.jpa.model.dialect.HapiFhirPostgres94Dialect
+      HAPI_FHIR_FHIR_VERSION: R4
+      HAPI_FHIR_SUBSCRIPTION_RESTHOOK_ENABLED: "true"
+      HAPI_FHIR_SUBSCRIPTION_WEBSOCKET_ENABLED: "true"
+      HAPI_FHIR_ALLOW_EXTERNAL_REFERENCES: "true"
+      HAPI_FHIR_ALLOW_MULTIPLE_DELETE: "true"
+      HAPI_FHIR_REUSE_CACHED_SEARCH_RESULTS_MILLIS: 60000
+    secrets:
+      - postgres_fhir_password
+    networks:
+      - clinichub-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/fhir/metadata"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # NextGen Connect (Mirth Connect) - HL7/X12 Interface Engine
+  mirth-connect:
+    image: nextgenhealthcare/connect:latest
+    container_name: clinichub-mirth
+    restart: unless-stopped
+    ports:
+      - "8443:8443"  # HTTPS admin interface
+      - "8083:8080"  # HTTP admin interface (disable in production)
+    environment:
+      # Database configuration for Mirth
+      DATABASE_URL: jdbc:postgresql://postgres-fhir:5432/mirth
+      DATABASE_USERNAME: hapi
+      DATABASE_PASSWORD_FILE: /run/secrets/postgres_fhir_password
+      DATABASE_MAX_CONNECTIONS: 20
+      # Security settings
+      HTTPS_PORT: 8443
+      HTTP_PORT: 8080
+      # Performance settings
+      JAVA_OPTS: "-Xmx2g -Xms1g"
+    secrets:
+      - postgres_fhir_password
+    volumes:
+      - mirth_data:/opt/connect/appdata
+      - ./mirth/channels:/opt/connect/channels:ro
+      - ./mirth/codebase:/opt/connect/custom-lib:ro
+    networks:
+      - clinichub-network
+    depends_on:
+      - postgres-fhir
+    healthcheck:
+      test: ["CMD", "curl", "-k", "-f", "https://localhost:8443/api/server/info"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  # Message Queue for Event-Driven Architecture
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: clinichub-rabbitmq
+    restart: unless-stopped
+    ports:
+      - "15672:15672"  # Management UI (restrict in production)
+      - "5672:5672"    # AMQP port
+    environment:
+      RABBITMQ_DEFAULT_USER: clinichub
+      RABBITMQ_DEFAULT_PASS_FILE: /run/secrets/rabbitmq_password
+      RABBITMQ_DEFAULT_VHOST: clinichub
+    secrets:
+      - rabbitmq_password
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - clinichub-network
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Interop Worker Service (Processes Domain Events)
+  interop-worker:
+    build:
+      context: ./interop
+      dockerfile: Dockerfile
+    container_name: clinichub-interop-worker
+    restart: unless-stopped
+    depends_on:
+      - rabbitmq
+      - hapi-fhir
+      - mirth-connect
+    environment:
+      RABBITMQ_URL: amqp://clinichub:$(cat /run/secrets/rabbitmq_password)@rabbitmq:5672/clinichub
+      HAPI_FHIR_URL: http://hapi-fhir:8080/fhir
+      MIRTH_URL: https://mirth-connect:8443
+      MIRTH_USERNAME: admin
+      MIRTH_PASSWORD_FILE: /run/secrets/mirth_admin_password
+      LOG_LEVEL: INFO
+    secrets:
+      - rabbitmq_password
+      - mirth_admin_password
+    volumes:
+      - ./interop:/app
+    networks:
+      - clinichub-network
+
+volumes:
+  postgres_fhir_data:
+    driver: local
+  mirth_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+
+networks:
+  clinichub-network:
+    external: true
+
+# Interoperability Secrets
+secrets:
+  postgres_fhir_password:
+    file: ./secrets/postgres_fhir_password
+  rabbitmq_password:
+    file: ./secrets/rabbitmq_password
+  mirth_admin_password:
+    file: ./secrets/mirth_admin_password
