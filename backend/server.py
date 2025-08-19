@@ -8804,10 +8804,9 @@ async def init_message_templates():
 @api_router.get("/communications/templates")
 async def get_message_templates(template_type: str = None):
     try:
-        query = {"is_active": True}
+        query = {}
         if template_type:
             query["message_type"] = template_type
-        
         templates = await db.communication_templates.find(query, {"_id": 0}).sort("name", 1).to_list(1000)
         return templates
     except Exception as e:
