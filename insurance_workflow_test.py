@@ -257,6 +257,33 @@ class InsuranceWorkflowTester:
             if response.status_code == 200 and 'id' in response_data:
                 self.prior_auth_id = response_data['id']
                 return True
+            elif response.status_code == 500:
+                # If we get validation errors, let's try to create a provider first
+                print("   Creating provider for prior auth...")
+                provider_data = {
+                    "first_name": "Dr. Sarah",
+                    "last_name": "Johnson",
+                    "title": "MD",
+                    "specialties": ["Family Medicine"],
+                    "email": "dr.johnson@clinic.com",
+                    "phone": "555-0199"
+                }
+                provider_response = self.session.post(f"{API_BASE}/providers", json=provider_data)
+                if provider_response.status_code == 200:
+                    provider_id = provider_response.json().get('id')
+                    prior_auth_data["provider_id"] = provider_id
+                    print(f"   Created provider: {provider_id}")
+                    
+                    # Retry prior auth creation
+                    response = self.session.post(f"{API_BASE}/insurance/prior-auth", json=prior_auth_data)
+                    response_data = response.json() if response.content else {}
+                    
+                    self.log_result(6, response.status_code, 200, response_data, "Prior authorization request creation (retry)")
+                    
+                    if response.status_code == 200 and 'id' in response_data:
+                        self.prior_auth_id = response_data['id']
+                        return True
+            
             return False
                 
         except Exception as e:
