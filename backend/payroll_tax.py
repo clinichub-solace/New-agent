@@ -75,7 +75,7 @@ def compute_taxes_for_record(*, gross: float, pretax_deductions: float, config: 
     }
 
 
-def get_applicable_tax_table(db, jurisdiction: str, iso_date: str) -> Optional[dict]:
+async def get_applicable_tax_table(db, jurisdiction: str, iso_date: str) -> Optional[dict]:
     # exact match or latest <= date
     coll = db["payroll_tax_tables"]
     exact = await coll.find_one({"jurisdiction": jurisdiction, "effective_date": iso_date})
