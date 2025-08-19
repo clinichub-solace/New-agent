@@ -424,13 +424,27 @@ async def ensure_indexes(db):
     try:
         indexes_to_create = [
             (db.time_entries, [("employee_id", 1), ("date", 1)], "time_entries_emp_date"),
-            (db.payroll_runs, [("period_id", 1), ("status", 1)], "runs_period_status"),
+            (db.payroll_runs, [("period_id", 1), ("status", 1)], "run_period_status"),  # Use consistent name
             (db.financial_transactions, [("source.kind", 1), ("source.id", 1)], "fin_src"),
             (db.payroll_records, [("payroll_period_id", 1), ("employee_id", 1)], "payrec_period_emp"),
         ]
         
         for collection, fields, name in indexes_to_create:
             try:
+                # First try to drop any conflicting indexes
+                try:
+                    existing_indexes = await collection.list_indexes().to_list(length=None)
+                    for idx in existing_indexes:
+                        idx_name = idx.get("name", "")
+                        idx_key = idx.get("key", {})
+                        # Check if there's a conflicting index with same fields but different name
+                        if (idx_name != name and idx_name != "_id_" and 
+                            list(idx_key.items()) == fields):
+                            print(f"[INFO] Dropping conflicting index {idx_name} to create {name}")
+                            await collection.drop_index(idx_name)
+                except Exception as drop_e:
+                    print(f"[INFO] Could not check/drop existing indexes: {drop_e}")
+                
                 await collection.create_index(fields, name=name, background=True)
             except Exception as e:
                 # If index already exists with different name or other conflicts, continue
