@@ -361,14 +361,8 @@ def post_payroll_run():
     try:
         url = f"{API_URL}/payroll/runs/{run_id}/post"
         
-        # Post the payroll run
-        post_data = {
-            "apply_taxes": True,
-            "finalize": True,
-            "posted_by": "admin"
-        }
-        
-        response = requests.post(url, json=post_data, headers=headers)
+        # Post the payroll run - the endpoint doesn't expect a body based on the implementation
+        response = requests.post(url, headers=headers)
         response.raise_for_status()
         result = response.json()
         
