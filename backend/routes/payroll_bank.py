@@ -30,6 +30,21 @@ async def put_employee_bank(employee_id: str, payload: dict, db=Depends(get_db),
         meta={"name": doc.get("name"), "account_type": doc.get("account_type")}
     )
     
+    # Notification for employee bank information update
+    from backend.utils.notify import notify_user
+    target_user_id = getattr(user, "id", "system")
+    
+    await notify_user(db,
+        user_id=target_user_id,
+        type="payroll.employee.bank.put",
+        title="Employee bank info updated",
+        body=f"Bank information updated for {doc.get('name', employee_id)} - {doc.get('account_type', 'checking').title()} account",
+        subject_type="employee_bank",
+        subject_id=str(employee_id),
+        severity="info",
+        meta={"name": doc.get("name"), "account_type": doc.get("account_type")}
+    )
+    
     out = dict(doc); out["account_number"] = _mask(out["account_number"]) 
     return out
 
