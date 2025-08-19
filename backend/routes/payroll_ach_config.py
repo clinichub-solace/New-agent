@@ -18,7 +18,22 @@ async def put_ach_config(payload: dict, db=Depends(get_db), user=Depends(get_cur
         meta={"company_name": payload.get("company_name"), "company_id": payload.get("company_id")}
     )
     
-    return await db["payroll_ach_config"].find_one(key)
+    # Notification for ACH configuration update
+    from backend.utils.notify import notify_user
+    target_user_id = getattr(user, "id", "system")
+    
+    await notify_user(db,
+        user_id=target_user_id,
+        type="payroll.ach.put",
+        title="ACH configuration updated",
+        body=f"ACH settings updated for {payload.get('company_name', 'company')} (ID: {payload.get('company_id', 'N/A')})",
+        subject_type="payroll_ach_config",
+        subject_id="ACH_DEFAULT",
+        severity="info",
+        meta={"company_name": payload.get("company_name"), "company_id": payload.get("company_id")}
+    )
+    
+    return {"status": "ok"}
 
 @router.get("/ach")
 async def get_ach_config(db=Depends(get_db), user=Depends(get_current_user)):
