@@ -1,0 +1,39 @@
+Total backend/requirements.txt files: 18
+Total unique requirement lines observed: 28
+
+/app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/backend/requirements.txt
+  lines: 27
+/app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/clinichub-alpine-deployment/backend/requirements.txt
+  lines: 14
+/app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/clinichub-alpine/backend/requirements.txt
+  lines: 14
+/app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/production-version/ClinicApp/backend/requirements.txt
+  lines: 26
+/app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/production-version/ClinicApp/clinichub-alpine-deployment/backend/requirements.txt
+  lines: 14
+/app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/production-version/ClinicApp/clinichub-alpine/backend/requirements.txt
+  lines: 14
+/app/comparison_inputs/extract_aun2oja8_alpine-chub-20250818-221839/alpine-chub-20250818-221839/backend/requirements.txt
+  lines: 27
+/app/comparison_inputs/extract_aun2oja8_alpine-chub-20250818-221839/alpine-chub-20250818-221839/clinichub-alpine-deployment/backend/requirements.txt
+  lines: 14
+/app/comparison_inputs/extract_aun2oja8_alpine-chub-20250818-221839/alpine-chub-20250818-221839/clinichub-alpine/backend/requirements.txt
+  lines: 14
+/app/comparison_inputs/extract_aun2oja8_alpine-chub-20250818-221839/alpine-chub-20250818-221839/production-version/ClinicApp/backend/requirements.txt
+  lines: 26
+/app/comparison_inputs/extract_aun2oja8_alpine-chub-20250818-221839/alpine-chub-20250818-221839/production-version/ClinicApp/clinichub-alpine-deployment/backend/requirements.txt
+  lines: 14
+/app/comparison_inputs/extract_aun2oja8_alpine-chub-20250818-221839/alpine-chub-20250818-221839/production-version/ClinicApp/clinichub-alpine/backend/requirements.txt
+  lines: 14
+/app/comparison_inputs/extract_cpura4mg_alpine-chub/ClinicApp/backend/requirements.txt
+  lines: 26
+/app/comparison_inputs/extract_cpura4mg_alpine-chub/ClinicApp/clinichub-alpine-deployment/backend/requirements.txt
+  lines: 14
+/app/comparison_inputs/extract_cpura4mg_alpine-chub/ClinicApp/clinichub-alpine/backend/requirements.txt
+  lines: 14
+/app/comparison_inputs/extract_k8o6lsaj_ClinicApp/ClinicApp/backend/requirements.txt
+  lines: 26
+/app/comparison_inputs/extract_k8o6lsaj_ClinicApp/ClinicApp/clinichub-alpine-deployment/backend/requirements.txt
+  lines: 14
+/app/comparison_inputs/extract_k8o6lsaj_ClinicApp/ClinicApp/clinichub-alpine/backend/requirements.txt
+  lines: 14

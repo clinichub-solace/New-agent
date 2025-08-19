@@ -1,0 +1,32 @@
+{
+  "clusters": {
+    "f2f961e69d921b32f915a2ba1563c922": [
+      "/app/comparison_inputs/extract_aun2oja8_alpine-chub-20250818-221839/alpine-chub-20250818-221839/clinichub-alpine/backend/server.py",
+      "/app/comparison_inputs/extract_aun2oja8_alpine-chub-20250818-221839/alpine-chub-20250818-221839/production-version/ClinicApp/clinichub-alpine/backend/server.py",
+      "/app/comparison_inputs/extract_k8o6lsaj_ClinicApp/ClinicApp/clinichub-alpine/backend/server.py",
+      "/app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/clinichub-alpine/backend/server.py",
+      "/app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/production-version/ClinicApp/clinichub-alpine/backend/server.py",
+      "/app/comparison_inputs/extract_cpura4mg_alpine-chub/ClinicApp/clinichub-alpine/backend/server.py"
+    ],
+    "20da2b787c0f00f2b03b5dc41e713804": [
+      "/app/comparison_inputs/extract_aun2oja8_alpine-chub-20250818-221839/alpine-chub-20250818-221839/production-version/ClinicApp/backend/server.py",
+      "/app/comparison_inputs/extract_k8o6lsaj_ClinicApp/ClinicApp/backend/server.py",
+      "/app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/production-version/ClinicApp/backend/server.py",
+      "/app/comparison_inputs/extract_cpura4mg_alpine-chub/ClinicApp/backend/server.py"
+    ],
+    "c5990d3e3e8e80de40497aaa8ce3131e": [
+      "/app/comparison_inputs/extract_aun2oja8_alpine-chub-20250818-221839/alpine-chub-20250818-221839/production-version/ClinicApp/clinichub-alpine-deployment/backend/server.py",
+      "/app/comparison_inputs/extract_aun2oja8_alpine-chub-20250818-221839/alpine-chub-20250818-221839/clinichub-alpine-deployment/backend/server.py",
+      "/app/comparison_inputs/extract_k8o6lsaj_ClinicApp/ClinicApp/clinichub-alpine-deployment/backend/server.py",
+      "/app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/production-version/ClinicApp/clinichub-alpine-deployment/backend/server.py",
+      "/app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/clinichub-alpine-deployment/backend/server.py",
+      "/app/comparison_inputs/extract_cpura4mg_alpine-chub/ClinicApp/clinichub-alpine-deployment/backend/server.py"
+    ],
+    "fa6fa66c1b096e874f20a73f635f9121": [
+      "/app/comparison_inputs/extract_aun2oja8_alpine-chub-20250818-221839/alpine-chub-20250818-221839/backend/server.py"
+    ],
+    "0f0e50bf7c7ef05fc355962cc8ac05cb": [
+      "/app/comparison_inputs/extract_6a379y1b_alpine-chub-main-2025-08-18/backend/server.py"
+    ]
+  }
+}
