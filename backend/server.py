@@ -441,25 +441,30 @@ async def all_exception_handler(request, exc: Exception):
 # Include additive routers
 from .routers import receipts, time_tracking
 from .payroll_enhancements import payroll_router, ensure_indexes
-from .routes import payroll_config, payroll_bank, payroll_ach_config, payroll_exports
+from .routes import payroll_config, payroll_bank, payroll_ach_config, payroll_exports, audit
 app.include_router(receipts.router)
 app.include_router(time_tracking.router)
 
-# Startup: ensure indexes for payroll
+# Startup: ensure indexes for payroll and audit
 @app.on_event("startup")
 async def on_startup():
     try:
         # We have a global db via dependencies; import here to avoid cycles
         from .dependencies import db as _db
         await ensure_indexes(_db)
+        
+        # Ensure audit indexes
+        from .utils.audit import ensure_audit_indexes
+        await ensure_audit_indexes(_db)
     except Exception as e:
-        print(f"[startup] ensure_indexes failed: {e}")
+        print(f"[startup] index creation failed: {e}")
 
 app.include_router(payroll_router)
 app.include_router(payroll_config.router)
 app.include_router(payroll_bank.router)
 app.include_router(payroll_ach_config.router)
 app.include_router(payroll_exports.router)
+app.include_router(audit.router)
 
 # Gate the test-only seeder by ENV
 if os.getenv("ENV", "TEST") in {"TEST", "DEV", "DEVELOPMENT"}:
