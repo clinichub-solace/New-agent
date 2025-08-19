@@ -935,6 +935,16 @@ async def void_run(
     )
     run.update({"status": "VOID", "void_at": datetime.utcnow(), "void_by": current_user.username, "void_reason": reason or ""})
     run["totals"] = _ensure_totals_count(run.get("totals"))
+    
+    # Audit log the run voiding
+    from backend.utils.audit import audit_log
+    await audit_log(db, current_user,
+        action="payroll.run.void",
+        subject_type="payroll_run",
+        subject_id=run_id,
+        meta={"reason": reason or "", "period_id": run.get("period_id")}
+    )
+    
     return _with_api_id(run)
 
 @payroll_router.get("/runs/{run_id}/paystubs")
