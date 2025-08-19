@@ -804,6 +804,16 @@ async def create_pay_period(
         "created_by": current_user.username,
     }
     await db.pay_periods.insert_one(period)
+    
+    # Audit log the period creation
+    from backend.utils.audit import audit_log
+    await audit_log(db, current_user,
+        action="payroll.period.create",
+        subject_type="payroll_period",
+        subject_id=period["id"],
+        meta={"start_date": period["start_date"], "end_date": period["end_date"], "frequency": period["frequency"]}
+    )
+    
     return _with_api_id(period)
 
 @payroll_router.get("/periods")
