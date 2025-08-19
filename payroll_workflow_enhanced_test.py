@@ -245,7 +245,7 @@ def create_pay_period():
         response.raise_for_status()
         result = response.json()
         
-        pay_period_id = result.get("_id") or result.get("id")
+        pay_period_id = result.get("id") or result.get("_id")
         print_test_result("Create Pay Period (Enhanced)", True, {"period_id": pay_period_id, "period_start": period_start, "period_end": period_end})
         return True
     except Exception as e:
