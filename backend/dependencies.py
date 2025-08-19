@@ -59,10 +59,16 @@ client = AsyncIOMotorClient(mongo_url)
 db = client[os.environ.get('DB_NAME', 'clinichub')]
 
 # JWT Configuration - use same logic as main server
+SECRET_KEY = read_secret('app_secret_key', 'SECRET_KEY')
 JWT_SECRET_KEY = read_secret('jwt_secret_key', 'JWT_SECRET_KEY')
+
+if not SECRET_KEY:
+    SECRET_KEY = os.environ.get('SECRET_KEY', 'fallback-key-change-immediately')
 if not JWT_SECRET_KEY:
     JWT_SECRET_KEY = os.environ.get('JWT_SECRET_KEY', 'fallback-jwt-key-change-immediately')
 
+# Use the same key as main server for JWT operations
+JWT_SECRET_FOR_DECODE = SECRET_KEY
 JWT_ALGORITHM = os.environ.get('JWT_ALGORITHM', 'HS256')
 
 security = HTTPBearer()
