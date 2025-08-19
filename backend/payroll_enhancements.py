@@ -926,7 +926,13 @@ async def list_run_paystubs(
     if format == "json":
         return stubs
     elif format == "pdf":
-        # Placeholder PDF bundle
-        return stubs
+        from backend.utils.paystubs_pdf import render_paystubs_pdf
+        pdf = render_paystubs_pdf(stubs, clinic_info={
+            "name": "Clínica Familia y Salud",
+            "address": "13626 Veterans Memorial Dr Suite F, Houston, TX 77014",
+            "phone": "(281) 580-8880",
+            "email": "info@clinicafamiliaysalud.com",
+        })
+        return Response(content=pdf, media_type="application/pdf")
     else:
         raise HTTPException(status_code=400, detail="Unsupported format")
