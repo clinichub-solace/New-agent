@@ -11583,7 +11583,30 @@ async def create_insurance_card(card_data: InsuranceCardV2Create, current_user: 
         if not patient:
             raise HTTPException(status_code=404, detail="Patient not found")
         
-        insurance_card = InsuranceCard(**card_data)
+        # Map V2 -> stored model; keep backward fields when available
+        mapped = {
+            "patient_id": card_data.patient_id,
+            "payer_name": card_data.payer_name,
+            "member_id": card_data.member_id,
+            "group_number": card_data.group_number,
+            "policy_number": None,
+            "insurance_type": InsuranceType.COMMERCIAL,
+            "payer_id": card_data.payer_name.upper().replace(" ", "_")[:12],
+            "subscriber_name": patient['name'][0]['given'][0] + ' ' + patient['name'][0]['family'],
+            "subscriber_dob": (patient.get('birth_date') or date.today()).isoformat() if isinstance(patient.get('birth_date'), date) else (patient.get('birth_date') or date.today()).isoformat() if patient.get('birth_date') else date.today().isoformat(),
+            "effective_date": (card_data.effective_date or date.today().isoformat()),
+            "termination_date": None,
+            "copay_primary": None,
+            "copay_specialist": None,
+            "deductible": None,
+            "deductible_met": None,
+            "out_of_pocket_max": None,
+            "out_of_pocket_met": None,
+            "is_primary": True,
+            "is_active": True,
+            "created_at": datetime.utcnow(),
+        }
+        insurance_card = InsuranceCard(**mapped)
         card_dict = jsonable_encoder(insurance_card)
         await db.insurance_cards.insert_one(card_dict)
         
