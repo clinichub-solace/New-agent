@@ -341,10 +341,14 @@ class InsuranceTask4Tester:
             response = self.session.put(f"{API_BASE}/insurance/prior-auth/requests/{prior_auth_id}", json=update_data)
             
             if response.status_code == 404:
-                # The PUT endpoint might not exist, let's check what endpoints are available
-                self.log_result("Prior Auth Request Update", False, "PUT endpoint not found - may not be implemented", 
-                              details="Expected: PUT /api/insurance/prior-auth/requests/{id}", status_code=response.status_code)
-                return False
+                # Try alternative endpoint patterns
+                response = self.session.put(f"{API_BASE}/insurance/prior-auth/{prior_auth_id}", json=update_data)
+                
+                if response.status_code == 404:
+                    # The PUT endpoint doesn't exist - this is a missing feature
+                    self.log_result("Prior Auth Request Update", False, "PUT endpoint not implemented - this is a missing feature in the backend", 
+                                  details="Expected: PUT /api/insurance/prior-auth/requests/{id} or PUT /api/insurance/prior-auth/{id}", status_code=404)
+                    return False
             
             if response.status_code == 200:
                 updated_auth = response.json()
