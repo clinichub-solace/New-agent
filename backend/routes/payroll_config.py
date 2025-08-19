@@ -17,7 +17,22 @@ async def put_tax_table(payload: dict, db=Depends(get_db), user=Depends(get_curr
         meta={"jurisdiction": payload.get("jurisdiction"), "effective_date": payload.get("effective_date")}
     )
     
-    return await db["payroll_tax_tables"].find_one(key, {"_id": 0})
+    # Notification for tax configuration update
+    from backend.utils.notify import notify_user
+    target_user_id = getattr(user, "id", "system")
+    
+    await notify_user(db,
+        user_id=target_user_id,
+        type="payroll.tax.put",
+        title="Tax configuration updated",
+        body=f"Tax table updated for {payload.get('jurisdiction')} effective {payload.get('effective_date')}",
+        subject_type="payroll_tax_table",
+        subject_id=f"{payload.get('jurisdiction')}@{payload.get('effective_date')}",
+        severity="info",
+        meta={"jurisdiction": payload.get("jurisdiction"), "effective_date": payload.get("effective_date")}
+    )
+    
+    return {"status": "ok", "key": key}
 
 @router.get("/tax")
 async def get_tax_table(jurisdiction: str, effective_date: str, db=Depends(get_db), user=Depends(get_current_user)):
