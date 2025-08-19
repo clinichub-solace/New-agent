@@ -695,6 +695,20 @@ async def get_tax_tables(
     return {"tax_year": tax_year, "tables": tables}
 
 @payroll_router.post("/direct-deposit")
-async def setup_direct_deposit(deposit_info: DirectDepositInfo):
-    """Setup employee direct deposit"""
-    pass
+async def setup_direct_deposit(
+    deposit_info: DirectDepositInfo,
+    db=Depends(get_db),
+    current_user=Depends(get_current_user),
+):
+    """
+    Upsert direct deposit info for employee. Stores masked account; keeps routing full only server-side.
+    """
+    di = deposit_info.dict()
+    di["id"] = di.get("id") or str(uuid.uuid4())
+    di["account_last4"] = di["account_number"][-4:] if di.get("account_number") else None
+    di["created_by"] = current_user.username
+    # Store full routing/account if your security policy allows; otherwise use KMS/Hash
+    await db.direct_deposits.update_one({"employee_id": di["employee_id"], "is_active": True}, {"$set": di}, upsert=True)
+    # Return masked
+    di_masked = {**di, "routing_number": "*********", "account_number": f"****{di['account_last4']}" if di.get("account_last4") else None}
+    return di_masked
