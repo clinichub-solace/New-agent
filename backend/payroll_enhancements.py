@@ -840,6 +840,16 @@ async def create_run(
     existing = await db.payroll_runs.find_one({"period_id": period["id"], "status": {"$in": ["DRAFT", "POSTED"]}})
     if existing:
         existing["totals"] = _ensure_totals_count(existing.get("totals"))
+        
+        # Audit log for returning existing run
+        from backend.utils.audit import audit_log
+        await audit_log(db, current_user,
+            action="payroll.run.create_or_get",
+            subject_type="payroll_run",
+            subject_id=existing["id"],
+            meta={"period_id": existing["period_id"], "status": existing["status"], "existing": True}
+        )
+        
         return _with_api_id(existing)
 
     run = {
@@ -855,6 +865,16 @@ async def create_run(
     }
     await db.payroll_runs.insert_one(run)
     run["totals"] = _ensure_totals_count(run.get("totals"))
+    
+    # Audit log for new run creation
+    from backend.utils.audit import audit_log
+    await audit_log(db, current_user,
+        action="payroll.run.create_or_get",
+        subject_type="payroll_run",
+        subject_id=run["id"],
+        meta={"period_id": run["period_id"], "status": run["status"], "existing": False}
+    )
+    
     return _with_api_id(run)
 
 @payroll_router.get("/runs/{run_id}")
