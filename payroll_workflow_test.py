@@ -252,18 +252,16 @@ def create_pay_period():
     try:
         url = f"{API_URL}/payroll/periods"
         
-        # Create a biweekly pay period
+        # Create a biweekly pay period using the correct format
         today = datetime.now()
-        period_start = (today - timedelta(days=14)).date()
-        period_end = (today - timedelta(days=1)).date()
-        pay_date = (today + timedelta(days=5)).date()
+        start_date = (today - timedelta(days=14)).date()
+        end_date = (today - timedelta(days=1)).date()
         
         period_data = {
-            "period_start": period_start.isoformat(),
-            "period_end": period_end.isoformat(),
-            "pay_date": pay_date.isoformat(),
-            "period_type": "biweekly",
-            "created_by": "admin"
+            "start_date": start_date.isoformat(),
+            "end_date": end_date.isoformat(),
+            "frequency": "biweekly",
+            "closed": False
         }
         
         response = requests.post(url, json=period_data, headers=headers)
