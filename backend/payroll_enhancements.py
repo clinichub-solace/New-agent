@@ -1,7 +1,7 @@
 # ClinicHub Payroll System Enhancements
 # Complete payroll calculations, paystub generation, and check printing
 
-from fastapi import APIRouter, HTTPException, Depends, Query, Request
+from fastapi import APIRouter, HTTPException, Depends, Query, Request, Body
 from pydantic import BaseModel, Field, validator
 from typing import List, Optional, Dict, Any, Union
 from datetime import datetime, date, timedelta
