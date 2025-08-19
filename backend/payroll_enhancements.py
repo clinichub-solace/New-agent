@@ -420,10 +420,26 @@ class PayrollCheck(BaseModel):
 # --- Repo helpers ---
 
 async def ensure_indexes(db):
-    await db.time_entries.create_index([("employee_id", 1), ("date", 1)], name="time_entries_emp_date", background=True)
-    await db.payroll_runs.create_index([("period_id", 1), ("status", 1)], name="runs_period_status", background=True)
-    await db.financial_transactions.create_index([("source.kind", 1), ("source.id", 1)], name="fin_src", background=True)
-    await db.payroll_records.create_index([("payroll_period_id", 1), ("employee_id", 1)], name="payrec_period_emp", background=True)
+    """Create indexes if they don't exist, handle conflicts gracefully"""
+    try:
+        indexes_to_create = [
+            (db.time_entries, [("employee_id", 1), ("date", 1)], "time_entries_emp_date"),
+            (db.payroll_runs, [("period_id", 1), ("status", 1)], "runs_period_status"),
+            (db.financial_transactions, [("source.kind", 1), ("source.id", 1)], "fin_src"),
+            (db.payroll_records, [("payroll_period_id", 1), ("employee_id", 1)], "payrec_period_emp"),
+        ]
+        
+        for collection, fields, name in indexes_to_create:
+            try:
+                await collection.create_index(fields, name=name, background=True)
+            except Exception as e:
+                # If index already exists with different name or other conflicts, continue
+                if "already exists" in str(e) or "IndexOptionsConflict" in str(e):
+                    print(f"[INFO] Index {name} already exists or has conflicts, skipping: {e}")
+                else:
+                    print(f"[WARN] Failed to create index {name}: {e}")
+    except Exception as e:
+        print(f"[ERROR] Failed to ensure indexes: {e}")
 
 async def get_payroll_record(db, payroll_record_id: str) -> Dict[str, Any]:
     rec = await db.payroll_records.find_one({"id": payroll_record_id})
