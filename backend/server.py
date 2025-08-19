@@ -11609,6 +11609,18 @@ async def create_insurance_card(card_data: InsuranceCardV2Create, current_user: 
         insurance_card = InsuranceCard(**mapped)
         card_dict = jsonable_encoder(insurance_card)
         await db.insurance_cards.insert_one(card_dict)
+
+        # Audit: Insurance.CardCreated
+        await create_audit_event(
+            event_type="Insurance.CardCreated",
+            resource_type="insurance",
+            user_id=current_user.id,
+            user_name=current_user.username,
+            resource_id=insurance_card.id,
+            action_details={"patient_id": insurance_card.patient_id, "payer_name": insurance_card.payer_name, "member_id": insurance_card.member_id},
+            phi_accessed=True,
+            success=True
+        )
         
         return insurance_card
     except HTTPException:
