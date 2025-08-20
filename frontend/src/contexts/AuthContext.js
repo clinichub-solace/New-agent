@@ -3,32 +3,15 @@ import axios from "axios";
 
 // Dynamic backend URL detection for deployment flexibility
 const getBackendURL = () => {
-  // If explicitly set in environment, use it
+  // Always use environment variable if set
   if (process.env.REACT_APP_BACKEND_URL && process.env.REACT_APP_BACKEND_URL !== '') {
     console.log('Using environment variable backend URL:', process.env.REACT_APP_BACKEND_URL);
     return process.env.REACT_APP_BACKEND_URL;
   }
   
-  // Get current host information
+  // Fallback to same domain as frontend
   const currentHost = window.location.origin;
-  const hostname = window.location.hostname;
-  const port = window.location.port;
-  
-  console.log('URL Detection Debug:', {
-    currentHost,
-    hostname,
-    port,
-    protocol: window.location.protocol
-  });
-  
-  // Check if we're in local development
-  if (hostname === 'localhost' && port === '3000') {
-    console.log('Detected local development - using localhost:8001');
-    return 'http://localhost:8001';
-  }
-  
-  // For all production/deployed environments, backend is on same domain
-  console.log('Detected production environment - using same domain:', currentHost);
+  console.log('Using same domain as frontend:', currentHost);
   return currentHost;
 };
 
