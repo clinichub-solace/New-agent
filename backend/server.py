@@ -14220,7 +14220,7 @@ def is_allowed_origin(origin: str) -> bool:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://.*\.emergentagent\.com|https://.*\.emergent\.sh|http://localhost:3000",
+    allow_origin_regex=r"https://.*\.emergentagent\.com|https://.*\.emergent\.sh|https://.*\.emergent\.host|http://localhost:3000",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
