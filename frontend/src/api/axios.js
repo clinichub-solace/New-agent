@@ -1,19 +1,11 @@
 // app/frontend/src/api/axios.js
 import axios from "axios";
 
-// Dynamic backend URL detection for deployment flexibility
-const getBackendURL = () => {
-  // Always use environment variable if set
-  if (process.env.REACT_APP_BACKEND_URL && process.env.REACT_APP_BACKEND_URL !== '') {
-    return process.env.REACT_APP_BACKEND_URL;
-  }
-  
-  // Fallback to same domain as frontend
-  return window.location.origin;
-};
+// Use direct environment variable for backend URL
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "/api";
 
 const api = axios.create({
-  baseURL: getBackendURL()
+  baseURL: BACKEND_URL
 });
 
 api.interceptors.response.use(
