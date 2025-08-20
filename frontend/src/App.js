@@ -10,8 +10,17 @@ const getBackendURL = () => {
     return process.env.REACT_APP_BACKEND_URL;
   }
   
-  // For deployed environments, use current domain
+  // For deployed environments, assume backend is on same domain
+  // Since frontend runs on port 3000 and backend on port 8001 in development
+  // In production, both frontend and backend are on the same domain
   const currentHost = window.location.origin;
+  
+  // Check if we're in development (localhost:3000)
+  if (currentHost.includes('localhost:3000')) {
+    return 'http://localhost:8001';  // Point to local backend
+  }
+  
+  // In production, backend is on same domain as frontend
   return currentHost;
 };
 
