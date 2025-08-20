@@ -3,9 +3,9 @@ import "./App.css";
 import axios from "axios";
 import { formatErrorMessage, toDisplayError } from './utils/errors';
 
-// Hardcoded API configuration to bypass environment variable issues in deployment
-const BACKEND_URL = "/api";
-const API = `/api`;
+// Dynamic API configuration using environment variables
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "/api";
+const API = process.env.REACT_APP_BACKEND_URL || `/api`;
 
 // Add axios timeout to prevent hanging requests
 axios.defaults.timeout = 10000; // 10 second timeout
