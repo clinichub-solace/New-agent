@@ -3,19 +3,9 @@ import "./App.css";
 import axios from "axios";
 import { formatErrorMessage, toDisplayError } from './utils/errors';
 
-// Dynamic backend URL detection for deployment flexibility
-const getBackendURL = () => {
-  // Always use environment variable if set
-  if (process.env.REACT_APP_BACKEND_URL && process.env.REACT_APP_BACKEND_URL !== '') {
-    return process.env.REACT_APP_BACKEND_URL;
-  }
-  
-  // Fallback to same domain as frontend
-  return window.location.origin;
-};
-
-const BACKEND_URL = getBackendURL();
-const API = `${BACKEND_URL}/api`;
+// Use direct environment variable for backend URL
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "/api";
+const API = `${BACKEND_URL}`;
 
 // Add axios timeout to prevent hanging requests
 axios.defaults.timeout = 10000; // 10 second timeout
