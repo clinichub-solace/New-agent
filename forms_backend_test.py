@@ -386,10 +386,12 @@ class FormsTestSuite:
             ) as response:
                 if response.status == 400:
                     error_data = await response.json()
-                    if "validation_errors" in error_data:
-                        self.log_result("Validation - Missing Required Fields", True, f"Correctly rejected submission with validation errors: {len(error_data['validation_errors'])} errors")
+                    # Check for validation_errors in detail field (FastAPI standard)
+                    validation_errors = error_data.get("detail", {}).get("validation_errors") or error_data.get("validation_errors")
+                    if validation_errors:
+                        self.log_result("Validation - Missing Required Fields", True, f"Correctly rejected submission with validation errors: {len(validation_errors)} errors")
                     else:
-                        self.log_result("Validation - Missing Required Fields", False, "Expected validation_errors in response")
+                        self.log_result("Validation - Missing Required Fields", False, f"Expected validation_errors in response: {error_data}")
                 else:
                     self.log_result("Validation - Missing Required Fields", False, f"Expected 400 status, got {response.status}")
         except Exception as e:
