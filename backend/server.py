@@ -14195,6 +14195,7 @@ ALLOWED_ORIGINS = [
     FRONTEND_ORIGIN,
     "http://localhost:3000",
     "https://app.emergent.sh",
+    "https://unruffled-noyce.preview.emergentagent.com",
     "https://medical-practice-hub-1.preview.emergentagent.com",
     "https://*.emergentagent.com",
     "https://*.emergent.sh"
