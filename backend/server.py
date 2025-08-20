@@ -53,8 +53,8 @@ def read_secret(secret_name: str, fallback_env: str = None) -> str:
 try:
     mongo_url = read_secret('mongo_connection_string', 'MONGO_URL')
     if not mongo_url:
-        # Fallback for development
-        mongo_url = os.environ.get('MONGO_URL', 'mongodb://admin:changeme123@mongodb:27017/clinichub?authSource=admin')
+        # No fallback - require proper environment configuration
+        raise ValueError("MONGO_URL must be set in environment or secrets")
     
     def sanitize_mongo_uri(uri: str) -> str:
         """Ensure username/password are percent-encoded in the Mongo URI."""
