@@ -11,9 +11,9 @@ from datetime import datetime, date
 import time
 import os
 
-# Configuration - Use production URL from frontend/.env
-BACKEND_URL = "https://api-pathway.preview.emergentagent.com"
-API_BASE = f"{BACKEND_URL}/api"
+# Configuration - Test through proxy setup (frontend routes /api/* to localhost:8001)
+BACKEND_URL = "http://localhost:3000"  # Frontend with proxy
+API_BASE = f"{BACKEND_URL}/api"  # Proxy routes /api/* to localhost:8001
 
 # Test credentials
 ADMIN_USERNAME = "admin"
