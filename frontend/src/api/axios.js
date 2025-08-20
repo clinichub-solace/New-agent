@@ -1,8 +1,8 @@
 // app/frontend/src/api/axios.js
 import axios from "axios";
 
-// Hardcoded API configuration to bypass environment variable issues in deployment
-const BACKEND_URL = "/api";
+// Dynamic API configuration using environment variables
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "/api";
 
 const api = axios.create({
   baseURL: BACKEND_URL
