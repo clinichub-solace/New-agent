@@ -382,9 +382,7 @@ async def list_submissions(
     """
     try:
         # Find form
-        form = await db[FORMS_COLL].find_one({"_id": form_id})
-        if not form:
-            form = await db[FORMS_COLL].find_one({"key": form_id})
+        form = await find_form_by_id_or_key(db, form_id)
         
         if not form:
             raise HTTPException(status_code=404, detail="form not found")
