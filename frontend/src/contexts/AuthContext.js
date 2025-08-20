@@ -5,19 +5,30 @@ import axios from "axios";
 const getBackendURL = () => {
   // If explicitly set in environment, use it
   if (process.env.REACT_APP_BACKEND_URL && process.env.REACT_APP_BACKEND_URL !== '') {
+    console.log('Using environment variable backend URL:', process.env.REACT_APP_BACKEND_URL);
     return process.env.REACT_APP_BACKEND_URL;
   }
   
   // Get current host information
   const currentHost = window.location.origin;
   const hostname = window.location.hostname;
+  const port = window.location.port;
+  
+  console.log('URL Detection Debug:', {
+    currentHost,
+    hostname,
+    port,
+    protocol: window.location.protocol
+  });
   
   // Check if we're in local development
-  if (hostname === 'localhost' && window.location.port === '3000') {
-    return 'http://localhost:8001';  // Point to local backend
+  if (hostname === 'localhost' && port === '3000') {
+    console.log('Detected local development - using localhost:8001');
+    return 'http://localhost:8001';
   }
   
   // For all production/deployed environments, backend is on same domain
+  console.log('Detected production environment - using same domain:', currentHost);
   return currentHost;
 };
 
