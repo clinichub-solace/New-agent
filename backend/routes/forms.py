@@ -285,7 +285,17 @@ async def submit_form(
     """
     try:
         # Find form
-        form = await db[FORMS_COLL].find_one({"_id": form_id})
+        form = None
+        
+        # Try as ObjectId if it looks like one
+        if len(form_id) == 24:
+            try:
+                obj_id = ObjectId(form_id)
+                form = await db[FORMS_COLL].find_one({"_id": obj_id})
+            except:
+                pass
+        
+        # If not found by ObjectId, try by key
         if not form:
             form = await db[FORMS_COLL].find_one({"key": form_id})
         
