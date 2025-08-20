@@ -17,6 +17,24 @@ from backend.utils.notify import notify_user
 
 router = APIRouter(prefix="/api/forms", tags=["Forms"])
 
+async def find_form_by_id_or_key(db, form_id: str):
+    """Helper function to find form by ObjectId or key"""
+    form = None
+    
+    # Try as ObjectId if it looks like one
+    if len(form_id) == 24:
+        try:
+            obj_id = ObjectId(form_id)
+            form = await db[FORMS_COLL].find_one({"_id": obj_id})
+        except:
+            pass
+    
+    # If not found by ObjectId, try by key
+    if not form:
+        form = await db[FORMS_COLL].find_one({"key": form_id})
+    
+    return form
+
 @router.post("")
 async def create_or_update_form(
     payload: dict, 
