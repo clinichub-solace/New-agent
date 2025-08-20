@@ -44,7 +44,19 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
+      console.log('Environment check:', {
+        REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL,
+        BACKEND_URL: BACKEND_URL,
+        API: API,
+        FORCED_URL: 'http://192.168.0.243:8001'
+      });
+      
+      console.log('Making login request to:', `${API}/auth/login`);
+      console.log('Request payload:', { username, password });
+      
       const response = await axios.post(`${API}/auth/login`, { username, password });
+      console.log('Login response:', response.data);
+      
       const { access_token, user: userData } = response.data;
       
       localStorage.setItem('token', access_token);
@@ -54,9 +66,24 @@ export const AuthProvider = ({ children }) => {
       
       return { success: true };
     } catch (error) {
+      console.error('Login error details:', error);
+      
+      let errorMessage = 'Network Error';
+      
+      if (error.response) {
+        // Server responded with error status
+        errorMessage = error.response.data?.detail || error.response.data?.message || `Server Error (${error.response.status})`;
+      } else if (error.request) {
+        // Network error - no response received
+        errorMessage = 'Network Error - Unable to reach server';
+      } else {
+        // Other error
+        errorMessage = error.message || 'Login failed';
+      }
+      
       return { 
         success: false, 
-        error: error.response?.data?.detail || 'Login failed' 
+        error: errorMessage 
       };
     }
   };
