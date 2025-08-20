@@ -1,4 +1,4 @@
-import React, { useState, useEffect, createContext, useContext } from "react";
+import React, { useState, useEffect } from "react";
 import "./App.css";
 import axios from "axios";
 import { formatErrorMessage, toDisplayError } from './utils/errors';
@@ -16,93 +16,6 @@ console.log('Environment check:', {
   BACKEND_URL,
   API
 });
-
-// Authentication Context
-const AuthContext = createContext();
-
-export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
-  return context;
-};
-
-const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [token, setToken] = useState(localStorage.getItem('token'));
-
-  useEffect(() => {
-    if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      fetchCurrentUser();
-    } else {
-      setLoading(false);
-    }
-  }, [token]);
-
-  const fetchCurrentUser = async () => {
-    try {
-      const response = await axios.get(`${API}/auth/me`);
-      setUser(response.data);
-    } catch (error) {
-      console.error('Token validation failed:', error);
-      localStorage.removeItem('token');
-      setToken(null);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const login = async (username, password) => {
-    try {
-      console.log('Making login request to:', `${API}/auth/login`);
-      console.log('Request payload:', { username, password });
-      
-      const response = await axios.post(`${API}/auth/login`, { username, password });
-      console.log('Login response:', response.data);
-      
-      const { access_token, user: userData } = response.data;
-      
-      localStorage.setItem('token', access_token);
-      setToken(access_token);
-      setUser(userData);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
-      
-      return { success: true };
-    } catch (error) {
-      console.error('Login failed:', error);
-      console.error('Error response:', error.response?.data);
-      console.error('Error status:', error.response?.status);
-      return { 
-        success: false, 
-        error: error.response?.data?.detail || error.message || 'Login failed. Please try again.' 
-      };
-    }
-  };
-
-  const logout = async () => {
-    try {
-      if (token) {
-        await axios.post(`${API}/auth/logout`);
-      }
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      localStorage.removeItem('token');
-      setToken(null);
-      setUser(null);
-      delete axios.defaults.headers.common['Authorization'];
-    }
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
 
 // Login Page Component
 const LoginPage = () => {
