@@ -1,7 +1,19 @@
 import React, { useState, useEffect, createContext, useContext } from "react";
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
+// Dynamic backend URL detection for deployment flexibility
+const getBackendURL = () => {
+  // If explicitly set in environment, use it
+  if (process.env.REACT_APP_BACKEND_URL && process.env.REACT_APP_BACKEND_URL !== '') {
+    return process.env.REACT_APP_BACKEND_URL;
+  }
+  
+  // For deployed environments, use current domain
+  const currentHost = window.location.origin;
+  return currentHost;
+};
+
+const BACKEND_URL = getBackendURL();
 const API = `${BACKEND_URL}/api`;
 
 // Authentication Context
