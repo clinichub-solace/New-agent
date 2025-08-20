@@ -1,0 +1,94 @@
+{
+  "name": "New Patient Intake",
+  "key": "intake_v1",
+  "status": "draft",
+  "schema": {
+    "fields": [
+      {
+        "key": "patient_name",
+        "label": "Patient Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "dob",
+        "label": "Date of Birth",
+        "type": "date",
+        "required": true
+      },
+      {
+        "key": "phone",
+        "label": "Phone Number",
+        "type": "phone",
+        "required": false
+      },
+      {
+        "key": "email",
+        "label": "Email Address",
+        "type": "email",
+        "required": false
+      },
+      {
+        "key": "emergency_contact",
+        "label": "Emergency Contact Name",
+        "type": "text",
+        "required": true
+      },
+      {
+        "key": "emergency_phone",
+        "label": "Emergency Contact Phone",
+        "type": "phone",
+        "required": true
+      },
+      {
+        "key": "consent",
+        "label": "I consent to treatment",
+        "type": "checkbox",
+        "required": true
+      },
+      {
+        "key": "insurance",
+        "label": "Insurance Provider",
+        "type": "select",
+        "options": ["None", "Aetna", "Blue Cross Blue Shield", "Cigna", "United Healthcare", "Medicare", "Medicaid", "Other"],
+        "required": true
+      },
+      {
+        "key": "preferred_language",
+        "label": "Preferred Language",
+        "type": "select",
+        "options": ["English", "Spanish", "Other"],
+        "required": false
+      },
+      {
+        "key": "medical_history",
+        "label": "Brief Medical History",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "key": "medications",
+        "label": "Current Medications",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "key": "allergies",
+        "label": "Known Allergies",
+        "type": "textarea",
+        "required": false
+      },
+      {
+        "key": "notes",
+        "label": "Additional Notes",
+        "type": "textarea",
+        "required": false
+      }
+    ]
+  },
+  "meta": {
+    "description": "Comprehensive patient intake form for new patients",
+    "category": "intake",
+    "estimated_time_minutes": 10
+  }
+}
