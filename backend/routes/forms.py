@@ -484,12 +484,19 @@ async def export_submission_pdf(
     """
     try:
         # Find submission
-        sub = await db[SUBMISSIONS_COLL].find_one({"_id": submission_id})
+        sub = None
+        if len(submission_id) == 24:
+            try:
+                obj_id = ObjectId(submission_id)
+                sub = await db[SUBMISSIONS_COLL].find_one({"_id": obj_id})
+            except:
+                pass
+        
         if not sub:
             raise HTTPException(status_code=404, detail="submission not found")
         
         # Find associated form
-        form = await db[FORMS_COLL].find_one({"_id": sub["form_id"]})
+        form = await find_form_by_id_or_key(db, sub["form_id"])
         if not form:
             raise HTTPException(status_code=404, detail="associated form not found")
         
