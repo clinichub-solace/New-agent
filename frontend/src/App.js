@@ -13,8 +13,7 @@ axios.defaults.timeout = 10000; // 10 second timeout
 console.log('Environment check:', {
   REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL,
   BACKEND_URL,
-  API,
-  FORCED_URL: 'http://192.168.0.243:8001'
+  API
 });
 
 // Authentication Context
