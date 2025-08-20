@@ -47,8 +47,7 @@ export const AuthProvider = ({ children }) => {
       console.log('Environment check:', {
         REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL,
         BACKEND_URL: BACKEND_URL,
-        API: API,
-        FORCED_URL: 'http://192.168.0.243:8001'
+        API: API
       });
       
       console.log('Making login request to:', `${API}/auth/login`);
