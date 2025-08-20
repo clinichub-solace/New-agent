@@ -1,6 +1,6 @@
 # ClinicHub Comprehensive System Audit Report
 Date: 2025-08-19
-Environment: Preview (https://medical-practice-hub-1.preview.emergentagent.com)
+Environment: Preview (https://api-pathway.preview.emergentagent.com)
 
 ---
 
@@ -15,11 +15,11 @@ TL;DR
 
 1) Configuration & Routing Verification
 - Frontend runtime env (console):
-  - REACT_APP_BACKEND_URL = https://medical-practice-hub-1.preview.emergentagent.com
-  - API = https://medical-practice-hub-1.preview.emergentagent.com/api
+  - REACT_APP_BACKEND_URL = https://api-pathway.preview.emergentagent.com
+  - API = https://api-pathway.preview.emergentagent.com/api
   - FORCED_URL = http://192.168.0.243:8001 (debug-only; not used for requests)
 - Requests observed:
-  - POST https://medical-practice-hub-1.preview.emergentagent.com/api/auth/login → 200 OK
+  - POST https://api-pathway.preview.emergentagent.com/api/auth/login → 200 OK
 - Backend binding: 0.0.0.0:8001 (supervisor-managed)
 - Ingress: All /api routes → backend service at port 8001
 - Database:
@@ -31,7 +31,7 @@ Conclusion: Environment is correctly wired. No 8080 usage. /api prefix respected
 ---
 
 2) Frontend Status (Preview)
-- URL: https://medical-practice-hub-1.preview.emergentagent.com
+- URL: https://api-pathway.preview.emergentagent.com
 - Login: admin / admin123 successfully logs in to dashboard; JWT stored and used for subsequent calls.
 - Observed console:
   - Env check logs confirm correct API base.

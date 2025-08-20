@@ -11,7 +11,7 @@ from datetime import datetime, date
 import uuid
 
 # Backend URL from environment
-BACKEND_URL = "https://medical-practice-hub-1.preview.emergentagent.com"
+BACKEND_URL = "https://api-pathway.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
 
 class InsuranceWorkflowTester:
