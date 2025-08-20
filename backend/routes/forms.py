@@ -202,7 +202,17 @@ async def get_form(
     """
     try:
         # Try by MongoDB ObjectId first, then by key
-        doc = await db[FORMS_COLL].find_one({"_id": form_id})
+        doc = None
+        
+        # Try as ObjectId if it looks like one
+        if len(form_id) == 24:
+            try:
+                obj_id = ObjectId(form_id)
+                doc = await db[FORMS_COLL].find_one({"_id": obj_id})
+            except:
+                pass
+        
+        # If not found by ObjectId, try by key
         if not doc:
             doc = await db[FORMS_COLL].find_one({"key": form_id})
         
