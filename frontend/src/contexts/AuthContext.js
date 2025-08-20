@@ -1,9 +1,9 @@
 import React, { useState, useEffect, createContext, useContext } from "react";
 import axios from "axios";
 
-// Use direct environment variable for backend URL
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "/api";
-const API = `${BACKEND_URL}`;
+// Hardcoded API configuration to bypass environment variable issues in deployment
+const BACKEND_URL = "/api";
+const API = `/api`;
 
 // Authentication Context
 const AuthContext = createContext();
