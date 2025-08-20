@@ -1,0 +1,89 @@
+# ClinicHub Deployment Configuration for Emergent Platform
+# This file contains the corrected configuration for alpine-chub deployment
+
+version: "1.0"
+deployment_name: "alpine-chub"
+
+# Backend Configuration
+backend:
+  port: 8001
+  host: "0.0.0.0"
+  health_check_path: "/api/health"
+  
+  # Environment Variables Required for Deployment
+  environment:
+    ENV: "PRODUCTION"
+    HOST: "0.0.0.0"
+    PORT: "8001"
+    DEBUG: "false"
+    
+    # Database Configuration (CRITICAL - must be set in Emergent secrets)
+    # MONGO_URL: "mongodb://[username]:[password]@[host]:[port]/[database]"
+    # This MUST point to an accessible MongoDB instance, not external services
+    
+    # Security Configuration (CRITICAL - must be set in Emergent secrets)
+    # SECRET_KEY: "[secure-random-key]"
+    # JWT_SECRET_KEY: "[secure-jwt-key]"
+    
+    # CORS Configuration
+    FRONTEND_ORIGIN: "https://alpine-chub.emergent.host"
+
+# Frontend Configuration  
+frontend:
+  port: 3000
+  host: "0.0.0.0"
+  
+  # Environment Variables for Build
+  environment:
+    REACT_APP_BACKEND_URL: "/api"
+    HOST: "0.0.0.0"
+    PORT: "3000"
+
+# Required Secrets (must be configured in Emergent platform)
+secrets:
+  - name: "mongo_connection_string"
+    description: "MongoDB connection string for Emergent-managed database"
+    example: "mongodb://username:password@emergent-mongo:27017/clinichub"
+    
+  - name: "jwt_secret_key" 
+    description: "JWT signing key for authentication"
+    
+  - name: "secret_key"
+    description: "Application secret key for encryption"
+
+# Network Configuration
+network:
+  ingress:
+    # Route /api/* to backend:8001
+    - path: "/api/*"
+      service: "backend"
+      port: 8001
+      
+    # Route everything else to frontend:3000  
+    - path: "/*"
+      service: "frontend" 
+      port: 3000
+
+# Health Checks
+health_checks:
+  backend:
+    path: "/api/health"
+    expected_response: '{"status":"healthy"}'
+    
+  frontend:
+    path: "/"
+    expected_response: "ClinicHub"
+
+# Troubleshooting Guide
+troubleshooting:
+  502_bad_gateway:
+    - "Check MONGO_URL secret points to accessible MongoDB instance"
+    - "Verify backend container is starting successfully"
+    - "Check backend logs for database connection errors"
+    - "Ensure ingress routes /api/* to backend:8001"
+    
+  database_connection_issues:
+    - "Update mongo_connection_string secret to use Emergent-managed MongoDB"
+    - "Format: mongodb://username:password@emergent-mongo-host:27017/clinichub"
+    - "Ensure database credentials are correct"
+    - "Check if MongoDB service is running and accessible"
