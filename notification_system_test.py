@@ -12,7 +12,7 @@ from typing import Dict, Any, List, Optional
 import uuid
 
 # Configuration
-BASE_URL = "https://health-platform-3.preview.emergentagent.com/api"
+BASE_URL = "https://medical-practice-hub-1.preview.emergentagent.com/api"
 ADMIN_CREDENTIALS = {"username": "admin", "password": "admin123"}
 
 class NotificationSystemTester:
