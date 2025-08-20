@@ -14189,39 +14189,21 @@ async def root():
         "health": "/health"
     }
 
-# Configure CORS origins for multiple environments
-FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
-ALLOWED_ORIGINS = [
-    FRONTEND_ORIGIN,
-    "http://localhost:3000",
-    "https://app.emergent.sh",
-    "https://unruffled-noyce.preview.emergentagent.com",
-    "https://medical-practice-hub-1.preview.emergentagent.com",
-    "https://*.emergentagent.com",
-    "https://*.emergent.sh"
-]
+# Configure CORS origins for multiple environments with dynamic detection
+def get_frontend_origin():
+    """Get frontend origin from environment or detect dynamically"""
+    env_origin = os.getenv("FRONTEND_ORIGIN", "")
+    if env_origin:
+        return env_origin
+    # For production, we'll need to accept the requesting origin
+    return "http://localhost:3000"  # fallback for development
 
-# Add pattern matching for preview domains
-def is_allowed_origin(origin: str) -> bool:
-    """Check if origin is allowed, including wildcard matching for Emergent domains"""
-    if not origin:
-        return False
-    
-    # Direct match
-    if origin in ALLOWED_ORIGINS:
-        return True
-    
-    # Pattern matching for Emergent preview domains
-    if (origin.endswith('.emergentagent.com') or 
-        origin.endswith('.emergent.sh') or
-        'preview.emergentagent.com' in origin):
-        return True
-    
-    return False
+FRONTEND_ORIGIN = get_frontend_origin()
 
+# Updated CORS configuration for production flexibility
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r"https://.*\.emergentagent\.com|https://.*\.emergent\.sh|https://.*\.emergent\.host|http://localhost:3000",
+    allow_origins=["*"],  # Allow all origins for deployed environments
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
