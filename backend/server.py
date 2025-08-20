@@ -14182,11 +14182,37 @@ async def root():
         "health": "/health"
     }
 
+# Configure CORS origins for multiple environments
 FRONTEND_ORIGIN = os.getenv("FRONTEND_ORIGIN", "http://localhost:3000")
+ALLOWED_ORIGINS = [
+    FRONTEND_ORIGIN,
+    "http://localhost:3000",
+    "https://app.emergent.sh",
+    "https://*.emergentagent.com",
+    "https://*.emergent.sh"
+]
+
+# Add pattern matching for preview domains
+def is_allowed_origin(origin: str) -> bool:
+    """Check if origin is allowed, including wildcard matching for Emergent domains"""
+    if not origin:
+        return False
+    
+    # Direct match
+    if origin in ALLOWED_ORIGINS:
+        return True
+    
+    # Pattern matching for Emergent preview domains
+    if (origin.endswith('.emergentagent.com') or 
+        origin.endswith('.emergent.sh') or
+        'preview.emergentagent.com' in origin):
+        return True
+    
+    return False
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[FRONTEND_ORIGIN],
+    allow_origin_regex=r"https://.*\.emergentagent\.com|https://.*\.emergent\.sh|http://localhost:3000",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
