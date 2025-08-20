@@ -14164,7 +14164,14 @@ app.include_router(api_router)
 # Health endpoint for Docker health check
 @app.get("/api/health")
 async def health_check():
-    return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
+    """Health check endpoint with CORS debugging info"""
+    return {
+        "status": "healthy",
+        "timestamp": datetime.utcnow().isoformat(),
+        "cors_enabled": True,
+        "frontend_origin": os.getenv("FRONTEND_ORIGIN", "http://localhost:3000"),
+        "environment": os.getenv("ENV", "development")
+    }
 
 @app.get("/health")
 async def root_health_check():
