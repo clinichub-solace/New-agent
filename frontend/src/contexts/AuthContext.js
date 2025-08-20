@@ -1,9 +1,9 @@
 import React, { useState, useEffect, createContext, useContext } from "react";
 import axios from "axios";
 
-// Hardcoded API configuration to bypass environment variable issues in deployment
-const BACKEND_URL = "/api";
-const API = `/api`;
+// Dynamic API configuration using environment variables
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "/api";
+const API = process.env.REACT_APP_BACKEND_URL || `/api`;
 
 // Authentication Context
 const AuthContext = createContext();
