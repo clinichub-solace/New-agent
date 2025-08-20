@@ -22,14 +22,14 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('token'));
 
   useEffect(() => {
-    if (token) {
-      // Verify token and get user info
+    if (token && !user) {
+      // Only fetch user if we have token but no user data (e.g., on page refresh)
       axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       fetchCurrentUser();
-    } else {
+    } else if (!token) {
       setLoading(false);
     }
-  }, [token]);
+  }, [token, user]);
 
   const fetchCurrentUser = async () => {
     try {
