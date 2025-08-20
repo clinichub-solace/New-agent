@@ -3,8 +3,19 @@ import "./App.css";
 import axios from "axios";
 import { formatErrorMessage, toDisplayError } from './utils/errors';
 
-// Force correct backend URL since environment variables aren't loading properly
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || 'http://localhost:8001';
+// Dynamic backend URL detection for deployment flexibility
+const getBackendURL = () => {
+  // If explicitly set in environment, use it
+  if (process.env.REACT_APP_BACKEND_URL && process.env.REACT_APP_BACKEND_URL !== '') {
+    return process.env.REACT_APP_BACKEND_URL;
+  }
+  
+  // For deployed environments, use current domain
+  const currentHost = window.location.origin;
+  return currentHost;
+};
+
+const BACKEND_URL = getBackendURL();
 const API = `${BACKEND_URL}/api`;
 
 // Add axios timeout to prevent hanging requests
