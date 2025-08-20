@@ -4,6 +4,7 @@ from io import StringIO
 import csv
 from typing import Optional
 from datetime import datetime
+from bson import ObjectId
 from backend.dependencies import get_db, get_current_active_user as get_current_user
 from backend.utils.forms import (
     FORMS_COLL, SUBMISSIONS_COLL, ensure_form_indexes,
