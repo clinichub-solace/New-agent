@@ -2,8 +2,9 @@ import React, { useState, useEffect } from "react";
 import axios from "axios";
 import { useAuth } from "../contexts/AuthContext";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "/api";
-const API = `${BACKEND_URL}`;
+// Hardcoded API configuration to bypass environment variable issues in deployment
+const BACKEND_URL = "/api";
+const API = `/api`;
 
 const Dashboard = ({ setActiveModule }) => {
   const { user, logout, hasPermission } = useAuth();
