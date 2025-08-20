@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import axios from "axios";
 
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
-const API = `${BACKEND_URL}/api`;
+const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "/api";
+const API = `${BACKEND_URL}`;
 
 const PatientsModule = ({ setActiveModule }) => {
   const [patients, setPatients] = useState([]);
