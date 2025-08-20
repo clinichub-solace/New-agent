@@ -8,7 +8,7 @@ import aiohttp
 import json
 
 # Configuration
-BACKEND_URL = "https://e74b3bf4-8f20-4982-9905-3152224072c7.preview.emergentagent.com"
+BACKEND_URL = "https://health-platform-3.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
 
 # Test credentials

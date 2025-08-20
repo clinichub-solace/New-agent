@@ -11,7 +11,7 @@ from datetime import datetime, date
 import time
 
 # Configuration - Use production URL from frontend/.env
-BACKEND_URL = "https://medoffice-suite.preview.emergentagent.com"
+BACKEND_URL = "https://health-platform-3.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
 
 # Test credentials

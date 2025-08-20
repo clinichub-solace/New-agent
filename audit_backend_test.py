@@ -17,7 +17,7 @@ from typing import Dict, Any, List
 import uuid
 
 # Configuration
-BASE_URL = "https://medoffice-suite.preview.emergentagent.com/api"
+BASE_URL = "https://health-platform-3.preview.emergentagent.com/api"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
 
