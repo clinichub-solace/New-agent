@@ -2,6 +2,7 @@ import React, { useState, useEffect, createContext, useContext } from "react";
 import "./App.css";
 import axios from "axios";
 import { formatErrorMessage, toDisplayError } from './utils/errors';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 // Dynamic API configuration using environment variables
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "/api";
