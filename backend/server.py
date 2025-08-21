@@ -14210,7 +14210,7 @@ app.add_middleware(
 )
 
 # Simple connectivity test endpoint for deployment debugging
-@app.get("/api/ping")
+@api_router.get("/ping")
 def ping():
     return {"message": "pong", "timestamp": datetime.utcnow().isoformat()}
 
