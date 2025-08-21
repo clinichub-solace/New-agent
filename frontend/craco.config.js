@@ -32,9 +32,12 @@ module.exports = {
     host: '0.0.0.0',
     port: 3000,
     allowedHosts: 'all',
+    disableHostCheck: true, // Legacy fallback for older versions
     historyApiFallback: true,
     headers: {
       'Access-Control-Allow-Origin': '*',
-    }
+    },
+    // Explicitly allow the deployment domain
+    public: 'unruffled-noyce.emergent.host'
   }
 };
