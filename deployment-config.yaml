@@ -4,6 +4,17 @@
 version: "1.0"
 deployment_name: "alpine-chub"
 
+# Frontend Configuration  
+frontend:
+  port: 3000
+  host: "0.0.0.0"
+  build_command: "yarn build"
+  
+  # Environment Variables for Production Build
+  environment:
+    REACT_APP_BACKEND_URL: "/api"
+    NODE_ENV: "production"
+
 # Backend Configuration
 backend:
   port: 8001
@@ -17,27 +28,57 @@ backend:
     PORT: "8001"
     DEBUG: "false"
     
-    # Database Configuration (CRITICAL - must be set in Emergent secrets)
-    # MONGO_URL: "mongodb://[username]:[password]@[host]:[port]/[database]"
-    # This MUST point to an accessible MongoDB instance, not external services
-    
-    # Security Configuration (CRITICAL - must be set in Emergent secrets)
-    # SECRET_KEY: "[secure-random-key]"
-    # JWT_SECRET_KEY: "[secure-jwt-key]"
-    
     # CORS Configuration
-    FRONTEND_ORIGIN: "https://alpine-chub.emergent.host"
+    FRONTEND_ORIGIN: "https://unruffled-noyce.emergent.host"
 
-# Frontend Configuration  
-frontend:
-  port: 3000
-  host: "0.0.0.0"
-  
-  # Environment Variables for Build
-  environment:
-    REACT_APP_BACKEND_URL: "/api"
-    HOST: "0.0.0.0"
-    PORT: "3000"
+# CRITICAL: Reverse Proxy Configuration Required
+# The Emergent platform MUST configure the reverse proxy to route:
+# /api/* → backend:8001
+# /*    → frontend:3000 (static files)
+
+reverse_proxy:
+  nginx_config: |
+    server {
+      server_name unruffled-noyce.emergent.host;
+      listen 443 ssl http2;
+      
+      root /var/www/alpine-chub/build;
+      index index.html;
+
+      location /api/ {
+        proxy_pass http://127.0.0.1:8001/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # CORS headers for API access
+        add_header Access-Control-Allow-Origin https://unruffled-noyce.emergent.host always;
+        add_header Access-Control-Allow-Credentials true always;
+        add_header Access-Control-Allow-Headers "Content-Type, Authorization" always;
+        add_header Access-Control-Allow-Methods "GET,POST,PUT,DELETE,OPTIONS" always;
+        if ($request_method = OPTIONS) { return 204; }
+      }
+
+      location / {
+        try_files $uri /index.html;
+      }
+    }
+    
+  caddy_config: |
+    unruffled-noyce.emergent.host {
+      root * /var/www/alpine-chub/build
+      file_server
+      handle_path /api/* {
+        reverse_proxy 127.0.0.1:8001
+        header Access-Control-Allow-Origin "https://unruffled-noyce.emergent.host"
+        header Access-Control-Allow-Credentials "true"
+        header Access-Control-Allow-Headers "Content-Type, Authorization"
+        header Access-Control-Allow-Methods "GET,POST,PUT,DELETE,OPTIONS"
+      }
+      try_files {path} /index.html
+    }
 
 # Required Secrets (must be configured in Emergent platform)
 secrets:
@@ -51,39 +92,20 @@ secrets:
   - name: "secret_key"
     description: "Application secret key for encryption"
 
-# Network Configuration
-network:
-  ingress:
-    # Route /api/* to backend:8001
-    - path: "/api/*"
-      service: "backend"
-      port: 8001
-      
-    # Route everything else to frontend:3000  
-    - path: "/*"
-      service: "frontend" 
-      port: 3000
+# Verification Commands
+verification:
+  backend_direct: "curl -I http://127.0.0.1:8001/health"
+  api_through_proxy: "curl -I https://unruffled-noyce.emergent.host/api/health"
+  frontend: "curl -I https://unruffled-noyce.emergent.host/"
 
-# Health Checks
-health_checks:
-  backend:
-    path: "/api/health"
-    expected_response: '{"status":"healthy"}'
-    
-  frontend:
-    path: "/"
-    expected_response: "ClinicHub"
-
-# Troubleshooting Guide
+# Troubleshooting
 troubleshooting:
-  502_bad_gateway:
-    - "Check MONGO_URL secret points to accessible MongoDB instance"
-    - "Verify backend container is starting successfully"
-    - "Check backend logs for database connection errors"
-    - "Ensure ingress routes /api/* to backend:8001"
+  mixed_content_error:
+    - "Ensure all API calls use relative paths (/api/endpoint)"
+    - "Never use http://localhost:8001 in production builds"
+    - "Configure reverse proxy to route /api/* to backend"
     
-  database_connection_issues:
-    - "Update mongo_connection_string secret to use Emergent-managed MongoDB"
-    - "Format: mongodb://username:password@emergent-mongo-host:27017/clinichub"
-    - "Ensure database credentials are correct"
-    - "Check if MongoDB service is running and accessible"
+  cors_error:
+    - "Verify reverse proxy is routing /api/* to backend:8001"
+    - "Check CORS configuration allows https://unruffled-noyce.emergent.host"
+    - "Ensure backend is binding to 0.0.0.0:8001"
