@@ -1,11 +1,9 @@
 // Load configuration from environment or config file
 const path = require('path');
-
 // Environment variable overrides
 const config = {
   disableHotReload: process.env.DISABLE_HOT_RELOAD === 'true',
 };
-
 module.exports = {
   webpack: {
     alias: {
@@ -30,5 +28,13 @@ module.exports = {
       return webpackConfig;
     },
   },
+  devServer: {
+    host: '0.0.0.0',
+    port: 3000,
+    allowedHosts: 'all',
+    historyApiFallback: true,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+    }
+  }
 };
-  
