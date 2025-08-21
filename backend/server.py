@@ -14209,6 +14209,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Simple connectivity test endpoint for deployment debugging
+@app.get("/api/ping")
+def ping():
+    return {"message": "pong", "timestamp": datetime.utcnow().isoformat()}
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
