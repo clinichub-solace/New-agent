@@ -14158,6 +14158,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Simple connectivity test endpoint for deployment debugging  
+@api_router.get("/ping")
+def ping():
+    return {"message": "pong", "timestamp": datetime.utcnow().isoformat()}
+
 # Include API router (MUST be after all endpoint definitions)
 app.include_router(api_router)
 
