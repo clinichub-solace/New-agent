@@ -68,6 +68,19 @@ client = AsyncIOMotorClient(
 )
 db = client[os.environ.get('DB_NAME', 'clinichub')]
 
+# Test database connection on startup
+async def test_database_connection():
+    """Test database connectivity with timeout"""
+    try:
+        # Simple ping command with timeout
+        await client.admin.command('ping')
+        print("✅ Database connection successful")
+        return True
+    except Exception as e:
+        print(f"❌ Database connection failed: {str(e)}")
+        print(f"🔍 Connection URL: {mongo_url.split('@')[1] if '@' in mongo_url else 'local'}")
+        return False
+
 # JWT Configuration - use same logic as main server
 SECRET_KEY = read_secret('app_secret_key', 'SECRET_KEY')
 JWT_SECRET_KEY = read_secret('jwt_secret_key', 'JWT_SECRET_KEY')
