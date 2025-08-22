@@ -1,0 +1,19 @@
+# Temporary local MongoDB for testing deployment
+version: '3.8'
+services:
+  mongodb-local:
+    image: mongo:6.0
+    container_name: clinichub-test-mongo
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: testpassword123
+      MONGO_INITDB_DATABASE: clinichub
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_test_data:/data/db
+    command: mongod --auth
+
+volumes:
+  mongodb_test_data:
