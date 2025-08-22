@@ -14223,6 +14223,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup_event():
+    """Test database connectivity on startup"""
+    try:
+        # Test database connection
+        await client.admin.command('ping')
+        print("✅ MongoDB connection successful")
+        print(f"🏥 ClinicHub backend started successfully on {os.environ.get('HOST', '0.0.0.0')}:{os.environ.get('PORT', '8001')}")
+    except Exception as e:
+        print(f"❌ MongoDB connection failed: {str(e)}")
+        print(f"🔍 Check MONGO_URL configuration and database availability")
+        # Don't exit - let the app start anyway for health checks
+
 @app.on_event("shutdown")
 async def shutdown_db_client():
     client.close()
