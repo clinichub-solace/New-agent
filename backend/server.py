@@ -73,7 +73,16 @@ try:
         return f"mongodb://{user}:{pw}@{host}{port}{path}{query}"
 
     mongo_url = sanitize_mongo_uri(mongo_url)
-    client = AsyncIOMotorClient(mongo_url)
+    
+    # Configure MongoDB client with proper timeouts for production
+    client = AsyncIOMotorClient(
+        mongo_url,
+        serverSelectionTimeoutMS=5000,    # 5 second server selection timeout
+        connectTimeoutMS=10000,           # 10 second connection timeout  
+        socketTimeoutMS=30000,            # 30 second socket timeout
+        maxPoolSize=50,                   # Connection pool size
+        retryWrites=True                  # Retry writes on failure
+    )
     db = client[os.environ.get('DB_NAME', 'clinichub')]
 except Exception as e:
     logging.error(f"Failed to connect to MongoDB: {e}")
