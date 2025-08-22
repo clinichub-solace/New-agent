@@ -3,7 +3,7 @@ import axios from "axios";
 
 // Dynamic API configuration using environment variables
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "/api";
-const API = (process.env.REACT_APP_BACKEND_URL || "") + "/api";
+const API = process.env.REACT_APP_BACKEND_URL || "/api";
 
 // Authentication Context
 const AuthContext = createContext();

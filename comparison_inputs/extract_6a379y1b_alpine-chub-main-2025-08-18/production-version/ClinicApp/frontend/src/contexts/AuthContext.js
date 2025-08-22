@@ -48,7 +48,7 @@ const getAPIBaseURL = () => {
 };
 
 const API = getAPIBaseURL();
-// const API = `${BACKEND_URL}/api`;
+// const API = `${BACKEND_URL}`;
 
 // Authentication Context
 const AuthContext = createContext();
@@ -114,9 +114,7 @@ export const AuthProvider = ({ children }) => {
   try {
     // TEMPORARY: Use hardcoded correct URL
     console.log('🚀 Attempting login with correct /api URL...');
-    const response = await axios.post('https://api-pathway.preview.emergentagent.com/api/auth/login', 
-      { username, password }
-    );
+    const response = await axios.post(`${API}/auth/login`, { username, password });
     
     const { access_token, user: userData } = response.data;
     
