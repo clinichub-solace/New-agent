@@ -5,6 +5,127 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginPage from './components/LoginPage';
 import api from './api/axios';
 
+// ✅ ICD-10 Lookup Component - Reusable across all clinical modules
+// ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
+const ICD10Lookup = ({ onSelect, selectedCodes = [], placeholder = "Search ICD-10 codes..." }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const searchICD10 = async (query) => {
+    if (!query || query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    try {
+      setIsSearching(true);
+      const response = await api.get(`/icd10/search?query=${encodeURIComponent(query)}&limit=10`);
+      setSearchResults(response.data || []);
+      setShowResults(true);
+    } catch (error) {
+      console.error('Error searching ICD-10 codes:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const handleSearch = (value) => {
+    setSearchTerm(value);
+    searchICD10(value);
+  };
+
+  const handleSelect = (code) => {
+    if (onSelect) {
+      onSelect(code);
+    }
+    setSearchTerm('');
+    setSearchResults([]);
+    setShowResults(false);
+  };
+
+  const removeCode = (codeToRemove) => {
+    if (onSelect) {
+      const updatedCodes = selectedCodes.filter(code => code.code !== codeToRemove.code);
+      onSelect(null, updatedCodes);
+    }
+  };
+
+  return (
+    <div className="relative">
+      {/* Selected Codes Display */}
+      {selectedCodes.length > 0 && (
+        <div className="mb-3">
+          <label className="block text-sm font-medium text-gray-300 mb-2">Selected ICD-10 Codes:</label>
+          <div className="space-y-1">
+            {selectedCodes.map((code) => (
+              <div key={code.code} className="flex items-center justify-between bg-blue-600/20 text-blue-300 px-3 py-2 rounded text-sm">
+                <div>
+                  <span className="font-medium">{code.code}</span> - {code.description}
+                  <div className="text-xs text-blue-400">Category: {code.category}</div>
+                </div>
+                <button
+                  onClick={() => removeCode(code)}
+                  className="text-blue-400 hover:text-white ml-2"
+                  type="button"
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Search Input */}
+      <div className="relative">
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={(e) => handleSearch(e.target.value)}
+          onFocus={() => setShowResults(searchResults.length > 0)}
+          onBlur={() => setTimeout(() => setShowResults(false), 200)}
+          className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white pr-10"
+          placeholder={placeholder}
+        />
+        {isSearching && (
+          <div className="absolute right-3 top-3">
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+          </div>
+        )}
+      </div>
+
+      {/* Search Results */}
+      {showResults && searchResults.length > 0 && (
+        <div className="absolute z-50 w-full bg-gray-800 border border-gray-600 rounded-lg mt-1 max-h-60 overflow-y-auto">
+          {searchResults.map((code) => (
+            <button
+              key={code.id}
+              type="button"
+              onClick={() => handleSelect(code)}
+              className="w-full text-left px-4 py-3 hover:bg-gray-700 border-b border-gray-600 last:border-b-0"
+            >
+              <div className="text-white font-medium">{code.code}</div>
+              <div className="text-gray-300 text-sm mt-1">{code.description}</div>
+              <div className="text-gray-400 text-xs mt-1">
+                Category: {code.category}
+                {code.search_terms && (
+                  <span className="ml-2">
+                    Tags: {Array.isArray(code.search_terms) ? code.search_terms.join(', ') : code.search_terms}
+                  </span>
+                )}
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // RESTORED ClinicHub App - Complete EHR System with Advanced Features
 // ✅ PHASE 1: Enhanced Dashboard with Navigation System Restored
 // ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
