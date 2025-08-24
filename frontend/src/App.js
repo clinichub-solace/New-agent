@@ -1729,12 +1729,627 @@ const QualityMeasuresModule = ({ setActiveModule }) => {
   );
 };
 
-const SchedulingModule = () => (
-  <div className="text-center py-12 text-white">
-    <h2 className="text-2xl font-bold mb-4">📅 Scheduling Module</h2>
-    <p className="text-blue-200">Appointment Scheduling and Calendar Management</p>
-  </div>
-);
+// ✅ PHASE 5: HIGH-IMPACT MODULES - Scheduling Module (Priority #1)
+// ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
+const SchedulingModule = ({ setActiveModule }) => {
+  const { user } = useAuth();
+  const [appointments, setAppointments] = useState([]);
+  const [providers, setProviders] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // View states
+  const [activeView, setActiveView] = useState('calendar'); // calendar, appointments, providers
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+  const [showAppointmentForm, setShowAppointmentForm] = useState(false);
+  const [editingAppointment, setEditingAppointment] = useState(null);
+
+  // Form data
+  const [appointmentFormData, setAppointmentFormData] = useState({
+    patient_id: '',
+    provider_id: '',
+    appointment_date: '',
+    appointment_time: '',
+    duration: 30,
+    appointment_type: 'office_visit',
+    status: 'scheduled',
+    notes: '',
+    chief_complaint: ''
+  });
+
+  const [scheduleStats, setScheduleStats] = useState({
+    todayAppointments: 0,
+    weekAppointments: 0,
+    availableSlots: 0,
+    cancelledToday: 0
+  });
+
+  useEffect(() => {
+    fetchScheduleData();
+  }, [selectedDate]);
+
+  // ✅ URL VETTING: Using configured 'api' instance with /api prefix
+  const fetchScheduleData = async () => {
+    setLoading(true);
+    try {
+      const [appointmentsRes, providersRes, patientsRes] = await Promise.all([
+        api.get('/appointments').catch(() => ({ data: [] })),
+        api.get('/providers').catch(() => ({ data: [] })),
+        api.get('/patients').catch(() => ({ data: [] }))
+      ]);
+
+      setAppointments(appointmentsRes.data || []);
+      setProviders(providersRes.data || []);
+      setPatients(patientsRes.data || []);
+
+      // Calculate stats
+      const today = new Date().toISOString().split('T')[0];
+      const todayAppointments = (appointmentsRes.data || []).filter(apt => 
+        apt.appointment_date?.startsWith(today)
+      );
+      
+      setScheduleStats({
+        todayAppointments: todayAppointments.length,
+        weekAppointments: (appointmentsRes.data || []).length,
+        availableSlots: 32 - todayAppointments.length, // 8 hours * 4 slots per hour
+        cancelledToday: todayAppointments.filter(apt => apt.status === 'cancelled').length
+      });
+
+    } catch (error) {
+      console.error('Error fetching schedule data:', error);
+      setError('Failed to fetch schedule data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Using configured 'api' instance
+  const createAppointment = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      const appointmentData = {
+        ...appointmentFormData,
+        scheduled_by: user?.id,
+        created_at: new Date().toISOString(),
+        appointment_datetime: `${appointmentFormData.appointment_date}T${appointmentFormData.appointment_time}`
+      };
+
+      const response = editingAppointment ? 
+        await api.put(`/appointments/${editingAppointment.id}`, appointmentData) :
+        await api.post('/appointments', appointmentData);
+
+      if (editingAppointment) {
+        setAppointments(appointments.map(apt => apt.id === editingAppointment.id ? response.data : apt));
+        setSuccess('Appointment updated successfully!');
+      } else {
+        setAppointments([...appointments, response.data]);
+        setSuccess('Appointment scheduled successfully!');
+      }
+
+      setShowAppointmentForm(false);
+      setEditingAppointment(null);
+      resetAppointmentForm();
+      fetchScheduleData(); // Refresh data
+    } catch (error) {
+      console.error('Error saving appointment:', error);
+      setError(error.response?.data?.detail || 'Failed to save appointment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Using configured 'api' instance
+  const updateAppointmentStatus = async (appointmentId, newStatus) => {
+    try {
+      await api.put(`/appointments/${appointmentId}/status`, { status: newStatus });
+      
+      setAppointments(appointments.map(apt => 
+        apt.id === appointmentId ? { ...apt, status: newStatus } : apt
+      ));
+      
+      setSuccess(`Appointment ${newStatus} successfully!`);
+      fetchScheduleData(); // Refresh stats
+    } catch (error) {
+      console.error('Error updating appointment:', error);
+      setError('Failed to update appointment status');
+    }
+  };
+
+  const resetAppointmentForm = () => {
+    setAppointmentFormData({
+      patient_id: '',
+      provider_id: '',
+      appointment_date: '',
+      appointment_time: '',
+      duration: 30,
+      appointment_type: 'office_visit',
+      status: 'scheduled',
+      notes: '',
+      chief_complaint: ''
+    });
+  };
+
+  const handleEditAppointment = (appointment) => {
+    setEditingAppointment(appointment);
+    setAppointmentFormData({
+      patient_id: appointment.patient_id,
+      provider_id: appointment.provider_id,
+      appointment_date: appointment.appointment_date?.split('T')[0] || '',
+      appointment_time: appointment.appointment_time || appointment.appointment_datetime?.split('T')[1]?.substring(0, 5) || '',
+      duration: appointment.duration || 30,
+      appointment_type: appointment.appointment_type || 'office_visit',
+      status: appointment.status || 'scheduled',
+      notes: appointment.notes || '',
+      chief_complaint: appointment.chief_complaint || ''
+    });
+    setShowAppointmentForm(true);
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'scheduled': 'bg-blue-100 text-blue-800',
+      'confirmed': 'bg-green-100 text-green-800', 
+      'completed': 'bg-gray-100 text-gray-800',
+      'cancelled': 'bg-red-100 text-red-800',
+      'no_show': 'bg-yellow-100 text-yellow-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const generateTimeSlots = () => {
+    const slots = [];
+    for (let hour = 8; hour < 17; hour++) { // 8 AM to 5 PM
+      for (let minute = 0; minute < 60; minute += 30) {
+        const time = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        slots.push(time);
+      }
+    }
+    return slots;
+  };
+
+  const renderCalendarView = () => {
+    const todayAppointments = appointments.filter(apt => 
+      apt.appointment_date?.startsWith(selectedDate)
+    ).sort((a, b) => (a.appointment_time || '').localeCompare(b.appointment_time || ''));
+
+    return (
+      <div className="space-y-6">
+        {/* Date Selector */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+          <label className="block text-sm font-medium text-gray-300 mb-2">Select Date</label>
+          <input
+            type="date"
+            value={selectedDate}
+            onChange={(e) => setSelectedDate(e.target.value)}
+            className="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+          />
+        </div>
+
+        {/* Schedule Grid */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">
+            📅 Schedule for {new Date(selectedDate).toLocaleDateString()}
+          </h3>
+          
+          {todayAppointments.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <div className="text-6xl mb-4">📅</div>
+              <p>No appointments scheduled for this date</p>
+              <button
+                onClick={() => setShowAppointmentForm(true)}
+                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              >
+                Schedule Appointment
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {todayAppointments.map((appointment) => (
+                <div key={appointment.id} className="bg-white/5 border border-white/10 rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-blue-400 font-bold">
+                          {appointment.appointment_time || 'Time TBD'}
+                        </div>
+                        <div className="text-white font-medium">
+                          {patients.find(p => p.id === appointment.patient_id)?.name?.[0]?.given?.[0]} {patients.find(p => p.id === appointment.patient_id)?.name?.[0]?.family || 'Unknown Patient'}
+                        </div>
+                        <span className={`px-2 py-1 rounded text-xs ${getStatusColor(appointment.status)}`}>
+                          {appointment.status}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        Provider: {providers.find(p => p.id === appointment.provider_id)?.first_name} {providers.find(p => p.id === appointment.provider_id)?.last_name}
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        Type: {appointment.appointment_type} • Duration: {appointment.duration || 30} min
+                      </div>
+                      {appointment.chief_complaint && (
+                        <div className="text-sm text-gray-400 mt-1">
+                          Chief Complaint: {appointment.chief_complaint}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleEditAppointment(appointment)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Edit
+                      </button>
+                      {appointment.status === 'scheduled' && (
+                        <button
+                          onClick={() => updateAppointmentStatus(appointment.id, 'confirmed')}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Confirm
+                        </button>
+                      )}
+                      {appointment.status !== 'cancelled' && (
+                        <button
+                          onClick={() => updateAppointmentStatus(appointment.id, 'cancelled')}
+                          className="bg-red-600 hover:bg-red-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderAppointmentForm = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">
+              {editingAppointment ? '✏️ Edit Appointment' : '📅 Schedule New Appointment'}
+            </h3>
+            <button
+              onClick={() => {
+                setShowAppointmentForm(false);
+                setEditingAppointment(null);
+                resetAppointmentForm();
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={createAppointment} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Patient</label>
+                <select
+                  value={appointmentFormData.patient_id}
+                  onChange={(e) => setAppointmentFormData({...appointmentFormData, patient_id: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Patient</option>
+                  {patients.map(patient => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.name?.[0]?.given?.[0]} {patient.name?.[0]?.family}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Provider</label>
+                <select
+                  value={appointmentFormData.provider_id}
+                  onChange={(e) => setAppointmentFormData({...appointmentFormData, provider_id: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Provider</option>
+                  {providers.map(provider => (
+                    <option key={provider.id} value={provider.id}>
+                      Dr. {provider.first_name} {provider.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Date</label>
+                <input
+                  type="date"
+                  value={appointmentFormData.appointment_date}
+                  onChange={(e) => setAppointmentFormData({...appointmentFormData, appointment_date: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Time</label>
+                <select
+                  value={appointmentFormData.appointment_time}
+                  onChange={(e) => setAppointmentFormData({...appointmentFormData, appointment_time: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Time</option>
+                  {generateTimeSlots().map(time => (
+                    <option key={time} value={time}>{time}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Duration (minutes)</label>
+                <select
+                  value={appointmentFormData.duration}
+                  onChange={(e) => setAppointmentFormData({...appointmentFormData, duration: parseInt(e.target.value)})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                >
+                  <option value={15}>15 min</option>
+                  <option value={30}>30 min</option>
+                  <option value={45}>45 min</option>
+                  <option value={60}>60 min</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
+                <select
+                  value={appointmentFormData.appointment_type}
+                  onChange={(e) => setAppointmentFormData({...appointmentFormData, appointment_type: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                >
+                  <option value="office_visit">Office Visit</option>
+                  <option value="follow_up">Follow Up</option>
+                  <option value="consultation">Consultation</option>
+                  <option value="physical_exam">Physical Exam</option>
+                  <option value="procedure">Procedure</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Status</label>
+                <select
+                  value={appointmentFormData.status}
+                  onChange={(e) => setAppointmentFormData({...appointmentFormData, status: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                >
+                  <option value="scheduled">Scheduled</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="no_show">No Show</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Chief Complaint</label>
+              <input
+                type="text"
+                value={appointmentFormData.chief_complaint}
+                onChange={(e) => setAppointmentFormData({...appointmentFormData, chief_complaint: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                placeholder="Primary reason for visit..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Notes</label>
+              <textarea
+                value={appointmentFormData.notes}
+                onChange={(e) => setAppointmentFormData({...appointmentFormData, notes: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white h-20"
+                placeholder="Additional notes or instructions..."
+              />
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : (editingAppointment ? 'Update Appointment' : 'Schedule Appointment')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowAppointmentForm(false);
+                  setEditingAppointment(null);
+                  resetAppointmentForm();
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">📅 Appointment Scheduling</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowAppointmentForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            📅 New Appointment
+          </button>
+          <button
+            onClick={fetchScheduleData}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            🔄 Refresh
+          </button>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 mb-6">
+          <p className="text-green-300">✅ {success}</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mb-6">
+          <p className="text-red-300">❌ {error}</p>
+        </div>
+      )}
+
+      {/* Statistics Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
+        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-2xl font-bold text-white">{scheduleStats.todayAppointments}</div>
+              <div className="text-sm text-gray-300">Today's Appointments</div>
+            </div>
+            <div className="text-2xl">📅</div>
+          </div>
+        </div>
+        
+        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-2xl font-bold text-white">{scheduleStats.weekAppointments}</div>
+              <div className="text-sm text-gray-300">Total Appointments</div>
+            </div>
+            <div className="text-2xl">📋</div>
+          </div>
+        </div>
+        
+        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-2xl font-bold text-white">{scheduleStats.availableSlots}</div>
+              <div className="text-sm text-gray-300">Available Slots Today</div>
+            </div>
+            <div className="text-2xl">⏰</div>
+          </div>
+        </div>
+        
+        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="text-2xl font-bold text-white">{scheduleStats.cancelledToday}</div>
+              <div className="text-sm text-gray-300">Cancelled Today</div>
+            </div>
+            <div className="text-2xl">❌</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'calendar', name: 'Calendar View', icon: '📅' },
+            { id: 'appointments', name: 'All Appointments', icon: '📋' },
+            { id: 'providers', name: 'Provider Schedules', icon: '👨‍⚕️' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeView === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Content based on active view */}
+      {activeView === 'calendar' && renderCalendarView()}
+      {activeView === 'appointments' && (
+        <div className="space-y-4">
+          {appointments.map(appointment => (
+            <div key={appointment.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-4">
+                    <div className="text-blue-400 font-bold">
+                      {new Date(appointment.appointment_date).toLocaleDateString()} {appointment.appointment_time}
+                    </div>
+                    <div className="text-white font-medium">
+                      {patients.find(p => p.id === appointment.patient_id)?.name?.[0]?.given?.[0]} {patients.find(p => p.id === appointment.patient_id)?.name?.[0]?.family}
+                    </div>
+                    <span className={`px-2 py-1 rounded text-xs ${getStatusColor(appointment.status)}`}>
+                      {appointment.status}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-300 mt-1">
+                    Provider: {providers.find(p => p.id === appointment.provider_id)?.first_name} {providers.find(p => p.id === appointment.provider_id)?.last_name}
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleEditAppointment(appointment)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                  >
+                    Edit
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {activeView === 'providers' && (
+        <div className="text-white">Provider schedule management coming soon...</div>
+      )}
+
+      {/* Appointment Form Modal */}
+      {showAppointmentForm && renderAppointmentForm()}
+      
+      {/* Loading */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const TelehealthModule = () => (
   <div className="text-center py-12 text-white">
