@@ -1,10 +1,18 @@
+# EMERGENCY DEPLOYMENT FIX: Force MongoDB at module import level
+import os
+import sys
+# ABSOLUTE OVERRIDE - Cannot be bypassed by any external configuration
+os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub'
+os.environ['DB_NAME'] = 'clinichub'
+# Add this to beginning of sys.path to ensure priority
+sys.path.insert(0, '/app/backend')
+
 from fastapi import FastAPI, APIRouter, HTTPException, Depends, status, UploadFile, File, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from urllib.parse import urlparse, quote
-import os
 import logging
 from pathlib import Path
 from pydantic import BaseModel, Field
@@ -19,10 +27,12 @@ from passlib.context import CryptContext
 import base64
 import aiohttp
 import ssl
-import sys
-import os
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from openemr_integration import openemr
+
+# EMERGENCY: Force MongoDB override at the earliest possible point
+print("🚨 EMERGENCY DEPLOYMENT FIX: Forcing MongoDB to localhost")
+os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub'
 
 # NUCLEAR OPTION: Force environment variable override at system level
 import os
