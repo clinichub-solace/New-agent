@@ -8,7 +8,12 @@ import os
 from pathlib import Path
 from dotenv import load_dotenv
 
-# Load environment variables
+# NUCLEAR OPTION: Force environment variable override at system level
+import os
+os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub' 
+os.environ['DB_NAME'] = 'clinichub'
+
+# Load environment variables AFTER forcing the override
 ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
