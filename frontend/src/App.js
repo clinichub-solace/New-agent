@@ -2351,12 +2351,644 @@ const SchedulingModule = ({ setActiveModule }) => {
   );
 };
 
-const TelehealthModule = () => (
-  <div className="text-center py-12 text-white">
-    <h2 className="text-2xl font-bold mb-4">💻 Telehealth Module</h2>
-    <p className="text-blue-200">Virtual Consultations and Remote Care</p>
-  </div>
-);
+// ✅ PHASE 5: HIGH-IMPACT MODULES - Telehealth Module (Modern Healthcare Standard)
+// ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
+const TelehealthModule = ({ setActiveModule }) => {
+  const { user } = useAuth();
+  const [sessions, setSessions] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [providers, setProviders] = useState([]);
+  const [waitingRoom, setWaitingRoom] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  
+  // View and navigation states
+  const [activeView, setActiveView] = useState('dashboard'); // dashboard, sessions, waiting-room, video-call
+  const [selectedSession, setSelectedSession] = useState(null);
+  const [isInCall, setIsInCall] = useState(false);
+  
+  // Form states
+  const [showSessionForm, setShowSessionForm] = useState(false);
+  
+  // Video call states
+  const [connectionStatus, setConnectionStatus] = useState('disconnected');
+  const [chatMessages, setChatMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
+  
+  // Form data
+  const [sessionFormData, setSessionFormData] = useState({
+    patient_id: '',
+    provider_id: '',
+    session_type: 'video_consultation',
+    title: '',
+    description: '',
+    scheduled_start: new Date().toISOString().slice(0, 16),
+    duration_minutes: 30,
+    recording_enabled: false,
+    access_code: ''
+  });
+
+  // Session statistics
+  const [sessionStats, setSessionStats] = useState({
+    todaySessions: 0,
+    activeSessions: 0,
+    waitingPatients: 0,
+    completedSessions: 0
+  });
+
+  useEffect(() => {
+    fetchTelehealthData();
+  }, []);
+
+  // ✅ URL VETTING: All API calls use configured 'api' instance
+  const fetchTelehealthData = async () => {
+    try {
+      setLoading(true);
+      const [sessionsRes, patientsRes, providersRes, waitingRes] = await Promise.all([
+        api.get('/telehealth/sessions').catch(() => ({ data: [] })),
+        api.get('/patients').catch(() => ({ data: [] })),
+        api.get('/providers').catch(() => ({ data: [] })),
+        api.get('/telehealth/waiting-room').catch(() => ({ data: [] }))
+      ]);
+
+      setSessions(sessionsRes.data || []);
+      setPatients(patientsRes.data || []);
+      setProviders(providersRes.data || []);
+      setWaitingRoom(waitingRes.data || []);
+
+      // Calculate stats
+      const today = new Date().toISOString().split('T')[0];
+      const todaySessions = (sessionsRes.data || []).filter(session => 
+        session.scheduled_start?.startsWith(today)
+      );
+
+      setSessionStats({
+        todaySessions: todaySessions.length,
+        activeSessions: (sessionsRes.data || []).filter(s => s.status === 'active').length,
+        waitingPatients: (waitingRes.data || []).length,
+        completedSessions: (sessionsRes.data || []).filter(s => s.status === 'completed').length
+      });
+
+    } catch (error) {
+      console.error('Error fetching telehealth data:', error);
+      setError('Failed to fetch telehealth data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const createSession = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      const sessionData = {
+        ...sessionFormData,
+        created_by: user?.id,
+        access_code: Math.random().toString(36).substring(2, 8).toUpperCase(),
+        session_url: `telehealth/session/${Date.now()}`
+      };
+
+      const response = await api.post('/telehealth/sessions', sessionData);
+
+      setSessions([...sessions, response.data]);
+      setSuccess('Telehealth session created successfully!');
+      setShowSessionForm(false);
+      resetSessionForm();
+    } catch (error) {
+      console.error('Error creating session:', error);
+      setError(error.response?.data?.detail || 'Failed to create session');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const joinSession = async (sessionId) => {
+    try {
+      setLoading(true);
+      const response = await api.post(`/telehealth/sessions/${sessionId}/join`, {
+        participant_id: user?.id,
+        participant_type: 'provider'
+      });
+
+      setSelectedSession(response.data);
+      setIsInCall(true);
+      setConnectionStatus('connecting');
+      
+      // Simulate connection process
+      setTimeout(() => {
+        setConnectionStatus('connected');
+        setSuccess('Successfully joined telehealth session!');
+      }, 2000);
+
+    } catch (error) {
+      console.error('Error joining session:', error);
+      setError('Failed to join session');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const endSession = async (sessionId) => {
+    try {
+      await api.put(`/telehealth/sessions/${sessionId}/end`);
+      
+      setIsInCall(false);
+      setSelectedSession(null);
+      setConnectionStatus('disconnected');
+      setSuccess('Session ended successfully');
+      fetchTelehealthData();
+    } catch (error) {
+      console.error('Error ending session:', error);
+      setError('Failed to end session');
+    }
+  };
+
+  const resetSessionForm = () => {
+    setSessionFormData({
+      patient_id: '',
+      provider_id: '',
+      session_type: 'video_consultation',
+      title: '',
+      description: '',
+      scheduled_start: new Date().toISOString().slice(0, 16),
+      duration_minutes: 30,
+      recording_enabled: false,
+      access_code: ''
+    });
+  };
+
+  const getSessionStatusColor = (status) => {
+    const colors = {
+      'scheduled': 'bg-blue-100 text-blue-800',
+      'active': 'bg-green-100 text-green-800',
+      'completed': 'bg-gray-100 text-gray-800',
+      'cancelled': 'bg-red-100 text-red-800',
+      'waiting': 'bg-yellow-100 text-yellow-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const renderDashboard = () => {
+    const upcomingSessions = sessions.filter(s => 
+      new Date(s.scheduled_start) > new Date() && s.status !== 'cancelled'
+    ).slice(0, 5);
+
+    return (
+      <div className="space-y-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{sessionStats.todaySessions}</div>
+                <div className="text-sm text-gray-300">Today's Sessions</div>
+              </div>
+              <div className="text-2xl">📹</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{sessionStats.activeSessions}</div>
+                <div className="text-sm text-gray-300">Active Sessions</div>
+              </div>
+              <div className="text-2xl">🟢</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{sessionStats.waitingPatients}</div>
+                <div className="text-sm text-gray-300">Waiting Patients</div>
+              </div>
+              <div className="text-2xl">⏳</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{sessionStats.completedSessions}</div>
+                <div className="text-sm text-gray-300">Completed</div>
+              </div>
+              <div className="text-2xl">✅</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Waiting Room */}
+        {waitingRoom.length > 0 && (
+          <div className="bg-orange-500/20 border border-orange-400/50 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">⏳ Patients in Waiting Room</h3>
+            <div className="space-y-3">
+              {waitingRoom.map(patient => (
+                <div key={patient.id} className="bg-white/5 border border-white/10 rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-white font-medium">{patient.name}</div>
+                      <div className="text-sm text-orange-300">
+                        Waiting for: {patient.session_type} • Time: {new Date(patient.join_time).toLocaleTimeString()}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => joinSession(patient.session_id)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+                    >
+                      Join Session
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Upcoming Sessions */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">📅 Upcoming Telehealth Sessions</h3>
+          {upcomingSessions.length === 0 ? (
+            <p className="text-gray-400">No upcoming telehealth sessions scheduled.</p>
+          ) : (
+            <div className="space-y-3">
+              {upcomingSessions.map(session => (
+                <div key={session.id} className="bg-white/5 border border-white/10 rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-white font-medium">{session.title}</div>
+                        <span className={`px-2 py-1 rounded text-xs ${getSessionStatusColor(session.status)}`}>
+                          {session.status}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        {new Date(session.scheduled_start).toLocaleString()} • Duration: {session.duration_minutes} min
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1">
+                        Patient: {patients.find(p => p.id === session.patient_id)?.name?.[0]?.given?.[0]} {patients.find(p => p.id === session.patient_id)?.name?.[0]?.family}
+                      </div>
+                      {session.access_code && (
+                        <div className="text-sm text-blue-400 mt-1">
+                          Access Code: {session.access_code}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => joinSession(session.id)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Join
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSessionForm = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">📹 New Telehealth Session</h3>
+            <button
+              onClick={() => {
+                setShowSessionForm(false);
+                resetSessionForm();
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={createSession} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Session Title</label>
+              <input
+                type="text"
+                value={sessionFormData.title}
+                onChange={(e) => setSessionFormData({...sessionFormData, title: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                placeholder="Follow-up appointment with Dr. Smith"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Patient</label>
+                <select
+                  value={sessionFormData.patient_id}
+                  onChange={(e) => setSessionFormData({...sessionFormData, patient_id: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Patient</option>
+                  {patients.map(patient => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.name?.[0]?.given?.[0]} {patient.name?.[0]?.family}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Provider</label>
+                <select
+                  value={sessionFormData.provider_id}
+                  onChange={(e) => setSessionFormData({...sessionFormData, provider_id: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Provider</option>
+                  {providers.map(provider => (
+                    <option key={provider.id} value={provider.id}>
+                      Dr. {provider.first_name} {provider.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Session Type</label>
+                <select
+                  value={sessionFormData.session_type}
+                  onChange={(e) => setSessionFormData({...sessionFormData, session_type: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                >
+                  <option value="video_consultation">Video Consultation</option>
+                  <option value="audio_only">Audio Only</option>
+                  <option value="follow_up">Follow-up Call</option>
+                  <option value="therapy_session">Therapy Session</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Duration (minutes)</label>
+                <select
+                  value={sessionFormData.duration_minutes}
+                  onChange={(e) => setSessionFormData({...sessionFormData, duration_minutes: parseInt(e.target.value)})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                >
+                  <option value={15}>15 minutes</option>
+                  <option value={30}>30 minutes</option>
+                  <option value={45}>45 minutes</option>
+                  <option value={60}>60 minutes</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Scheduled Start Time</label>
+              <input
+                type="datetime-local"
+                value={sessionFormData.scheduled_start}
+                onChange={(e) => setSessionFormData({...sessionFormData, scheduled_start: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+              <textarea
+                value={sessionFormData.description}
+                onChange={(e) => setSessionFormData({...sessionFormData, description: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white h-20"
+                placeholder="Purpose of the telehealth session..."
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="recording_enabled"
+                checked={sessionFormData.recording_enabled}
+                onChange={(e) => setSessionFormData({...sessionFormData, recording_enabled: e.target.checked})}
+                className="rounded"
+              />
+              <label htmlFor="recording_enabled" className="text-gray-300">Enable Recording (with patient consent)</label>
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Creating...' : 'Create Session'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSessionForm(false);
+                  resetSessionForm();
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const renderVideoCall = () => {
+    if (!isInCall || !selectedSession) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black z-50">
+        <div className="h-full flex flex-col">
+          {/* Video Area */}
+          <div className="flex-1 relative bg-gray-900 flex items-center justify-center">
+            <div className="text-center text-white">
+              <div className="text-6xl mb-4">📹</div>
+              <h3 className="text-xl mb-2">Telehealth Session Active</h3>
+              <p className="text-gray-400">
+                Session with {patients.find(p => p.id === selectedSession.patient_id)?.name?.[0]?.given?.[0]} {patients.find(p => p.id === selectedSession.patient_id)?.name?.[0]?.family}
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                Status: {connectionStatus} • Access Code: {selectedSession.access_code}
+              </p>
+            </div>
+          </div>
+
+          {/* Controls */}
+          <div className="bg-gray-800 p-4 flex items-center justify-between">
+            <div className="flex space-x-4">
+              <span className="text-white">
+                Session: {selectedSession.title}
+              </span>
+              <span className={`px-2 py-1 rounded text-xs ${
+                connectionStatus === 'connected' ? 'bg-green-600 text-white' : 'bg-yellow-600 text-white'
+              }`}>
+                {connectionStatus}
+              </span>
+            </div>
+            
+            <div className="flex space-x-4">
+              <button
+                onClick={() => endSession(selectedSession.id)}
+                className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-lg"
+              >
+                End Session
+              </button>
+              <button
+                onClick={() => {
+                  setIsInCall(false);
+                  setSelectedSession(null);
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+              >
+                Exit
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">💻 Telehealth</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowSessionForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            📹 New Session
+          </button>
+          <button
+            onClick={fetchTelehealthData}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            🔄 Refresh
+          </button>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 mb-6">
+          <p className="text-green-300">✅ {success}</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mb-6">
+          <p className="text-red-300">❌ {error}</p>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'dashboard', name: 'Dashboard', icon: '📊' },
+            { id: 'sessions', name: 'All Sessions', icon: '📹' },
+            { id: 'waiting-room', name: 'Waiting Room', icon: '⏳' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeView === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Content based on active view */}
+      {activeView === 'dashboard' && renderDashboard()}
+      {activeView === 'sessions' && (
+        <div className="space-y-4">
+          {sessions.map(session => (
+            <div key={session.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-4">
+                    <div className="text-white font-medium">{session.title}</div>
+                    <span className={`px-2 py-1 rounded text-xs ${getSessionStatusColor(session.status)}`}>
+                      {session.status}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-300 mt-1">
+                    {new Date(session.scheduled_start).toLocaleString()} • {session.session_type}
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  {session.status === 'scheduled' && (
+                    <button
+                      onClick={() => joinSession(session.id)}
+                      className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                    >
+                      Join
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {activeView === 'waiting-room' && (
+        <div className="text-white">
+          <h3 className="text-lg font-semibold mb-4">⏳ Waiting Room Management</h3>
+          <p className="text-gray-300">Advanced waiting room controls coming soon...</p>
+        </div>
+      )}
+
+      {/* Forms */}
+      {showSessionForm && renderSessionForm()}
+      
+      {/* Video Call Interface */}
+      {renderVideoCall()}
+      
+      {/* Loading */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ✅ PHASE 5: HIGH-IMPACT MODULES - Patient Portal Module (High Patient Value)
 // ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
