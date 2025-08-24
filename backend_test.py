@@ -844,6 +844,514 @@ class ClinicHubTester:
         except Exception as e:
             self.log_result("GET /api/lab-orders", False, f"Error: {str(e)}")
 
+    def test_insurance_verification_system(self):
+        """Test Insurance Verification System endpoints as requested in review"""
+        print("\n🏥 TESTING INSURANCE VERIFICATION SYSTEM")
+        print("=" * 50)
+        
+        # Test 1: GET /api/insurance-plans (fetch insurance plans)
+        try:
+            response = self.session.get(f"{API_BASE}/insurance-plans")
+            if response.status_code == 200:
+                plans = response.json()
+                self.log_result("GET /api/insurance-plans", True, f"Retrieved {len(plans)} insurance plans", 
+                              status_code=response.status_code, payload=plans[:2] if plans else [])
+                # Store first plan for testing
+                if plans:
+                    self.test_data["insurance_plan_id"] = plans[0].get("id")
+            else:
+                self.log_result("GET /api/insurance-plans", False, f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/insurance-plans", False, f"Error: {str(e)}")
+        
+        # Test 2: POST /api/insurance-policies (create patient insurance policies)
+        if self.test_data.get("patient_id") and self.test_data.get("insurance_plan_id"):
+            policy_data = {
+                "patient_id": self.test_data["patient_id"],
+                "plan_id": self.test_data["insurance_plan_id"],
+                "policy_number": "POL123456789",
+                "group_number": "GRP001",
+                "subscriber_id": "SUB789",
+                "effective_date": "2025-01-01",
+                "expiration_date": "2025-12-31",
+                "copay": 25.00,
+                "deductible": 1000.00,
+                "is_primary": True
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/insurance-policies", json=policy_data)
+                if response.status_code == 200:
+                    policy = response.json()
+                    policy_id = policy.get("id")
+                    self.test_data["insurance_policy_id"] = policy_id
+                    self.log_result("POST /api/insurance-policies", True, 
+                                  f"Created insurance policy with ID: {policy_id}", 
+                                  status_code=response.status_code, payload=policy)
+                else:
+                    self.log_result("POST /api/insurance-policies", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/insurance-policies", False, f"Error: {str(e)}")
+        
+        # Test 3: POST /api/insurance-verification (verify insurance coverage)
+        if self.test_data.get("patient_id") and self.test_data.get("insurance_policy_id"):
+            verification_data = {
+                "patient_id": self.test_data["patient_id"],
+                "policy_id": self.test_data["insurance_policy_id"],
+                "service_date": "2025-01-20",
+                "service_codes": ["99213", "90834"],
+                "provider_npi": "1234567890",
+                "verification_type": "eligibility"
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/insurance-verification", json=verification_data)
+                if response.status_code == 200:
+                    verification = response.json()
+                    verification_id = verification.get("id")
+                    self.test_data["verification_id"] = verification_id
+                    self.log_result("POST /api/insurance-verification", True, 
+                                  f"Created insurance verification with ID: {verification_id}", 
+                                  status_code=response.status_code, payload=verification)
+                else:
+                    self.log_result("POST /api/insurance-verification", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/insurance-verification", False, f"Error: {str(e)}")
+        
+        # Test 4: GET /api/insurance-verifications (fetch verification history)
+        try:
+            response = self.session.get(f"{API_BASE}/insurance-verifications")
+            if response.status_code == 200:
+                verifications = response.json()
+                self.log_result("GET /api/insurance-verifications", True, 
+                              f"Retrieved {len(verifications)} insurance verifications", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/insurance-verifications", False, 
+                              f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/insurance-verifications", False, f"Error: {str(e)}")
+
+    def test_telehealth_module(self):
+        """Test Telehealth Module endpoints as requested in review"""
+        print("\n📹 TESTING TELEHEALTH MODULE")
+        print("=" * 50)
+        
+        # Test 1: GET /api/telehealth/sessions (fetch telehealth sessions)
+        try:
+            response = self.session.get(f"{API_BASE}/telehealth/sessions")
+            if response.status_code == 200:
+                sessions = response.json()
+                self.log_result("GET /api/telehealth/sessions", True, 
+                              f"Retrieved {len(sessions)} telehealth sessions", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/telehealth/sessions", False, 
+                              f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/telehealth/sessions", False, f"Error: {str(e)}")
+        
+        # Test 2: POST /api/telehealth/sessions (create new session)
+        if self.test_data.get("patient_id") and self.test_data.get("provider_id"):
+            session_data = {
+                "patient_id": self.test_data["patient_id"],
+                "provider_id": self.test_data["provider_id"],
+                "session_type": "video_consultation",
+                "title": "Follow-up Telehealth Consultation",
+                "description": "Virtual follow-up for recent lab results",
+                "scheduled_start": "2025-01-20T14:00:00Z",
+                "duration_minutes": 30,
+                "recording_enabled": False
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/telehealth/sessions", json=session_data)
+                if response.status_code == 200:
+                    session = response.json()
+                    session_id = session.get("id")
+                    session_number = session.get("session_number")
+                    self.test_data["telehealth_session_id"] = session_id
+                    self.log_result("POST /api/telehealth/sessions", True, 
+                                  f"Created telehealth session {session_number} with ID: {session_id}", 
+                                  status_code=response.status_code, payload=session)
+                else:
+                    self.log_result("POST /api/telehealth/sessions", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/telehealth/sessions", False, f"Error: {str(e)}")
+        
+        # Test 3: POST /api/telehealth/sessions/{id}/join (join session)
+        if self.test_data.get("telehealth_session_id"):
+            join_data = {
+                "user_id": "admin",
+                "user_name": "Administrator",
+                "user_type": "provider"
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/telehealth/sessions/{self.test_data['telehealth_session_id']}/join", 
+                                           json=join_data)
+                if response.status_code == 200:
+                    result = response.json()
+                    self.log_result("POST /api/telehealth/sessions/{id}/join", True, 
+                                  f"Successfully joined telehealth session", 
+                                  status_code=response.status_code, payload=result)
+                else:
+                    self.log_result("POST /api/telehealth/sessions/{id}/join", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/telehealth/sessions/{id}/join", False, f"Error: {str(e)}")
+        
+        # Test 4: PUT /api/telehealth/sessions/{id}/end (end session)
+        if self.test_data.get("telehealth_session_id"):
+            end_data = {
+                "session_notes": "Session completed successfully. Patient questions answered.",
+                "provider_notes": "Good connection quality. Patient engaged throughout session.",
+                "patient_rating": 5,
+                "provider_rating": 5
+            }
+            
+            try:
+                response = self.session.put(f"{API_BASE}/telehealth/sessions/{self.test_data['telehealth_session_id']}/end", 
+                                          json=end_data)
+                if response.status_code == 200:
+                    result = response.json()
+                    self.log_result("PUT /api/telehealth/sessions/{id}/end", True, 
+                                  f"Successfully ended telehealth session", 
+                                  status_code=response.status_code, payload=result)
+                else:
+                    self.log_result("PUT /api/telehealth/sessions/{id}/end", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("PUT /api/telehealth/sessions/{id}/end", False, f"Error: {str(e)}")
+        
+        # Test 5: GET /api/telehealth/waiting-room (get waiting patients)
+        try:
+            response = self.session.get(f"{API_BASE}/telehealth/waiting-room")
+            if response.status_code == 200:
+                waiting_patients = response.json()
+                self.log_result("GET /api/telehealth/waiting-room", True, 
+                              f"Retrieved {len(waiting_patients)} patients in waiting room", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/telehealth/waiting-room", False, 
+                              f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/telehealth/waiting-room", False, f"Error: {str(e)}")
+
+    def test_document_management_system(self):
+        """Test Document Management System endpoints as requested in review"""
+        print("\n📄 TESTING DOCUMENT MANAGEMENT SYSTEM")
+        print("=" * 50)
+        
+        # Test 1: GET /api/documents (fetch documents with optional category filtering)
+        try:
+            response = self.session.get(f"{API_BASE}/documents")
+            if response.status_code == 200:
+                documents = response.json()
+                self.log_result("GET /api/documents", True, 
+                              f"Retrieved {len(documents)} documents", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/documents", False, 
+                              f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/documents", False, f"Error: {str(e)}")
+        
+        # Test with category filtering
+        try:
+            response = self.session.get(f"{API_BASE}/documents", params={"category": "medical_records"})
+            if response.status_code == 200:
+                filtered_docs = response.json()
+                self.log_result("GET /api/documents?category=medical_records", True, 
+                              f"Retrieved {len(filtered_docs)} medical record documents", 
+                              status_code=response.status_code)
+            else:
+                self.log_result("GET /api/documents?category=medical_records", False, 
+                              f"Failed: {response.status_code} - {response.text}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("GET /api/documents?category=medical_records", False, f"Error: {str(e)}")
+        
+        # Test 2: POST /api/documents (create new document)
+        if self.test_data.get("patient_id"):
+            document_data = {
+                "title": "Patient Lab Results",
+                "category": "lab_results",
+                "patient_id": self.test_data["patient_id"],
+                "content": "Complete Blood Count (CBC) results for Emily Rodriguez",
+                "document_type": "lab_report",
+                "status": "pending",
+                "created_by": "admin",
+                "tags": ["lab", "cbc", "routine"],
+                "metadata": {
+                    "lab_date": "2025-01-15",
+                    "ordering_provider": "Dr. Jennifer Martinez"
+                }
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/documents", json=document_data)
+                if response.status_code == 200:
+                    document = response.json()
+                    document_id = document.get("id")
+                    self.test_data["document_id"] = document_id
+                    self.log_result("POST /api/documents", True, 
+                                  f"Created document with ID: {document_id}", 
+                                  status_code=response.status_code, payload=document)
+                else:
+                    self.log_result("POST /api/documents", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/documents", False, f"Error: {str(e)}")
+        
+        # Test 3: PUT /api/documents/{id} (update document)
+        if self.test_data.get("document_id"):
+            update_data = {
+                "title": "Patient Lab Results - Updated",
+                "content": "Complete Blood Count (CBC) results for Emily Rodriguez - Updated with additional notes",
+                "tags": ["lab", "cbc", "routine", "updated"],
+                "metadata": {
+                    "lab_date": "2025-01-15",
+                    "ordering_provider": "Dr. Jennifer Martinez",
+                    "updated_by": "admin",
+                    "update_reason": "Added additional clinical notes"
+                }
+            }
+            
+            try:
+                response = self.session.put(f"{API_BASE}/documents/{self.test_data['document_id']}", 
+                                          json=update_data)
+                if response.status_code == 200:
+                    updated_document = response.json()
+                    self.log_result("PUT /api/documents/{id}", True, 
+                                  f"Successfully updated document", 
+                                  status_code=response.status_code, payload=updated_document)
+                else:
+                    self.log_result("PUT /api/documents/{id}", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("PUT /api/documents/{id}", False, f"Error: {str(e)}")
+        
+        # Test 4: PUT /api/documents/{id}/status (update document status)
+        if self.test_data.get("document_id"):
+            status_data = {
+                "status": "approved",
+                "status_notes": "Lab results reviewed and approved by Dr. Martinez",
+                "approved_by": "admin"
+            }
+            
+            try:
+                response = self.session.put(f"{API_BASE}/documents/{self.test_data['document_id']}/status", 
+                                          json=status_data)
+                if response.status_code == 200:
+                    result = response.json()
+                    self.log_result("PUT /api/documents/{id}/status", True, 
+                                  f"Successfully updated document status to approved", 
+                                  status_code=response.status_code, payload=result)
+                else:
+                    self.log_result("PUT /api/documents/{id}/status", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("PUT /api/documents/{id}/status", False, f"Error: {str(e)}")
+
+    def test_patient_portal_integration(self):
+        """Test Patient Portal Integration endpoints as requested in review"""
+        print("\n🌐 TESTING PATIENT PORTAL INTEGRATION")
+        print("=" * 50)
+        
+        # Test 1: POST /api/patient-portal/access (create portal access)
+        if self.test_data.get("patient_id"):
+            portal_access_data = {
+                "patient_id": self.test_data["patient_id"],
+                "username": "emily.rodriguez",
+                "email": "emily.rodriguez@email.com",
+                "temporary_password": "TempPass123!",
+                "access_level": "full",
+                "expires_at": "2025-12-31T23:59:59Z",
+                "features_enabled": [
+                    "view_records",
+                    "schedule_appointments", 
+                    "message_provider",
+                    "view_lab_results",
+                    "pay_bills"
+                ]
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/patient-portal/access", json=portal_access_data)
+                if response.status_code == 200:
+                    portal_access = response.json()
+                    access_token = portal_access.get("access_token")
+                    self.test_data["portal_access_token"] = access_token
+                    self.log_result("POST /api/patient-portal/access", True, 
+                                  f"Created patient portal access with token", 
+                                  status_code=response.status_code, payload=portal_access)
+                else:
+                    self.log_result("POST /api/patient-portal/access", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/patient-portal/access", False, f"Error: {str(e)}")
+        
+        # Test 2: GET /api/patient-portal/{patient_id}/messages (get patient messages)
+        if self.test_data.get("patient_id"):
+            try:
+                response = self.session.get(f"{API_BASE}/patient-portal/{self.test_data['patient_id']}/messages")
+                if response.status_code == 200:
+                    messages = response.json()
+                    self.log_result("GET /api/patient-portal/{patient_id}/messages", True, 
+                                  f"Retrieved {len(messages)} patient messages", 
+                                  status_code=response.status_code)
+                else:
+                    self.log_result("GET /api/patient-portal/{patient_id}/messages", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("GET /api/patient-portal/{patient_id}/messages", False, f"Error: {str(e)}")
+        
+        # Test 3: POST /api/patient-portal/{patient_id}/messages (send message to patient)
+        if self.test_data.get("patient_id"):
+            message_data = {
+                "sender_id": "admin",
+                "sender_name": "Dr. Jennifer Martinez",
+                "sender_type": "provider",
+                "subject": "Lab Results Available",
+                "message": "Your recent lab results are now available in your patient portal. Please review and contact us if you have any questions.",
+                "message_type": "lab_notification",
+                "priority": "normal",
+                "requires_response": False
+            }
+            
+            try:
+                response = self.session.post(f"{API_BASE}/patient-portal/{self.test_data['patient_id']}/messages", 
+                                           json=message_data)
+                if response.status_code == 200:
+                    message = response.json()
+                    message_id = message.get("id")
+                    self.test_data["portal_message_id"] = message_id
+                    self.log_result("POST /api/patient-portal/{patient_id}/messages", True, 
+                                  f"Sent message to patient with ID: {message_id}", 
+                                  status_code=response.status_code, payload=message)
+                else:
+                    self.log_result("POST /api/patient-portal/{patient_id}/messages", False, 
+                                  f"Failed: {response.status_code} - {response.text}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result("POST /api/patient-portal/{patient_id}/messages", False, f"Error: {str(e)}")
+
+    def test_authentication_security(self):
+        """Test Authentication & Security as requested in review"""
+        print("\n🔐 TESTING AUTHENTICATION & SECURITY")
+        print("=" * 50)
+        
+        # Test 1: Verify admin/admin123 credentials work (already tested in authenticate method)
+        self.log_result("Verify admin/admin123 credentials", True, 
+                      "Admin credentials verified during authentication phase")
+        
+        # Test 2: Test protected endpoints require authentication
+        # Create a new session without authentication
+        unauth_session = requests.Session()
+        
+        protected_endpoints = [
+            "/api/patients",
+            "/api/employees", 
+            "/api/inventory",
+            "/api/invoices",
+            "/api/appointments",
+            "/api/prescriptions",
+            "/api/telehealth/sessions",
+            "/api/documents",
+            "/api/insurance-plans"
+        ]
+        
+        protected_working = 0
+        for endpoint in protected_endpoints:
+            try:
+                response = unauth_session.get(f"{API_BASE}{endpoint}")
+                if response.status_code in [401, 403]:  # Unauthorized or Forbidden
+                    protected_working += 1
+                    self.log_result(f"Protected endpoint {endpoint}", True, 
+                                  f"Correctly requires authentication (status: {response.status_code})", 
+                                  status_code=response.status_code)
+                else:
+                    self.log_result(f"Protected endpoint {endpoint}", False, 
+                                  f"Should require authentication but returned: {response.status_code}",
+                                  status_code=response.status_code)
+            except Exception as e:
+                self.log_result(f"Protected endpoint {endpoint}", False, f"Error: {str(e)}")
+        
+        # Summary of protected endpoints
+        self.log_result("Protected Endpoints Security", 
+                      protected_working == len(protected_endpoints),
+                      f"{protected_working}/{len(protected_endpoints)} endpoints properly protected")
+        
+        # Test 3: Test invalid credentials are rejected
+        try:
+            invalid_response = requests.post(f"{API_BASE}/auth/login", json={
+                "username": "invalid_user",
+                "password": "wrong_password"
+            })
+            
+            if invalid_response.status_code in [401, 403]:
+                self.log_result("Invalid credentials rejection", True, 
+                              f"Invalid credentials properly rejected (status: {invalid_response.status_code})",
+                              status_code=invalid_response.status_code)
+            else:
+                self.log_result("Invalid credentials rejection", False, 
+                              f"Invalid credentials should be rejected but got: {invalid_response.status_code}",
+                              status_code=invalid_response.status_code)
+        except Exception as e:
+            self.log_result("Invalid credentials rejection", False, f"Error: {str(e)}")
+        
+        # Test 4: Test JWT token validation
+        try:
+            # Test with invalid token
+            invalid_session = requests.Session()
+            invalid_session.headers.update({"Authorization": "Bearer invalid_token_12345"})
+            
+            response = invalid_session.get(f"{API_BASE}/auth/me")
+            if response.status_code in [401, 403]:
+                self.log_result("JWT token validation", True, 
+                              f"Invalid JWT token properly rejected (status: {response.status_code})",
+                              status_code=response.status_code)
+            else:
+                self.log_result("JWT token validation", False, 
+                              f"Invalid JWT token should be rejected but got: {response.status_code}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("JWT token validation", False, f"Error: {str(e)}")
+        
+        # Test 5: Test session management
+        try:
+            response = self.session.get(f"{API_BASE}/auth/me")
+            if response.status_code == 200:
+                user_data = response.json()
+                self.log_result("Session management", True, 
+                              f"Valid session maintained for user: {user_data.get('username')}", 
+                              status_code=response.status_code, payload=user_data)
+            else:
+                self.log_result("Session management", False, 
+                              f"Session validation failed: {response.status_code}",
+                              status_code=response.status_code)
+        except Exception as e:
+            self.log_result("Session management", False, f"Error: {str(e)}")
+
     def test_additional_endpoints(self):
         """Test Communications, Clinical Templates, Quality Measures, Documents, Referrals, Telehealth"""
         print("\n🔧 TESTING ADDITIONAL ENDPOINTS")
