@@ -1480,8 +1480,13 @@ class ClinicHubTester:
             print("❌ Authentication failed. Cannot proceed with tests.")
             return False
         
-        # Run all test suites
+        # Run all test suites - PRIORITY TESTING AREAS FIRST
         test_suites = [
+            ("Authentication & Security", self.test_authentication_security),
+            ("Insurance Verification System", self.test_insurance_verification_system),
+            ("Telehealth Module", self.test_telehealth_module),
+            ("Document Management System", self.test_document_management_system),
+            ("Patient Portal Integration", self.test_patient_portal_integration),
             ("Authentication Endpoints", self.test_authentication_endpoints),
             ("Patients CRUD + EHR", self.test_patients_crud_ehr),
             ("Receipts API", self.test_receipts_api),
