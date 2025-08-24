@@ -11672,7 +11672,12 @@ const AppContent = () => {
     );
   }
 
-  return user ? <Dashboard /> : <LoginPage />;
+  return user ? (
+    <>
+      <Dashboard />
+      <NotificationCenter />
+    </>
+  ) : <LoginPage />;
 };
 
 function App() {
