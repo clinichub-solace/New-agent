@@ -1,22 +1,9 @@
 import React, { useState, useEffect } from "react";
 import "./App.css";
-import axios from "axios";
 import { formatErrorMessage, toDisplayError } from './utils/errors';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginPage from './components/LoginPage';
-
-// Dynamic API configuration using environment variables
-const BACKEND_URL = process.env.REACT_APP_BACKEND_URL || "/api";
-const API = process.env.REACT_APP_BACKEND_URL || `/api`;
-
-// Add axios timeout to prevent hanging requests
-axios.defaults.timeout = 10000; // 10 second timeout
-
-console.log('Environment check:', {
-  REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL,
-  BACKEND_URL,
-  API
-});
+import api from './api/axios';
 
 // Dashboard Component
 const Dashboard = () => {
