@@ -5,15 +5,16 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginPage from './components/LoginPage';
 import api from './api/axios';
 
-// SIMPLIFIED ClinicHub App - Core EHR functionality only
-// Removed: Synology, Advanced Telehealth, Fax/VoIP, Complex Lab Integration
+// RESTORED ClinicHub App - Complete EHR System with Advanced Features
+// ✅ PHASE 1: Enhanced Dashboard with Navigation System Restored
+// ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
 
-// Dashboard Component
+// Dashboard Component with Full Navigation System
 const Dashboard = () => {
   const { user, logout } = useAuth();
-  const [stats, setStats] = useState(null);
+  const [activeModule, setActiveModule] = useState('dashboard');
+  const [synologyStatus, setSynologyStatus] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [activeModule, setActiveModule] = useState('overview');
 
   // Core state management for essential EHR functions
   const [patients, setPatients] = useState([]);
