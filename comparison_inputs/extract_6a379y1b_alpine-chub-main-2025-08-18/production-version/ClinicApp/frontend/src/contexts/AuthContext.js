@@ -12,7 +12,7 @@ const testAPIEndpoints = async () => {
   try {
     // Test 1: Without /api prefix (current broken behavior)
     console.log('Testing WITHOUT /api prefix...');
-    const response1 = await axios.post('https://api-pathway.preview.emergentagent.com/auth/login', 
+    const response1 = await axios.post('https://med-platform-fix.preview.emergentagent.com/auth/login', 
       { test: 'data' },
       { headers: { 'Content-Type': 'application/json' } }
     );
@@ -24,7 +24,7 @@ const testAPIEndpoints = async () => {
   try {
     // Test 2: With /api prefix (should work)
     console.log('Testing WITH /api prefix...');
-    const response2 = await axios.post('https://api-pathway.preview.emergentagent.com/api/auth/login',
+    const response2 = await axios.post('https://med-platform-fix.preview.emergentagent.com/api/auth/login',
       { test: 'data' },
       { headers: { 'Content-Type': 'application/json' } }
     );
@@ -42,7 +42,7 @@ const getAPIBaseURL = () => {
     return '/api';
   } else {
     // In production/preview, use full URL with /api prefix
-    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://api-pathway.preview.emergentagent.com';
+    const backendUrl = process.env.REACT_APP_BACKEND_URL || 'https://med-platform-fix.preview.emergentagent.com';
     return `${backendUrl}/api`;
   }
 };
@@ -93,7 +93,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // const login = async (username, password) => {
-  //   try {await axios.post('https://api-pathway.preview.emergentagent.com/api/auth/login', await axios.post(`${API}/auth/login`, { username, password });
+  //   try {await axios.post('https://med-platform-fix.preview.emergentagent.com/api/auth/login', await axios.post(`${API}/auth/login`, { username, password });
   //     const { access_token, user: userData } = response.data;
       
   //     localStorage.setItem('token', access_token);

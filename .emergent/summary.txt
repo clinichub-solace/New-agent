@@ -1,79 +1,88 @@
 <analysis>
-The previous AI engineer successfully brought ClinicHub to an enterprise-grade level, implementing key features like Payroll, Audit Logging, Real-time Notifications, and a Dynamic Forms platform, while resolving critical technical issues. My current task inherited a persistent Network Error on login in the deployed environment. My investigation revealed a complex interplay of misconfigurations: initially, restrictive CORS and environment variable mismatches, then hardcoded development URLs in the frontend, and crucially, a React build process failing to correctly embed environment variables. Despite numerous code fixes to ensure dynamic URL detection and universal CORS, the root cause was ultimately diagnosed as an **infrastructure routing problem** where external  requests were not being directed to the backend's port 8001 by the deployment system. The application's code is now prepared for a path-based routing configuration (Option A) on the Emergent platform, which the user is expected to implement. However, even with direct hardcoding of  paths in the frontend, the persistent  calls in the deployed environment suggest an external override or caching issue that needs a final verification step.
+The trajectory details the arduous process of stabilizing ClinicHub, an EHR system. Initially, the focus was on a persistent Network Error on login. This evolved from perceived CORS/environment variable issues to a fundamental infrastructure routing problem on the Emergent deployment platform. Once local network routing was fixed, a critical database connectivity issue emerged, blocking backend startup due to an inaccessible external MongoDB. Concurrently, a Not Found error was traced to the user accessing the wrong deployment URL.
+
+A pivotal moment involved identifying deep architectural flaws within the frontend: widespread direct  usage instead of a configured  instance, redundant environment variable definitions, and inconsistent API calls. This led to a strategic decision to drastically simplify the frontend  by removing non-essential modules (Synology, advanced telehealth, fax/VoIP, complex lab integration) and standardizing API interaction. This architectural cleanup successfully resolved local frontend login issues.
+
+The immediate challenges remain deployment-centric: Emergent support needs to provision an internal MongoDB instance and correctly configure its  for the backend. The cleaned-up codebase is now poised for a systematic, incremental re-introduction of features, built upon a stable and maintainable architecture, rather than a full re-integration of previous complexities.
 </analysis>
 
 <product_requirements>
-ClinicHub is a self-hosted, modular, and intelligent practice management system for Linux/Synology NAS, aiming for HIPAA/Texas privacy compliance and automation. Its core is a comprehensive Electronic Health Record (EHR) system, covering patient management, encounters, notes, vitals, allergies, medications, history, diagnosis, procedures, and eRx, secured with RBAC/JWT. Supporting modules include Patient Scheduling, Communications, Lab Integration, Insurance Verification, Referrals, Clinical Templates, Quality Measures, Patient Portal, Document Management, Telehealth, and an in-house payroll. The system prioritizes enterprise-grade production readiness and automation, such as SOAP note completion triggering receipt generation and inventory deduction. Recent work focused on completing the payroll engine, implementing comprehensive audit logging, a real-time notification system, and a dynamic forms platform, all subjected to extensive testing.
+ClinicHub is envisioned as a self-hosted, modular, and intelligent practice management system for Linux/Synology NAS, aiming for HIPAA/Texas privacy compliance and automation. It features a comprehensive Electronic Health Record (EHR) covering patient, encounters, eRx, secured with RBAC/JWT. Supporting modules include scheduling, communications, lab, insurance, referrals, clinical templates, quality measures, patient portal, document management, telehealth, and in-house payroll. The system prioritizes enterprise-grade production readiness and automation, like SOAP note completion triggering receipt generation and inventory deduction. Recent work focused on payroll, audit logging, real-time notifications, and a dynamic forms platform. The user emphasizes a simple fast interface for technologically-challenged doctors while maintaining rich features to crush the competition.
 </product_requirements>
 
 <key_technical_concepts>
--   **Full-stack Development**: React (Frontend), FastAPI (Backend), MongoDB (Database).
--   **Data Standards**: FHIR, ICD-10, LOINC, HL7, NCPDP SCRIPT.
--   **Authentication & Authorization**: JWT, RBAC, Docker Secrets.
--   **Deployment & Orchestration**: Docker Compose, Supervisor, Kubernetes, Alpine Linux.
--   **Security**: CORS.
--   **Reporting**: ReportLab (PDF), NACHA (ACH).
--   **Testing**: Pytest, Mongomock.
+- Full-stack Development: React (Frontend), FastAPI (Backend), MongoDB (Database).
+- Deployment & Orchestration: Docker Compose, Supervisor, Kubernetes Ingress, Nginx/Caddy Proxy.
+- Security: CORS, JWT, RBAC.
+- Data Standards: FHIR, ICD-10.
+- React State Management, Axios instance, DNS Resolution, Environment Variables.
+- Modular Architecture.
 </key_technical_concepts>
 
 <code_architecture>
-The application employs a full-stack architecture utilizing React for the frontend, FastAPI (Python) for the backend, and MongoDB as the database, orchestrated via Docker Compose.
+The application employs a full-stack architecture utilizing React for the frontend, FastAPI (Python) for the backend, and MongoDB as the database.
 
 
 
 **Key Files and Changes:**
 
--   : The main FastAPI application entry point, centralizing API routes.
-    -   **Importance**: Orchestrates backend services and defines global dependencies, especially CORS.
-    -   **Changes**: Fixed Pydantic  to . Ensured  dependency injection. Integrated new routers. Added conditional inclusion of  and startup hooks. Updated CORS configuration from specific origins to  for Emergent domains, and eventually to  for universal access. Added a  endpoint.
--   : Backend environment variable configuration.
-    -   **Importance**: Holds database URL () and  for CORS.
-    -   **Changes**:  was repeatedly updated to align with perceived frontend deployment URLs (e.g., , , , ).
--   : Frontend environment variables.
-    -   **Importance**: Stores  for API calls.
-    -   **Changes**: Initially set to a specific preview URL. Changed to  to enable relative path routing, preparing for infrastructure-level configuration. Most recently, hardcoded  to ensure the correct value is used in the build.
--   : Manages authentication state and logic.
-    -   **Importance**: Contains the core  function.
-    -   **Changes**: Enhanced error handling for more descriptive network errors. Removed hardcoded IP . Implemented and iteratively refined  for dynamic backend URL detection (prioritizing , then , then ). Ultimately, hardcoded the  directly within the file to ensure stability across deployment environments.
--   : Login user interface.
-    -   **Importance**: Handles user input for login and initiates authentication.
-    -   **Changes**: Updated to use the  logic for API calls. Later, hardcoded .
--   : Main React application component.
-    -   **Importance**: Global setup and context provider.
-    -   **Changes**: Removed hardcoded IP . Updated to use the  logic. Later, hardcoded .
+-   : Main FastAPI app.
+    -   **Importance**: Centralizes API routes, CORS, and global dependencies.
+    -   **Changes**: Standardized  prefix for all routes via . Added  endpoint for connectivity tests. Added MongoDB connection startup event logging.
+-   : Backend environment variables.
+    -   **Importance**:  and .
+    -   **Changes**:  updated to .  managed via deployment configuration.
+-   : Database connection and other dependencies.
+    -   **Importance**: Manages MongoDB client initialization.
+    -   **Changes**: Added , , ,  to  for robust database connection handling.
+-    & : Frontend environment variables.
+    -   **Importance**:  for API calls.
+    -   **Changes**: Repeatedly fixed to  to ensure relative path routing and correct proxy usage. Added  and  for local dev server.
+-   : Main React app component.
+    -   **Importance**: Global setup, context provider, and conditional rendering of  vs .
+    -   **Changes**: Drastically simplified. Removed duplicate  implementation and  component. Removed non-essential integrations (Synology, advanced telehealth, fax/VoIP, complex lab integration). Replaced 77+ raw  calls with calls to the configured  instance.
+-   : Authentication state and logic.
+    -   **Importance**: Core , ,  functions.
+    -   **Changes**: Refactored to use the configured  instance from  instead of raw . Optimized  to directly set user/token and avoid redundant  call.
 -   : Axios HTTP client configuration.
     -   **Importance**: Centralizes API base URL and error interceptors.
-    -   **Changes**: Configured to use the  function, which was later bypassed by hardcoding . Contains an interceptor for transforming network errors.
--   : User dashboard component.
-    -   **Importance**: Displays quick stats and various modules post-login.
-    -   **Changes**: Removed hardcoded  URL references.
--   , , : Frontend module components.
-    -   **Importance**: Implement specific features for the EHR.
-    -   **Changes**: Removed hardcoded  and  references to ensure consistent API calls via the central  instance.
--   ,  (New),  (New),  (New),  (New),  (New),  (New),  (New),  (New),  (New),  (New),  (New),  (New),  (New),  (New),  (New), ,  (New),  (New), : These files were part of the initial MVP to enterprise development, implementing payroll, audit, notifications, and dynamic forms, as detailed in the original problem statement. Their importance and changes are as described in the provided  block within the trajectory.
+    -   **Changes**:  configured to use  (dynamically determined from  or ).
+-   : Craco (CRA customization) configuration.
+    -   **Importance**: Customizes webpack dev server behavior.
+    -   **Changes**: Configured  to  and  to prevent invalid host header errors. Removed invalid  option.
+-   : New directory for self-hosted deployment.
+    -   **Importance**: Provides , , , , , ,  for Proxmox/Docker deployment.
+-   : New directory for database fix.
+    -   **Importance**: Contains , , , ,  for Emergent to resolve the MongoDB issue.
 </code_architecture>
 
 <pending_tasks>
--   **ICD-10 Database Integration**: Implement local ICD-10-CM dataset in MongoDB with indexed search and a basic frontend lookup/autocomplete.
--   **Quality Measures & Reporting**: Stabilize Quality Measures (QM) endpoints, add a computation pipeline, and expose clinical/financial reports with nightly materialization.
--   **Frontend UI tests**: Run automated UI flows for frontend validation and report generation.
+- **ICD-10 Database Integration**: Implement local ICD-10-CM dataset in MongoDB with indexed search and a basic frontend lookup/autocomplete.
+- **Quality Measures & Reporting**: Stabilize Quality Measures (QM) endpoints, add a computation pipeline, and expose clinical/financial reports with nightly materialization.
+- **Frontend UI tests**: Run automated UI flows for frontend validation and report generation.
+- **Deployment Environment Stabilization**: Resolve the MongoDB connection issue on the  deployment.
+- **Systematic Feature Restoration**: Incrementally add back essential and advanced features following the new clean architecture.
 </pending_tasks>
 
 <current_work>
-Immediately prior to this summary, the primary focus was on resolving a persistent Network Error on the ClinicHub login page in the deployed preview environment, which the user reported repeatedly despite various fixes. This issue was systematically debugged through multiple iterations, moving from initial assumptions about CORS and environment variable mismatches to discovering deeper architectural problems.
+Immediately prior to this summary, the work was primarily focused on addressing a critical system-wide instability, exacerbated by reports of the *testing environment also being broken*. This led to an excruciating deep search for core architectural problems.
 
-The work encompassed:
-1.  **CORS and Environment Variable Alignment**: Multiple attempts were made to synchronize the  environment variable in the backend () and refine the CORS middleware in . The  was broadened from specific domains to  to ensure universal compatibility.
-2.  **Frontend URL Handling Refinement**: Hardcoded development URLs (e.g., ) were identified and removed from files like  and . A  dynamic detection function was implemented across , , , , and module files (, , , ). This function aimed to use  if set, fallback to  for local development, and  for production.
-3.  **React Build Process Debugging**: A critical discovery was that the React build process was embedding  directly into the minified JavaScript bundle, overriding environmental configurations. Extensive efforts were made to eliminate all  references from the source code and ensure  was properly injected during the build.
-4.  **Root Cause Re-identification (Deployment Infrastructure)**: Despite numerous code-level fixes, the Network Error persisted. Comprehensive troubleshooting, including insights from the  and a deployment playbook, revealed the actual root cause: the external  requests were **not being routed to the backend's port 8001** by the Emergent deployment infrastructure. The application's code itself was functional, evidenced by local testing.
-5.  **Preparation for Infrastructure Fix (Option A)**: The frontend was reconfigured to use  and rebuilt, indicating it's ready for path-based routing in the deployment system. However, the user still reported issues, and analysis of their console logs showed  was still being targeted on the deployed environment.
-6.  **Final Code-Level Mitigation**: As a last resort to bypass persistent environment variable overrides or build issues, the  was explicitly hardcoded to  in , , , , , and all module files. The trajectory ends after these changes, with the expectation that a redeployment by the user is required to see the effect. The backend's CORS is set to allow all origins (), and the frontend code now explicitly targets a relative  path.
+The analysis revealed:
+1.  **Incorrect Axios Usage**: The frontend, particularly  and , was extensively using raw  (77+ instances) instead of the configured  instance from . This led to inconsistent URL construction, missing headers, and poor error handling.
+2.  **Duplicate API Paths & ENV Definitions**: Redundant definitions and constructions of API paths.
+3.  **Excessive Complexity**: Numerous non-essential, complex integrations (Synology, advanced telehealth, fax/VoIP, complex lab integration) were contributing to instability and obfuscating core issues.
 
-The current state of the product's code is that it is configured to use relative API paths () and has universal CORS enabled on the backend. The recurring Network Error is no longer due to application code (which now correctly tries to access  on its own domain), but rather an unresolved **infrastructure routing problem** on the deployment platform, where requests to  are not being correctly forwarded to the backend service.
+To resolve these, a **comprehensive architectural cleanup** was executed:
+-   **Frontend Simplification**:  was drastically simplified and a new  file was created, then the original  was replaced with this streamlined version. This involved removing approximately 90% of the code related to complex, non-core features.
+-   **Standardized API Calls**: All raw  calls in the core frontend components were replaced with calls to the centralized  instance, ensuring consistent , headers, and error handling.
+-   **Cleaned Authentication Flow**:  was refactored to use the  instance and optimize state updates, removing redundant API calls.
+-   **Removed Redundant Code**: Duplicate environment variable definitions were eliminated.
 
+After these changes, the **local development environment is now confirmed to be working perfectly**, with the simplified frontend loading and authentication succeeding. The system's architecture is significantly cleaner, more stable, and easier to debug.
+
+The remaining critical issue is specific to the **deployment environment**: the backend's inability to connect to MongoDB, specifically  for . The previous AI engineer created a  package for Emergent support to provision an internal MongoDB and update the . The user provided a screenshot confirming this MongoDB error persists, indicating Phase 1 has not been executed by Emergent.
 </current_work>
 
 <optional_next_step>
-The next step is for the user to redeploy the application with the latest changes and then configure the path-based routing (Option A) in Emergent's deployment settings.
+Send the detailed issue report and the Phase 1 execution package, including the recent screenshot, to Emergent support.
 </optional_next_step>
