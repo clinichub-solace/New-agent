@@ -919,6 +919,33 @@ const PatientsModule = () => {
                   required
                 />
               </div>
+
+              {/* ICD-10 Diagnosis Codes */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">ICD-10 Diagnosis Codes</label>
+                <ICD10Lookup
+                  selectedCodes={soapFormData.diagnosis_codes}
+                  onSelect={(code, updatedCodes) => {
+                    if (code) {
+                      // Adding a new code
+                      const exists = soapFormData.diagnosis_codes.some(existingCode => existingCode.code === code.code);
+                      if (!exists) {
+                        setSoapFormData(prev => ({
+                          ...prev,
+                          diagnosis_codes: [...prev.diagnosis_codes, code]
+                        }));
+                      }
+                    } else if (updatedCodes) {
+                      // Removing codes (from the component)
+                      setSoapFormData(prev => ({
+                        ...prev,
+                        diagnosis_codes: updatedCodes
+                      }));
+                    }
+                  }}
+                  placeholder="Search ICD-10 diagnosis codes..."
+                />
+              </div>
               
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Plan</label>
