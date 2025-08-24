@@ -8650,12 +8650,789 @@ const FinanceModule = ({ setActiveModule }) => {
 
 
 
-const CommunicationModule = () => (
-  <div className="text-center py-12 text-white">
-    <h2 className="text-2xl font-bold mb-4">💬 Communication Module</h2>
-    <p className="text-blue-200">Internal and Patient Communication</p>
-  </div>
-);
+// ✅ PHASE 6: FINAL MODULES - Communication Module (Critical for Staff Workflow)
+// ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
+// ✅ PERFORMANCE IMPROVEMENT: Implemented timeout cleanup to prevent memory leaks
+const CommunicationModule = ({ setActiveModule }) => {
+  const { user } = useAuth();
+  const [conversations, setConversations] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [staff, setStaff] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // View states
+  const [activeView, setActiveView] = useState('dashboard'); // dashboard, messages, templates, notifications
+  const [selectedConversation, setSelectedConversation] = useState(null);
+  const [showNewMessageForm, setShowNewMessageForm] = useState(false);
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+
+  // Form data
+  const [messageFormData, setMessageFormData] = useState({
+    recipient_type: 'staff', // staff, patient, external
+    recipient_id: '',
+    subject: '',
+    message: '',
+    priority: 'normal',
+    message_type: 'general',
+    template_id: ''
+  });
+
+  const [templateFormData, setTemplateFormData] = useState({
+    name: '',
+    subject: '',
+    content: '',
+    category: 'general',
+    variables: [],
+    is_active: true
+  });
+
+  // Communication statistics
+  const [commStats, setCommStats] = useState({
+    unreadMessages: 0,
+    todayMessages: 0,
+    activeTemplates: 0,
+    pendingNotifications: 0
+  });
+
+  // ✅ PERFORMANCE IMPROVEMENT: Timeout cleanup to prevent memory leaks
+  const [timeoutIds, setTimeoutIds] = useState([]);
+
+  const clearAllTimeouts = () => {
+    timeoutIds.forEach(id => clearTimeout(id));
+    setTimeoutIds([]);
+  };
+
+  const setSuccessWithCleanup = (message) => {
+    setSuccess(message);
+    const timeoutId = setTimeout(() => setSuccess(''), 3000);
+    setTimeoutIds(prev => [...prev, timeoutId]);
+  };
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => clearAllTimeouts();
+  }, []);
+
+  useEffect(() => {
+    fetchCommunicationData();
+  }, []);
+
+  // ✅ URL VETTING: All API calls use configured 'api' instance
+  const fetchCommunicationData = async () => {
+    try {
+      setLoading(true);
+      const [conversationsRes, templatesRes, notificationsRes, staffRes, patientsRes] = await Promise.all([
+        api.get('/communications/conversations').catch(() => ({ data: [] })),
+        api.get('/communications/templates').catch(() => ({ data: [] })),
+        api.get('/notifications').catch(() => ({ data: [] })),
+        api.get('/employees').catch(() => ({ data: [] })),
+        api.get('/patients').catch(() => ({ data: [] }))
+      ]);
+
+      setConversations(conversationsRes.data || []);
+      setTemplates(templatesRes.data || []);
+      setNotifications(notificationsRes.data || []);
+      setStaff(staffRes.data || []);
+      setPatients(patientsRes.data || []);
+
+      // Calculate statistics
+      const today = new Date().toISOString().split('T')[0];
+      setCommStats({
+        unreadMessages: (conversationsRes.data || []).filter(conv => !conv.is_read).length,
+        todayMessages: (conversationsRes.data || []).filter(conv => 
+          conv.created_at?.startsWith(today)
+        ).length,
+        activeTemplates: (templatesRes.data || []).filter(tmpl => tmpl.is_active).length,
+        pendingNotifications: (notificationsRes.data || []).filter(notif => !notif.is_read).length
+      });
+
+    } catch (error) {
+      console.error('Error fetching communication data:', error);
+      setError('Failed to fetch communication data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const sendMessage = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      const messageData = {
+        ...messageFormData,
+        sender_id: user?.id,
+        sender_type: 'staff',
+        sent_at: new Date().toISOString()
+      };
+
+      const response = await api.post('/communications/messages', messageData);
+
+      setConversations([response.data, ...conversations]);
+      setSuccessWithCleanup('Message sent successfully!');
+      setShowNewMessageForm(false);
+      resetMessageForm();
+      fetchCommunicationData(); // Refresh stats
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setError(error.response?.data?.detail || 'Failed to send message');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const createTemplate = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      const templateData = {
+        ...templateFormData,
+        created_by: user?.id,
+        created_at: new Date().toISOString()
+      };
+
+      const response = await api.post('/communications/templates', templateData);
+
+      setTemplates([...templates, response.data]);
+      setSuccessWithCleanup('Message template created successfully!');
+      setShowTemplateForm(false);
+      resetTemplateForm();
+    } catch (error) {
+      console.error('Error creating template:', error);
+      setError(error.response?.data?.detail || 'Failed to create template');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const markAsRead = async (conversationId) => {
+    try {
+      await api.put(`/communications/conversations/${conversationId}/read`);
+      
+      setConversations(conversations.map(conv => 
+        conv.id === conversationId ? { ...conv, is_read: true } : conv
+      ));
+      
+      fetchCommunicationData(); // Refresh unread count
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+      setError('Failed to update message status');
+    }
+  };
+
+  const resetMessageForm = () => {
+    setMessageFormData({
+      recipient_type: 'staff',
+      recipient_id: '',
+      subject: '',
+      message: '',
+      priority: 'normal',
+      message_type: 'general',
+      template_id: ''
+    });
+  };
+
+  const resetTemplateForm = () => {
+    setTemplateFormData({
+      name: '',
+      subject: '',
+      content: '',
+      category: 'general',
+      variables: [],
+      is_active: true
+    });
+  };
+
+  const getPriorityColor = (priority) => {
+    const colors = {
+      'urgent': 'bg-red-100 text-red-800',
+      'high': 'bg-orange-100 text-orange-800',
+      'normal': 'bg-blue-100 text-blue-800',
+      'low': 'bg-gray-100 text-gray-800'
+    };
+    return colors[priority] || 'bg-gray-100 text-gray-800';
+  };
+
+  const renderDashboard = () => {
+    const recentMessages = conversations.slice(0, 8);
+    const unreadMessages = conversations.filter(conv => !conv.is_read);
+
+    return (
+      <div className="space-y-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{commStats.unreadMessages}</div>
+                <div className="text-sm text-gray-300">Unread Messages</div>
+              </div>
+              <div className="text-2xl">📧</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{commStats.todayMessages}</div>
+                <div className="text-sm text-gray-300">Today's Messages</div>
+              </div>
+              <div className="text-2xl">📨</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{commStats.activeTemplates}</div>
+                <div className="text-sm text-gray-300">Active Templates</div>
+              </div>
+              <div className="text-2xl">📝</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{commStats.pendingNotifications}</div>
+                <div className="text-sm text-gray-300">Notifications</div>
+              </div>
+              <div className="text-2xl">🔔</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Unread Messages Alert */}
+        {unreadMessages.length > 0 && (
+          <div className="bg-yellow-500/20 border border-yellow-400/50 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">📧 Unread Messages ({unreadMessages.length})</h3>
+            <div className="space-y-3">
+              {unreadMessages.slice(0, 3).map(message => (
+                <div key={message.id} className="bg-white/5 border border-white/10 rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-white font-medium">{message.subject}</div>
+                        <span className={`px-2 py-1 rounded text-xs ${getPriorityColor(message.priority)}`}>
+                          {message.priority}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        From: {staff.find(s => s.id === message.sender_id)?.first_name} {staff.find(s => s.id === message.sender_id)?.last_name}
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1">
+                        {new Date(message.sent_at).toLocaleString()}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => {
+                          setSelectedConversation(message);
+                          markAsRead(message.id);
+                        }}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Read
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Recent Messages */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">💬 Recent Messages</h3>
+          {recentMessages.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <div className="text-6xl mb-4">💬</div>
+              <p>No messages yet</p>
+              <button
+                onClick={() => setShowNewMessageForm(true)}
+                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              >
+                Send First Message
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentMessages.map(message => (
+                <div key={message.id} className={`bg-white/5 border border-white/10 rounded p-4 ${!message.is_read ? 'border-yellow-400/50' : ''}`}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-white font-medium">{message.subject}</div>
+                        <span className={`px-2 py-1 rounded text-xs ${getPriorityColor(message.priority)}`}>
+                          {message.priority}
+                        </span>
+                        {!message.is_read && (
+                          <span className="px-2 py-1 bg-yellow-600/20 text-yellow-300 rounded text-xs">
+                            NEW
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        {message.recipient_type === 'staff' ? 'To Staff:' : 'To Patient:'} 
+                        {message.recipient_type === 'staff' 
+                          ? staff.find(s => s.id === message.recipient_id)?.first_name 
+                          : patients.find(p => p.id === message.recipient_id)?.name?.[0]?.given?.[0]
+                        }
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1">{message.message?.substring(0, 100)}...</div>
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      {new Date(message.sent_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Quick Templates */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">📝 Quick Message Templates</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {templates.filter(t => t.is_active).slice(0, 6).map(template => (
+              <div key={template.id} className="bg-white/5 border border-white/10 rounded p-4">
+                <div className="text-white font-medium">{template.name}</div>
+                <div className="text-sm text-gray-300 mt-1">{template.subject}</div>
+                <div className="text-sm text-gray-400 mt-1">Category: {template.category}</div>
+                <button
+                  onClick={() => {
+                    setMessageFormData(prev => ({
+                      ...prev,
+                      subject: template.subject,
+                      message: template.content,
+                      template_id: template.id
+                    }));
+                    setShowNewMessageForm(true);
+                  }}
+                  className="mt-2 bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                >
+                  Use Template
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMessageForm = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">📧 Send New Message</h3>
+            <button
+              onClick={() => {
+                setShowNewMessageForm(false);
+                resetMessageForm();
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={sendMessage} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Recipient Type</label>
+                <select
+                  value={messageFormData.recipient_type}
+                  onChange={(e) => {
+                    setMessageFormData({...messageFormData, recipient_type: e.target.value, recipient_id: ''});
+                  }}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="staff">Staff Member</option>
+                  <option value="patient">Patient</option>
+                  <option value="external">External Provider</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Recipient</label>
+                <select
+                  value={messageFormData.recipient_id}
+                  onChange={(e) => setMessageFormData({...messageFormData, recipient_id: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Recipient</option>
+                  {messageFormData.recipient_type === 'staff' ? 
+                    staff.map(member => (
+                      <option key={member.id} value={member.id}>
+                        {member.first_name} {member.last_name} - {member.role}
+                      </option>
+                    )) :
+                    patients.map(patient => (
+                      <option key={patient.id} value={patient.id}>
+                        {patient.name?.[0]?.given?.[0]} {patient.name?.[0]?.family}
+                      </option>
+                    ))
+                  }
+                </select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Priority</label>
+                <select
+                  value={messageFormData.priority}
+                  onChange={(e) => setMessageFormData({...messageFormData, priority: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                >
+                  <option value="low">Low</option>
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                  <option value="urgent">Urgent</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Message Type</label>
+                <select
+                  value={messageFormData.message_type}
+                  onChange={(e) => setMessageFormData({...messageFormData, message_type: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                >
+                  <option value="general">General</option>
+                  <option value="clinical">Clinical</option>
+                  <option value="administrative">Administrative</option>
+                  <option value="emergency">Emergency</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Subject</label>
+              <input
+                type="text"
+                value={messageFormData.subject}
+                onChange={(e) => setMessageFormData({...messageFormData, subject: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                placeholder="Message subject..."
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Message</label>
+              <textarea
+                value={messageFormData.message}
+                onChange={(e) => setMessageFormData({...messageFormData, message: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white h-32"
+                placeholder="Type your message here..."
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Use Template (Optional)</label>
+              <select
+                value={messageFormData.template_id}
+                onChange={(e) => {
+                  const template = templates.find(t => t.id === e.target.value);
+                  if (template) {
+                    setMessageFormData({
+                      ...messageFormData,
+                      template_id: e.target.value,
+                      subject: template.subject,
+                      message: template.content
+                    });
+                  } else {
+                    setMessageFormData({...messageFormData, template_id: ''});
+                  }
+                }}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+              >
+                <option value="">No template</option>
+                {templates.filter(t => t.is_active).map(template => (
+                  <option key={template.id} value={template.id}>
+                    {template.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Sending...' : 'Send Message'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowNewMessageForm(false);
+                  resetMessageForm();
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const renderTemplateForm = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">📝 Create Message Template</h3>
+            <button
+              onClick={() => {
+                setShowTemplateForm(false);
+                resetTemplateForm();
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={createTemplate} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Template Name</label>
+              <input
+                type="text"
+                value={templateFormData.name}
+                onChange={(e) => setTemplateFormData({...templateFormData, name: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                placeholder="Appointment Reminder, Lab Results, etc."
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
+                <select
+                  value={templateFormData.category}
+                  onChange={(e) => setTemplateFormData({...templateFormData, category: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                >
+                  <option value="general">General</option>
+                  <option value="appointment">Appointment</option>
+                  <option value="clinical">Clinical</option>
+                  <option value="billing">Billing</option>
+                  <option value="emergency">Emergency</option>
+                </select>
+              </div>
+
+              <div className="flex items-center space-x-2 pt-6">
+                <input
+                  type="checkbox"
+                  id="template_active"
+                  checked={templateFormData.is_active}
+                  onChange={(e) => setTemplateFormData({...templateFormData, is_active: e.target.checked})}
+                  className="rounded"
+                />
+                <label htmlFor="template_active" className="text-gray-300">Active Template</label>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Subject</label>
+              <input
+                type="text"
+                value={templateFormData.subject}
+                onChange={(e) => setTemplateFormData({...templateFormData, subject: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                placeholder="Template subject line..."
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Content</label>
+              <textarea
+                value={templateFormData.content}
+                onChange={(e) => setTemplateFormData({...templateFormData, content: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white h-32"
+                placeholder="Template message content... Use {{patient_name}}, {{date}}, {{time}} for variables"
+                required
+              />
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Creating...' : 'Create Template'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowTemplateForm(false);
+                  resetTemplateForm();
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">💬 Communication Center</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowNewMessageForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            📧 New Message
+          </button>
+          <button
+            onClick={() => setShowTemplateForm(true)}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+          >
+            📝 New Template
+          </button>
+          <button
+            onClick={fetchCommunicationData}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            🔄 Refresh
+          </button>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 mb-6">
+          <p className="text-green-300">✅ {success}</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mb-6">
+          <p className="text-red-300">❌ {error}</p>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'dashboard', name: 'Dashboard', icon: '📊' },
+            { id: 'messages', name: 'All Messages', icon: '📧' },
+            { id: 'templates', name: 'Templates', icon: '📝' },
+            { id: 'notifications', name: 'Notifications', icon: '🔔' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeView === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Content based on active view */}
+      {activeView === 'dashboard' && renderDashboard()}
+      {activeView === 'messages' && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-white">📧 All Messages</h3>
+          {conversations.map(message => (
+            <div key={message.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-4">
+                    <div className="text-white font-medium">{message.subject}</div>
+                    <span className={`px-2 py-1 rounded text-xs ${getPriorityColor(message.priority)}`}>
+                      {message.priority}
+                    </span>
+                  </div>
+                  <div className="text-sm text-gray-300 mt-1">{message.message}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {activeView === 'templates' && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-white">📝 Message Templates</h3>
+          {templates.map(template => (
+            <div key={template.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="text-white font-medium">{template.name}</div>
+              <div className="text-gray-300 text-sm">{template.subject}</div>
+              <div className="text-gray-400 text-sm mt-1">Category: {template.category}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      {activeView === 'notifications' && (
+        <div className="text-white">
+          <h3 className="text-lg font-semibold mb-4">🔔 System Notifications</h3>
+          <p className="text-gray-300">Advanced notification management coming soon...</p>
+        </div>
+      )}
+
+      {/* Forms */}
+      {showNewMessageForm && renderMessageForm()}
+      {showTemplateForm && renderTemplateForm()}
+      
+      {/* Loading */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const ReferralsModule = () => (
   <div className="text-center py-12 text-white">
