@@ -2296,12 +2296,7 @@ const ClinicalTemplatesModule = ({ setActiveModule }) => {
   );
 };
 
-const QualityMeasuresModule = () => (
-  <div className="text-center py-12 text-white">
-    <h2 className="text-2xl font-bold mb-4">📈 Quality Measures Module</h2>
-    <p className="text-blue-200">Clinical Quality Metrics and Reporting</p>
-  </div>
-);
+
 
 const DocumentManagementModule = () => (
   <div className="text-center py-12 text-white">
