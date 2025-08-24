@@ -20,7 +20,7 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (token && !user) {
       // Only fetch user if we have token but no user data (e.g., on page refresh)
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       fetchCurrentUser();
     } else if (!token) {
       setLoading(false);
