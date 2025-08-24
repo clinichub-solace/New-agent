@@ -3345,15 +3345,6 @@ const LabOrdersModule = ({ setActiveModule }) => {
                   rows="3"
                   placeholder="Clinical indication for tests..."
                 />
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Clinical Information</label>
-                <textarea
-                  value={orderFormData.clinical_info}
-                  onChange={(e) => setOrderFormData(prev => ({...prev, clinical_info: e.target.value}))}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
-                  rows="3"
-                  placeholder="Clinical indication for tests..."
-                />
               </div>
 
               <div className="flex justify-end space-x-3">
