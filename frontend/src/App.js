@@ -2952,31 +2952,6 @@ const LabOrdersModule = ({ setActiveModule }) => {
                 />
               </div>
 
-              {/* ICD-10 Diagnosis Codes for Lab Orders */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">ICD-10 Diagnosis Codes</label>
-                <ICD10Lookup
-                  selectedCodes={orderFormData.diagnosis_codes}
-                  onSelect={(code, updatedCodes) => {
-                    if (code) {
-                      const exists = orderFormData.diagnosis_codes.some(existingCode => existingCode.code === code.code);
-                      if (!exists) {
-                        setOrderFormData(prev => ({
-                          ...prev,
-                          diagnosis_codes: [...prev.diagnosis_codes, code]
-                        }));
-                      }
-                    } else if (updatedCodes) {
-                      setOrderFormData(prev => ({
-                        ...prev,
-                        diagnosis_codes: updatedCodes
-                      }));
-                    }
-                  }}
-                  placeholder="Search diagnostic codes for lab justification..."
-                />
-              </div>
-
               <div className="flex justify-end space-x-3">
                 <button
                   type="button"
