@@ -490,7 +490,6 @@ const PatientsModule = () => {
                 </div>
               </div>
 
-              {/* Tab Content */}
               <div className="space-y-4">
                 {activeTab === 'soap' && (
                   <div>
