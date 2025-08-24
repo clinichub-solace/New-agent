@@ -6677,12 +6677,822 @@ const InvoicesModule = ({ setActiveModule }) => {
   );
 };
 
-const SystemSettingsModule = () => (
-  <div className="text-center py-12 text-white">
-    <h2 className="text-2xl font-bold mb-4">⚙️ System Settings Module</h2>
-    <p className="text-blue-200">System Configuration and Administration</p>
-  </div>
-);
+// ✅ PHASE 6: FINAL MODULES - System Settings & Administration (Essential for Operations)
+// ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
+// ✅ SECURITY ENHANCEMENT: Admin-only access controls with role validation
+const SystemSettingsModule = ({ setActiveModule, onStatusUpdate }) => {
+  const { user } = useAuth();
+  const [systemConfig, setSystemConfig] = useState({});
+  const [users, setUsers] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [backupStatus, setBackupStatus] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  // View states
+  const [activeView, setActiveView] = useState('dashboard');
+  const [showUserForm, setShowUserForm] = useState(false);
+  const [showConfigForm, setShowConfigForm] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+
+  // Form data
+  const [userFormData, setUserFormData] = useState({
+    username: '',
+    email: '',
+    first_name: '',
+    last_name: '',
+    role: 'receptionist',
+    is_active: true,
+    password: '',
+    confirm_password: ''
+  });
+
+  const [configFormData, setConfigFormData] = useState({
+    clinic_name: '',
+    clinic_address: '',
+    clinic_phone: '',
+    clinic_email: '',
+    backup_frequency: 'daily',
+    session_timeout: 8,
+    max_login_attempts: 3,
+    enable_synology: false,
+    enable_audit_logging: true
+  });
+
+  // System statistics
+  const [systemStats, setSystemStats] = useState({
+    totalUsers: 0,
+    activeUsers: 0,
+    systemUptime: '0 days',
+    lastBackup: 'Never',
+    auditEntries: 0,
+    storageUsed: '0 GB'
+  });
+
+  // Performance improvement: Timeout cleanup
+  const [timeoutIds, setTimeoutIds] = useState([]);
+  const setSuccessWithCleanup = (message) => {
+    setSuccess(message);
+    const timeoutId = setTimeout(() => setSuccess(''), 3000);
+    setTimeoutIds(prev => [...prev, timeoutId]);
+  };
+
+  useEffect(() => {
+    return () => timeoutIds.forEach(id => clearTimeout(id));
+  }, []);
+
+  useEffect(() => {
+    // Security check: Only allow admin access
+    if (user?.role !== 'admin') {
+      setError('Access denied. Administrator privileges required.');
+      return;
+    }
+    fetchSystemData();
+  }, [user]);
+
+  // ✅ URL VETTING: All API calls use configured 'api' instance
+  const fetchSystemData = async () => {
+    try {
+      setLoading(true);
+      const [configRes, usersRes, auditRes, backupRes] = await Promise.all([
+        api.get('/system/config').catch(() => ({ data: {} })),
+        api.get('/system/users').catch(() => ({ data: [] })),
+        api.get('/audit').catch(() => ({ data: [] })),
+        api.get('/system/backup-status').catch(() => ({ data: {} }))
+      ]);
+
+      setSystemConfig(configRes.data || {});
+      setUsers(usersRes.data || []);
+      setAuditLogs(auditRes.data || []);
+      setBackupStatus(backupRes.data || {});
+
+      // Set config form data
+      if (configRes.data) {
+        setConfigFormData(prev => ({ ...prev, ...configRes.data }));
+      }
+
+      // Calculate statistics
+      setSystemStats({
+        totalUsers: (usersRes.data || []).length,
+        activeUsers: (usersRes.data || []).filter(u => u.is_active).length,
+        systemUptime: backupRes.data?.uptime || '0 days',
+        lastBackup: backupRes.data?.last_backup || 'Never',
+        auditEntries: (auditRes.data || []).length,
+        storageUsed: backupRes.data?.storage_used || '0 GB'
+      });
+
+    } catch (error) {
+      console.error('Error fetching system data:', error);
+      setError('Failed to fetch system data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const updateSystemConfig = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      const response = await api.put('/system/config', configFormData);
+
+      setSystemConfig(response.data);
+      setSuccessWithCleanup('System configuration updated successfully!');
+      setShowConfigForm(false);
+      
+      // Notify parent component if Synology settings changed
+      if (onStatusUpdate) {
+        onStatusUpdate();
+      }
+    } catch (error) {
+      console.error('Error updating system config:', error);
+      setError(error.response?.data?.detail || 'Failed to update system configuration');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const createUser = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      if (userFormData.password !== userFormData.confirm_password) {
+        setError('Passwords do not match');
+        return;
+      }
+
+      const userData = {
+        ...userFormData,
+        created_by: user?.id
+      };
+      delete userData.confirm_password;
+
+      const response = editingUser ? 
+        await api.put(`/system/users/${editingUser.id}`, userData) :
+        await api.post('/system/users', userData);
+
+      if (editingUser) {
+        setUsers(users.map(u => u.id === editingUser.id ? response.data : u));
+        setSuccessWithCleanup('User updated successfully!');
+      } else {
+        setUsers([...users, response.data]);
+        setSuccessWithCleanup('User created successfully!');
+      }
+
+      setShowUserForm(false);
+      setEditingUser(null);
+      resetUserForm();
+    } catch (error) {
+      console.error('Error saving user:', error);
+      setError(error.response?.data?.detail || 'Failed to save user');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const initiateBackup = async () => {
+    try {
+      setLoading(true);
+      await api.post('/system/backup');
+      setSuccessWithCleanup('System backup initiated successfully!');
+      fetchSystemData(); // Refresh backup status
+    } catch (error) {
+      console.error('Error initiating backup:', error);
+      setError('Failed to initiate backup');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resetUserForm = () => {
+    setUserFormData({
+      username: '',
+      email: '',
+      first_name: '',
+      last_name: '',
+      role: 'receptionist',
+      is_active: true,
+      password: '',
+      confirm_password: ''
+    });
+  };
+
+  const handleEditUser = (userToEdit) => {
+    setEditingUser(userToEdit);
+    setUserFormData({
+      username: userToEdit.username,
+      email: userToEdit.email,
+      first_name: userToEdit.first_name,
+      last_name: userToEdit.last_name,
+      role: userToEdit.role,
+      is_active: userToEdit.is_active,
+      password: '',
+      confirm_password: ''
+    });
+    setShowUserForm(true);
+  };
+
+  const getRoleColor = (role) => {
+    const colors = {
+      'admin': 'bg-red-100 text-red-800',
+      'doctor': 'bg-blue-100 text-blue-800',
+      'nurse': 'bg-green-100 text-green-800',
+      'manager': 'bg-purple-100 text-purple-800',
+      'receptionist': 'bg-gray-100 text-gray-800'
+    };
+    return colors[role] || 'bg-gray-100 text-gray-800';
+  };
+
+  const renderDashboard = () => {
+    return (
+      <div className="space-y-6">
+        {/* System Status Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{systemStats.totalUsers}</div>
+                <div className="text-sm text-gray-300">Total Users</div>
+              </div>
+              <div className="text-2xl">👥</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{systemStats.activeUsers}</div>
+                <div className="text-sm text-gray-300">Active Users</div>
+              </div>
+              <div className="text-2xl">✅</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-lg font-bold text-white">{systemStats.systemUptime}</div>
+                <div className="text-sm text-gray-300">System Uptime</div>
+              </div>
+              <div className="text-2xl">⏰</div>
+            </div>
+          </div>
+        </div>
+
+        {/* System Health & Backup */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">💾 Backup Status</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-300">Last Backup:</span>
+                <span className="text-white">{systemStats.lastBackup}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-300">Storage Used:</span>
+                <span className="text-white">{systemStats.storageUsed}</span>
+              </div>
+              <button
+                onClick={initiateBackup}
+                disabled={loading}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-lg disabled:opacity-50 mt-4"
+              >
+                {loading ? 'Backing up...' : '💾 Start Backup'}
+              </button>
+            </div>
+          </div>
+
+          <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-white mb-4">📊 System Analytics</h3>
+            <div className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-300">Audit Entries:</span>
+                <span className="text-white">{systemStats.auditEntries}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-300">Synology Status:</span>
+                <span className={systemConfig.enable_synology ? 'text-green-400' : 'text-gray-400'}>
+                  {systemConfig.enable_synology ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-300">Audit Logging:</span>
+                <span className={systemConfig.enable_audit_logging ? 'text-green-400' : 'text-gray-400'}>
+                  {systemConfig.enable_audit_logging ? 'Enabled' : 'Disabled'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">⚡ Quick Actions</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <button
+              onClick={() => setShowUserForm(true)}
+              className="bg-blue-600 hover:bg-blue-700 text-white p-4 rounded-lg text-center"
+            >
+              <div className="text-2xl mb-2">👤</div>
+              <div className="text-sm">Add User</div>
+            </button>
+            <button
+              onClick={() => setShowConfigForm(true)}
+              className="bg-green-600 hover:bg-green-700 text-white p-4 rounded-lg text-center"
+            >
+              <div className="text-2xl mb-2">⚙️</div>
+              <div className="text-sm">Settings</div>
+            </button>
+            <button
+              onClick={() => setActiveView('audit')}
+              className="bg-purple-600 hover:bg-purple-700 text-white p-4 rounded-lg text-center"
+            >
+              <div className="text-2xl mb-2">📋</div>
+              <div className="text-sm">Audit Logs</div>
+            </button>
+            <button
+              onClick={initiateBackup}
+              disabled={loading}
+              className="bg-orange-600 hover:bg-orange-700 text-white p-4 rounded-lg text-center disabled:opacity-50"
+            >
+              <div className="text-2xl mb-2">💾</div>
+              <div className="text-sm">Backup</div>
+            </button>
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">📈 Recent System Activity</h3>
+          {auditLogs.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <div className="text-6xl mb-4">📋</div>
+              <p>No audit logs available</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {auditLogs.slice(0, 5).map(log => (
+                <div key={log.id} className="bg-white/5 border border-white/10 rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="text-white font-medium">{log.action}</div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        User: {log.user_name} • Subject: {log.subject_type}
+                      </div>
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      {new Date(log.timestamp).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderUserForm = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">
+              {editingUser ? '✏️ Edit User' : '👤 Create New User'}
+            </h3>
+            <button
+              onClick={() => {
+                setShowUserForm(false);
+                setEditingUser(null);
+                resetUserForm();
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={createUser} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Username</label>
+                <input
+                  type="text"
+                  value={userFormData.username}
+                  onChange={(e) => setUserFormData({...userFormData, username: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Email</label>
+                <input
+                  type="email"
+                  value={userFormData.email}
+                  onChange={(e) => setUserFormData({...userFormData, email: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">First Name</label>
+                <input
+                  type="text"
+                  value={userFormData.first_name}
+                  onChange={(e) => setUserFormData({...userFormData, first_name: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Last Name</label>
+                <input
+                  type="text"
+                  value={userFormData.last_name}
+                  onChange={(e) => setUserFormData({...userFormData, last_name: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Role</label>
+              <select
+                value={userFormData.role}
+                onChange={(e) => setUserFormData({...userFormData, role: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                required
+              >
+                <option value="receptionist">Receptionist</option>
+                <option value="nurse">Nurse</option>
+                <option value="doctor">Doctor</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Administrator</option>
+              </select>
+            </div>
+
+            {!editingUser && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Password</label>
+                  <input
+                    type="password"
+                    value={userFormData.password}
+                    onChange={(e) => setUserFormData({...userFormData, password: e.target.value})}
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                    required={!editingUser}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-300 mb-2">Confirm Password</label>
+                  <input
+                    type="password"
+                    value={userFormData.confirm_password}
+                    onChange={(e) => setUserFormData({...userFormData, confirm_password: e.target.value})}
+                    className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                    required={!editingUser}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="user_active"
+                checked={userFormData.is_active}
+                onChange={(e) => setUserFormData({...userFormData, is_active: e.target.checked})}
+                className="rounded"
+              />
+              <label htmlFor="user_active" className="text-gray-300">Active User</label>
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : (editingUser ? 'Update User' : 'Create User')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUserForm(false);
+                  setEditingUser(null);
+                  resetUserForm();
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const renderConfigForm = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">⚙️ System Configuration</h3>
+            <button
+              onClick={() => setShowConfigForm(false)}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={updateSystemConfig} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Clinic Name</label>
+                <input
+                  type="text"
+                  value={configFormData.clinic_name}
+                  onChange={(e) => setConfigFormData({...configFormData, clinic_name: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Clinic Phone</label>
+                <input
+                  type="text"
+                  value={configFormData.clinic_phone}
+                  onChange={(e) => setConfigFormData({...configFormData, clinic_phone: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Clinic Address</label>
+              <textarea
+                value={configFormData.clinic_address}
+                onChange={(e) => setConfigFormData({...configFormData, clinic_address: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white h-20"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Session Timeout (hours)</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="24"
+                  value={configFormData.session_timeout}
+                  onChange={(e) => setConfigFormData({...configFormData, session_timeout: parseInt(e.target.value)})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Max Login Attempts</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="10"
+                  value={configFormData.max_login_attempts}
+                  onChange={(e) => setConfigFormData({...configFormData, max_login_attempts: parseInt(e.target.value)})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="enable_synology"
+                  checked={configFormData.enable_synology}
+                  onChange={(e) => setConfigFormData({...configFormData, enable_synology: e.target.checked})}
+                  className="rounded"
+                />
+                <label htmlFor="enable_synology" className="text-gray-300">Enable Synology Integration</label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="enable_audit"
+                  checked={configFormData.enable_audit_logging}
+                  onChange={(e) => setConfigFormData({...configFormData, enable_audit_logging: e.target.checked})}
+                  className="rounded"
+                />
+                <label htmlFor="enable_audit" className="text-gray-300">Enable Audit Logging</label>
+              </div>
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : 'Save Configuration'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowConfigForm(false)}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  // Security check for admin access
+  if (user?.role !== 'admin') {
+    return (
+      <div className="bg-red-500/20 border border-red-400/50 rounded-xl p-6 text-center">
+        <div className="text-6xl mb-4">🔒</div>
+        <h2 className="text-xl font-semibold text-white mb-2">Access Denied</h2>
+        <p className="text-red-300">Administrator privileges required to access system settings.</p>
+        <button
+          onClick={() => setActiveModule('dashboard')}
+          className="mt-4 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+        >
+          Back to Dashboard
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">⚙️ System Administration</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowUserForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            👤 Add User
+          </button>
+          <button
+            onClick={() => setShowConfigForm(true)}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+          >
+            ⚙️ Settings
+          </button>
+          <button
+            onClick={fetchSystemData}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            🔄 Refresh
+          </button>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 mb-6">
+          <p className="text-green-300">✅ {success}</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mb-6">
+          <p className="text-red-300">❌ {error}</p>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'dashboard', name: 'Dashboard', icon: '📊' },
+            { id: 'users', name: 'Users', icon: '👥' },
+            { id: 'config', name: 'Configuration', icon: '⚙️' },
+            { id: 'audit', name: 'Audit Logs', icon: '📋' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeView === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Content based on active view */}
+      {activeView === 'dashboard' && renderDashboard()}
+      {activeView === 'users' && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-white">👥 User Management</h3>
+          {users.map(userItem => (
+            <div key={userItem.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-4">
+                    <div className="text-white font-medium">{userItem.first_name} {userItem.last_name}</div>
+                    <span className={`px-2 py-1 rounded text-xs ${getRoleColor(userItem.role)}`}>
+                      {userItem.role}
+                    </span>
+                    <div className={`w-2 h-2 rounded-full ${userItem.is_active ? 'bg-green-400' : 'bg-gray-400'}`}></div>
+                  </div>
+                  <div className="text-sm text-gray-300 mt-1">
+                    Username: {userItem.username} • Email: {userItem.email}
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleEditUser(userItem)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                  >
+                    Edit
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {activeView === 'config' && (
+        <div className="text-white">
+          <h3 className="text-lg font-semibold mb-4">⚙️ System Configuration</h3>
+          <button
+            onClick={() => setShowConfigForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            Edit Configuration
+          </button>
+        </div>
+      )}
+      {activeView === 'audit' && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-white">📋 System Audit Logs</h3>
+          {auditLogs.map(log => (
+            <div key={log.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="text-white font-medium">{log.action}</div>
+                  <div className="text-gray-300 text-sm">User: {log.user_name} • Subject: {log.subject_type}</div>
+                </div>
+                <div className="text-gray-400 text-sm">
+                  {new Date(log.timestamp).toLocaleString()}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Forms */}
+      {showUserForm && renderUserForm()}
+      {showConfigForm && renderConfigForm()}
+      
+      {/* Loading */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // ✅ PHASE 3: PRACTICE MANAGEMENT MODULES - Enhanced Employee Management (486 lines)
 // ✅ URL VETTING: All API calls use configured 'api' instance, no hardcoded URLs
