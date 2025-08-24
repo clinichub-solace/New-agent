@@ -248,56 +248,220 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">ClinicHub</h1>
-              <p className="text-sm text-gray-600">Electronic Health Records System</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <span className="text-sm text-gray-700">Welcome, {user?.first_name || user?.username}</span>
-              <button
-                onClick={logout}
-                className="text-sm text-gray-500 hover:text-gray-700"
-              >
-                Sign Out
-              </button>
-            </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
+      {/* Enhanced Header with Synology Status */}
+      <div className="bg-white/10 backdrop-blur-md border-b border-white/20 px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-white">ClinicHub Dashboard</h1>
+            <p className="text-blue-200">Welcome back, {user?.first_name || user?.username}!</p>
+          </div>
+          <div className="flex items-center space-x-4">
+            {synologyStatus && (
+              <div className="text-sm text-blue-200">
+                Synology: {synologyStatus.enabled ? 'Enabled' : 'Disabled'}
+              </div>
+            )}
+            <button
+              onClick={logout}
+              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
+            >
+              Logout
+            </button>
           </div>
         </div>
-      </header>
+      </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Navigation */}
-        <nav className="mb-8">
-          <div className="flex space-x-8">
-            {[
-              { key: 'overview', label: 'Overview' },
-              { key: 'patients', label: 'Patients' },
-              { key: 'appointments', label: 'Appointments' },
-              { key: 'inventory', label: 'Inventory' },
-              { key: 'employees', label: 'Employees' }
-            ].map((item) => (
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        <div className="flex space-x-6">
+          {/* Enhanced Sidebar Navigation - 16 Modules */}
+          <div className="w-64 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-4">
+            <nav className="space-y-2">
               <button
-                key={item.key}
-                onClick={() => setActiveModule(item.key)}
-                className={`pb-2 px-1 border-b-2 font-medium text-sm ${
-                  activeModule === item.key
-                    ? 'border-blue-500 text-blue-600'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                onClick={() => setActiveModule('dashboard')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'dashboard' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
                 }`}
               >
-                {item.label}
+                📊 Dashboard
               </button>
-            ))}
+              <button
+                onClick={() => setActiveModule('patients')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'patients' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                🏥 Patients/EHR
+              </button>
+              <button
+                onClick={() => setActiveModule('scheduling')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'scheduling' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                📅 Scheduling
+              </button>
+              <button
+                onClick={() => setActiveModule('telehealth')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'telehealth' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                💻 Telehealth
+              </button>
+              <button
+                onClick={() => setActiveModule('patient-portal')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'patient-portal' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                🌐 Patient Portal
+              </button>
+              <button
+                onClick={() => setActiveModule('lab-orders')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'lab-orders' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                🔬 Lab Orders
+              </button>
+              <button
+                onClick={() => setActiveModule('insurance')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'insurance' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                🛡️ Insurance
+              </button>
+              <button
+                onClick={() => setActiveModule('clinical-templates')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'clinical-templates' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                📋 Clinical Templates
+              </button>
+              <button
+                onClick={() => setActiveModule('quality-measures')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'quality-measures' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                📈 Quality Measures
+              </button>
+              <button
+                onClick={() => setActiveModule('documents')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'documents' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                📄 Documents
+              </button>
+              <button
+                onClick={() => setActiveModule('invoices')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'invoices' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                💰 Invoices
+              </button>
+              <button
+                onClick={() => setActiveModule('employees')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'employees' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                👥 Employees
+              </button>
+              <button
+                onClick={() => setActiveModule('inventory')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'inventory' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                📦 Inventory
+              </button>
+              <button
+                onClick={() => setActiveModule('finance')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'finance' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                💳 Finance
+              </button>
+              <button
+                onClick={() => setActiveModule('communication')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'communication' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                💬 Communication
+              </button>
+              <button
+                onClick={() => setActiveModule('referrals')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'referrals' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                🔗 Referrals
+              </button>
+              <button
+                onClick={() => setActiveModule('system-settings')}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  activeModule === 'system-settings' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-blue-200 hover:bg-white/10'
+                }`}
+              >
+                ⚙️ System Settings
+              </button>
+            </nav>
+            
+            {/* Practice Management System Footer */}
+            <div className="mt-8 pt-4 border-t border-white/20">
+              <p className="text-xs text-blue-300 text-center">
+                Complete Practice Management System
+              </p>
+            </div>
           </div>
-        </nav>
 
-        {/* Content */}
-        {renderContent()}
+          {/* Main Content Area */}
+          <div className="flex-1 bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+            {renderContent()}
+          </div>
+        </div>
       </div>
 
       {/* Add Patient Modal */}
