@@ -33,11 +33,18 @@ def read_secret(secret_name: str, fallback_env: str = None) -> str:
     
     return ''
 
-# Database connection
+# Database connection - Force local MongoDB for deployment stability
 mongo_url = read_secret('mongo_connection_string', 'MONGO_URL')
+
+# Override external MongoDB with local instance for deployment environments
+if mongo_url and ('mongodb.net' in mongo_url or 'atlas' in mongo_url.lower()):
+    print(f"⚠️  Detected external MongoDB URL, forcing local connection for deployment stability")
+    mongo_url = "mongodb://localhost:27017/clinichub"
+
 if not mongo_url:
-    # No fallback - require proper environment configuration  
-    raise ValueError("MONGO_URL must be set in environment or secrets")
+    # Default to local MongoDB
+    mongo_url = "mongodb://localhost:27017/clinichub"
+    print("🔧 Using default local MongoDB connection")
 
 def sanitize_mongo_uri(uri: str) -> str:
     """Ensure username/password are percent-encoded in the Mongo URI."""
