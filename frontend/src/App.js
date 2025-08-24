@@ -2338,6 +2338,7 @@ const LabOrdersModule = ({ setActiveModule }) => {
               </div>
 
               {/* ICD-10 Diagnosis Codes for Lab Orders */}
+              {/* TEMPORARILY DISABLED FOR DEBUGGING
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">ICD-10 Diagnosis Codes</label>
                 <ICD10Lookup
@@ -2361,6 +2362,7 @@ const LabOrdersModule = ({ setActiveModule }) => {
                   placeholder="Search diagnostic codes for lab justification..."
                 />
               </div>
+              */}
 
               <div className="flex justify-end space-x-3">
                 <button
