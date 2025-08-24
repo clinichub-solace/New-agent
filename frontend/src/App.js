@@ -311,7 +311,8 @@ const PatientsModule = () => {
         objective: '',
         assessment: '',
         plan: '',
-        provider: user?.username || 'Dr. Provider'
+        provider: user?.username || 'Dr. Provider',
+        diagnosis_codes: []
       });
       setSuccess('SOAP note added successfully');
       setTimeout(() => setSuccess(''), 3000);
