@@ -41,23 +41,17 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      console.log('Environment check:', {
-        REACT_APP_BACKEND_URL: process.env.REACT_APP_BACKEND_URL,
-        BACKEND_URL: BACKEND_URL,
-        API: API
-      });
-      
-      console.log('Making login request to:', `${API}/auth/login`);
+      console.log('Making login request to: /auth/login');
       console.log('Request payload:', { username, password });
       
-      const response = await axios.post(`${API}/auth/login`, { username, password });
+      const response = await api.post('/auth/login', { username, password });
       console.log('Login response:', response.data);
       
       const { access_token, user: userData } = response.data;
       
       // Set token and user data immediately
       localStorage.setItem('token', access_token);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
+      api.defaults.headers.common['Authorization'] = `Bearer ${access_token}`;
       
       // Set both token and user to trigger re-render
       setToken(access_token);
