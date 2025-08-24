@@ -9,6 +9,142 @@ import api from './api/axios';
 // ✅ PHASE 1: Enhanced Dashboard with Navigation System Restored
 // ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
 
+// Placeholder Module Components
+const PatientsModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">🏥 Patients/EHR Module</h2>
+    <p className="text-blue-200">Electronic Health Records and Patient Management</p>
+  </div>
+);
+
+const SchedulingModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">📅 Scheduling Module</h2>
+    <p className="text-blue-200">Appointment Scheduling and Calendar Management</p>
+  </div>
+);
+
+const TelehealthModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">💻 Telehealth Module</h2>
+    <p className="text-blue-200">Virtual Consultations and Remote Care</p>
+  </div>
+);
+
+const PatientPortalModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">🌐 Patient Portal Module</h2>
+    <p className="text-blue-200">Patient Self-Service and Communication</p>
+  </div>
+);
+
+const LabOrdersModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">🔬 Lab Orders Module</h2>
+    <p className="text-blue-200">Laboratory Test Orders and Results</p>
+  </div>
+);
+
+const InsuranceModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">🛡️ Insurance Module</h2>
+    <p className="text-blue-200">Insurance Verification and Claims</p>
+  </div>
+);
+
+const ClinicalTemplatesModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">📋 Clinical Templates Module</h2>
+    <p className="text-blue-200">Medical Forms and Documentation Templates</p>
+  </div>
+);
+
+const QualityMeasuresModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">📈 Quality Measures Module</h2>
+    <p className="text-blue-200">Clinical Quality Metrics and Reporting</p>
+  </div>
+);
+
+const DocumentManagementModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">📄 Documents Module</h2>
+    <p className="text-blue-200">Document Storage and Management</p>
+  </div>
+);
+
+const InvoicesModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">💰 Invoices Module</h2>
+    <p className="text-blue-200">Billing and Invoice Management</p>
+  </div>
+);
+
+const SystemSettingsModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">⚙️ System Settings Module</h2>
+    <p className="text-blue-200">System Configuration and Administration</p>
+  </div>
+);
+
+const EmployeesModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">👥 Employees Module</h2>
+    <p className="text-blue-200">Staff Management and Scheduling</p>
+  </div>
+);
+
+const InventoryModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">📦 Inventory Module</h2>
+    <p className="text-blue-200">Medical Supplies and Equipment Management</p>
+  </div>
+);
+
+const FinanceModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">💳 Finance Module</h2>
+    <p className="text-blue-200">Financial Management and Reporting</p>
+  </div>
+);
+
+const CommunicationModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">💬 Communication Module</h2>
+    <p className="text-blue-200">Internal and Patient Communication</p>
+  </div>
+);
+
+const ReferralsModule = () => (
+  <div className="text-center py-12 text-white">
+    <h2 className="text-2xl font-bold mb-4">🔗 Referrals Module</h2>
+    <p className="text-blue-200">Patient Referrals and Specialist Coordination</p>
+  </div>
+);
+
+const DashboardHome = () => (
+  <div className="space-y-6">
+    <div className="text-center py-12 text-white">
+      <h2 className="text-3xl font-bold mb-4">📊 ClinicHub Dashboard</h2>
+      <p className="text-blue-200 mb-8">Complete Practice Management System</p>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="bg-white/20 backdrop-blur-md p-6 rounded-lg border border-white/30">
+          <h3 className="text-lg font-medium text-white mb-2">Total Patients</h3>
+          <p className="text-3xl font-bold text-blue-200">0</p>
+        </div>
+        <div className="bg-white/20 backdrop-blur-md p-6 rounded-lg border border-white/30">
+          <h3 className="text-lg font-medium text-white mb-2">Today's Appointments</h3>
+          <p className="text-3xl font-bold text-green-200">0</p>
+        </div>
+        <div className="bg-white/20 backdrop-blur-md p-6 rounded-lg border border-white/30">
+          <h3 className="text-lg font-medium text-white mb-2">Low Stock Items</h3>
+          <p className="text-3xl font-bold text-red-200">0</p>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
 // Dashboard Component with Full Navigation System
 const Dashboard = () => {
   const { user, logout } = useAuth();
