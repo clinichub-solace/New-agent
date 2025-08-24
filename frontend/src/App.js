@@ -5902,12 +5902,780 @@ const DocumentManagementModule = ({ setActiveModule }) => {
   );
 };
 
-const InvoicesModule = () => (
-  <div className="text-center py-12 text-white">
-    <h2 className="text-2xl font-bold mb-4">💰 Invoices Module</h2>
-    <p className="text-blue-200">Billing and Invoice Management</p>
-  </div>
-);
+// ✅ PHASE 5: HIGH-IMPACT MODULES - Invoices & Billing Management (Revenue Critical)
+// ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
+const InvoicesModule = ({ setActiveModule }) => {
+  const { user } = useAuth();
+  const [invoices, setInvoices] = useState([]);
+  const [selectedInvoice, setSelectedInvoice] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [patients, setPatients] = useState([]);
+  const [inventory, setInventory] = useState([]);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+
+  const [newInvoice, setNewInvoice] = useState({
+    patient_id: '',
+    description: '',
+    items: [{
+      description: '',
+      quantity: 1,
+      unit_price: 0,
+      inventory_item_id: null,
+      is_service: true
+    }],
+    notes: '',
+    due_days: 30
+  });
+
+  const [paymentData, setPaymentData] = useState({
+    amount: 0,
+    payment_method: 'cash',
+    notes: ''
+  });
+
+  // Invoice statistics
+  const [invoiceStats, setInvoiceStats] = useState({
+    totalInvoices: 0,
+    pendingInvoices: 0,
+    paidInvoices: 0,
+    overdueInvoices: 0,
+    totalRevenue: 0,
+    pendingAmount: 0
+  });
+
+  useEffect(() => {
+    fetchInvoiceData();
+  }, []);
+
+  // ✅ URL VETTING: All API calls use configured 'api' instance
+  const fetchInvoiceData = async () => {
+    setLoading(true);
+    try {
+      const [invoicesRes, patientsRes, inventoryRes] = await Promise.all([
+        api.get('/invoices').catch(() => ({ data: [] })),
+        api.get('/patients').catch(() => ({ data: [] })),
+        api.get('/inventory').catch(() => ({ data: [] }))
+      ]);
+
+      const invoicesData = invoicesRes.data || [];
+      setInvoices(invoicesData);
+      setPatients(patientsRes.data || []);
+      setInventory(inventoryRes.data || []);
+
+      // Calculate statistics
+      const now = new Date();
+      const totalRevenue = invoicesData.filter(inv => inv.status === 'paid')
+        .reduce((sum, inv) => sum + parseFloat(inv.total_amount || 0), 0);
+      const pendingAmount = invoicesData.filter(inv => inv.status === 'pending')
+        .reduce((sum, inv) => sum + parseFloat(inv.total_amount || 0), 0);
+
+      setInvoiceStats({
+        totalInvoices: invoicesData.length,
+        pendingInvoices: invoicesData.filter(inv => inv.status === 'pending').length,
+        paidInvoices: invoicesData.filter(inv => inv.status === 'paid').length,
+        overdueInvoices: invoicesData.filter(inv => 
+          inv.status === 'pending' && new Date(inv.due_date) < now
+        ).length,
+        totalRevenue,
+        pendingAmount
+      });
+
+    } catch (error) {
+      console.error('Error fetching invoice data:', error);
+      setError('Failed to fetch invoice data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const createInvoice = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      const invoiceData = {
+        ...newInvoice,
+        total_amount: calculateInvoiceTotal(newInvoice.items),
+        status: 'pending',
+        issue_date: new Date().toISOString().split('T')[0],
+        due_date: new Date(Date.now() + newInvoice.due_days * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        created_by: user?.id
+      };
+      
+      const response = await api.post('/invoices', invoiceData);
+      setInvoices([response.data, ...invoices]);
+      setSuccess('Invoice created successfully!');
+      setShowCreateForm(false);
+      resetInvoiceForm();
+      fetchInvoiceData(); // Refresh stats
+    } catch (error) {
+      console.error('Error creating invoice:', error);
+      setError(error.response?.data?.detail || 'Failed to create invoice');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const updateInvoiceStatus = async (invoiceId, status) => {
+    try {
+      await api.put(`/invoices/${invoiceId}/status`, { status });
+      
+      setInvoices(invoices.map(inv => 
+        inv.id === invoiceId ? { ...inv, status } : inv
+      ));
+      
+      setSuccess(`Invoice ${status} successfully!`);
+      fetchInvoiceData(); // Refresh stats
+    } catch (error) {
+      console.error('Error updating invoice:', error);
+      setError('Failed to update invoice status');
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const recordPayment = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      const paymentRecord = {
+        ...paymentData,
+        invoice_id: selectedInvoice.id,
+        payment_date: new Date().toISOString(),
+        recorded_by: user?.id
+      };
+
+      await api.post('/payments', paymentRecord);
+      await updateInvoiceStatus(selectedInvoice.id, 'paid');
+      
+      setSuccess('Payment recorded successfully!');
+      setShowPaymentForm(false);
+      setSelectedInvoice(null);
+      resetPaymentForm();
+    } catch (error) {
+      console.error('Error recording payment:', error);
+      setError(error.response?.data?.detail || 'Failed to record payment');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const calculateInvoiceTotal = (items) => {
+    return items.reduce((total, item) => total + (item.quantity * item.unit_price), 0);
+  };
+
+  const resetInvoiceForm = () => {
+    setNewInvoice({
+      patient_id: '',
+      description: '',
+      items: [{
+        description: '',
+        quantity: 1,
+        unit_price: 0,
+        inventory_item_id: null,
+        is_service: true
+      }],
+      notes: '',
+      due_days: 30
+    });
+  };
+
+  const resetPaymentForm = () => {
+    setPaymentData({
+      amount: 0,
+      payment_method: 'cash',
+      notes: ''
+    });
+  };
+
+  const addInvoiceItem = () => {
+    setNewInvoice(prev => ({
+      ...prev,
+      items: [...prev.items, {
+        description: '',
+        quantity: 1,
+        unit_price: 0,
+        inventory_item_id: null,
+        is_service: true
+      }]
+    }));
+  };
+
+  const removeInvoiceItem = (index) => {
+    setNewInvoice(prev => ({
+      ...prev,
+      items: prev.items.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateInvoiceItem = (index, field, value) => {
+    setNewInvoice(prev => ({
+      ...prev,
+      items: prev.items.map((item, i) => 
+        i === index ? { ...item, [field]: value } : item
+      )
+    }));
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'draft': 'bg-yellow-100 text-yellow-800',
+      'pending': 'bg-blue-100 text-blue-800',
+      'paid': 'bg-green-100 text-green-800',
+      'cancelled': 'bg-red-100 text-red-800',
+      'overdue': 'bg-red-100 text-red-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const renderOverview = () => {
+    const recentInvoices = invoices.slice(0, 10);
+
+    return (
+      <div className="space-y-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{invoiceStats.totalInvoices}</div>
+                <div className="text-sm text-gray-300">Total Invoices</div>
+              </div>
+              <div className="text-2xl">📋</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-green-400">${invoiceStats.totalRevenue.toFixed(2)}</div>
+                <div className="text-sm text-gray-300">Total Revenue</div>
+              </div>
+              <div className="text-2xl">💰</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-yellow-400">${invoiceStats.pendingAmount.toFixed(2)}</div>
+                <div className="text-sm text-gray-300">Pending Amount</div>
+              </div>
+              <div className="text-2xl">⏳</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Revenue Summary */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xl font-bold text-blue-400">{invoiceStats.pendingInvoices}</div>
+                <div className="text-sm text-gray-300">Pending Invoices</div>
+              </div>
+              <div className="text-xl">📄</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xl font-bold text-green-400">{invoiceStats.paidInvoices}</div>
+                <div className="text-sm text-gray-300">Paid Invoices</div>
+              </div>
+              <div className="text-xl">✅</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xl font-bold text-red-400">{invoiceStats.overdueInvoices}</div>
+                <div className="text-sm text-gray-300">Overdue</div>
+              </div>
+              <div className="text-xl">🚨</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Invoices */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">📋 Recent Invoices</h3>
+          {recentInvoices.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <div className="text-6xl mb-4">📄</div>
+              <p>No invoices created yet</p>
+              <button
+                onClick={() => setShowCreateForm(true)}
+                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              >
+                Create First Invoice
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recentInvoices.map(invoice => (
+                <div key={invoice.id} className="bg-white/5 border border-white/10 rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-white font-medium">
+                          Invoice #{invoice.invoice_number || invoice.id}
+                        </div>
+                        <span className={`px-2 py-1 rounded text-xs ${getStatusColor(invoice.status)}`}>
+                          {invoice.status}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        Patient: {patients.find(p => p.id === invoice.patient_id)?.name?.[0]?.given?.[0]} {patients.find(p => p.id === invoice.patient_id)?.name?.[0]?.family}
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        Amount: ${parseFloat(invoice.total_amount || 0).toFixed(2)} • Due: {new Date(invoice.due_date).toLocaleDateString()}
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1">{invoice.description}</div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => setSelectedInvoice(invoice)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                      >
+                        View
+                      </button>
+                      {invoice.status === 'pending' && (
+                        <button
+                          onClick={() => {
+                            setSelectedInvoice(invoice);
+                            setPaymentData({...paymentData, amount: parseFloat(invoice.total_amount || 0)});
+                            setShowPaymentForm(true);
+                          }}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Record Payment
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderCreateForm = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">📄 Create New Invoice</h3>
+            <button
+              onClick={() => {
+                setShowCreateForm(false);
+                resetInvoiceForm();
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={createInvoice} className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Patient</label>
+                <select
+                  value={newInvoice.patient_id}
+                  onChange={(e) => setNewInvoice({...newInvoice, patient_id: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Patient</option>
+                  {patients.map(patient => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.name?.[0]?.given?.[0]} {patient.name?.[0]?.family}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Due Days</label>
+                <select
+                  value={newInvoice.due_days}
+                  onChange={(e) => setNewInvoice({...newInvoice, due_days: parseInt(e.target.value)})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                >
+                  <option value={15}>15 days</option>
+                  <option value={30}>30 days</option>
+                  <option value={45}>45 days</option>
+                  <option value={60}>60 days</option>
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+              <input
+                type="text"
+                value={newInvoice.description}
+                onChange={(e) => setNewInvoice({...newInvoice, description: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                placeholder="Invoice description..."
+                required
+              />
+            </div>
+
+            {/* Invoice Items */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-300">Invoice Items</label>
+                <button
+                  type="button"
+                  onClick={addInvoiceItem}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                >
+                  + Add Item
+                </button>
+              </div>
+              
+              <div className="space-y-3">
+                {newInvoice.items.map((item, index) => (
+                  <div key={index} className="bg-gray-700 rounded p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+                      <div>
+                        <input
+                          type="text"
+                          value={item.description}
+                          onChange={(e) => updateInvoiceItem(index, 'description', e.target.value)}
+                          className="w-full bg-gray-600 border border-gray-500 rounded px-3 py-2 text-white text-sm"
+                          placeholder="Item description..."
+                          required
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          value={item.quantity}
+                          onChange={(e) => updateInvoiceItem(index, 'quantity', parseInt(e.target.value) || 1)}
+                          className="w-full bg-gray-600 border border-gray-500 rounded px-3 py-2 text-white text-sm"
+                          min="1"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          step="0.01"
+                          value={item.unit_price}
+                          onChange={(e) => updateInvoiceItem(index, 'unit_price', parseFloat(e.target.value) || 0)}
+                          className="w-full bg-gray-600 border border-gray-500 rounded px-3 py-2 text-white text-sm"
+                          placeholder="Unit price..."
+                          required
+                        />
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-white text-sm">
+                          ${(item.quantity * item.unit_price).toFixed(2)}
+                        </span>
+                        {newInvoice.items.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeInvoiceItem(index)}
+                            className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="text-right mt-4">
+                <div className="text-xl font-bold text-white">
+                  Total: ${calculateInvoiceTotal(newInvoice.items).toFixed(2)}
+                </div>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Notes</label>
+              <textarea
+                value={newInvoice.notes}
+                onChange={(e) => setNewInvoice({...newInvoice, notes: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white h-20"
+                placeholder="Additional notes or terms..."
+              />
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Creating...' : 'Create Invoice'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCreateForm(false);
+                  resetInvoiceForm();
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  const renderPaymentForm = () => {
+    if (!selectedInvoice) return null;
+
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">💰 Record Payment</h3>
+            <button
+              onClick={() => {
+                setShowPaymentForm(false);
+                setSelectedInvoice(null);
+                resetPaymentForm();
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="mb-4 p-4 bg-white/5 rounded">
+            <div className="text-white font-medium">Invoice #{selectedInvoice.invoice_number || selectedInvoice.id}</div>
+            <div className="text-gray-300 text-sm">Amount Due: ${parseFloat(selectedInvoice.total_amount || 0).toFixed(2)}</div>
+          </div>
+
+          <form onSubmit={recordPayment} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Payment Amount</label>
+              <input
+                type="number"
+                step="0.01"
+                value={paymentData.amount}
+                onChange={(e) => setPaymentData({...paymentData, amount: parseFloat(e.target.value) || 0})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Payment Method</label>
+              <select
+                value={paymentData.payment_method}
+                onChange={(e) => setPaymentData({...paymentData, payment_method: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+              >
+                <option value="cash">Cash</option>
+                <option value="check">Check</option>
+                <option value="credit_card">Credit Card</option>
+                <option value="debit_card">Debit Card</option>
+                <option value="insurance">Insurance</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Notes</label>
+              <textarea
+                value={paymentData.notes}
+                onChange={(e) => setPaymentData({...paymentData, notes: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white h-20"
+                placeholder="Payment notes..."
+              />
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Recording...' : 'Record Payment'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowPaymentForm(false);
+                  setSelectedInvoice(null);
+                  resetPaymentForm();
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">💰 Invoice Management</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowCreateForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            📄 New Invoice
+          </button>
+          <button
+            onClick={fetchInvoiceData}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            🔄 Refresh
+          </button>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 mb-6">
+          <p className="text-green-300">✅ {success}</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mb-6">
+          <p className="text-red-300">❌ {error}</p>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'overview', name: 'Overview', icon: '📊' },
+            { id: 'pending', name: 'Pending', icon: '⏳' },
+            { id: 'paid', name: 'Paid', icon: '✅' },
+            { id: 'overdue', name: 'Overdue', icon: '🚨' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeTab === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Content based on active tab */}
+      {activeTab === 'overview' && renderOverview()}
+      {activeTab === 'pending' && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-white">⏳ Pending Invoices</h3>
+          {invoices.filter(inv => inv.status === 'pending').map(invoice => (
+            <div key={invoice.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-white font-medium">Invoice #{invoice.invoice_number || invoice.id}</div>
+                  <div className="text-gray-300 text-sm">Amount: ${parseFloat(invoice.total_amount || 0).toFixed(2)}</div>
+                </div>
+                <button
+                  onClick={() => {
+                    setSelectedInvoice(invoice);
+                    setPaymentData({...paymentData, amount: parseFloat(invoice.total_amount || 0)});
+                    setShowPaymentForm(true);
+                  }}
+                  className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                >
+                  Record Payment
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {activeTab === 'paid' && (
+        <div className="text-white">
+          <h3 className="text-lg font-semibold mb-4">✅ Paid Invoices</h3>
+          <div className="space-y-3">
+            {invoices.filter(inv => inv.status === 'paid').map(invoice => (
+              <div key={invoice.id} className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                <div className="text-white font-medium">Invoice #{invoice.invoice_number || invoice.id}</div>
+                <div className="text-green-300 text-sm">Paid: ${parseFloat(invoice.total_amount || 0).toFixed(2)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      {activeTab === 'overdue' && (
+        <div className="text-white">
+          <h3 className="text-lg font-semibold mb-4">🚨 Overdue Invoices</h3>
+          <div className="space-y-3">
+            {invoices.filter(inv => {
+              const isOverdue = inv.status === 'pending' && new Date(inv.due_date) < new Date();
+              return isOverdue;
+            }).map(invoice => (
+              <div key={invoice.id} className="bg-red-500/10 border border-red-500/20 rounded-lg p-4">
+                <div className="text-white font-medium">Invoice #{invoice.invoice_number || invoice.id}</div>
+                <div className="text-red-300 text-sm">
+                  Amount: ${parseFloat(invoice.total_amount || 0).toFixed(2)} • 
+                  Due: {new Date(invoice.due_date).toLocaleDateString()}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Forms */}
+      {showCreateForm && renderCreateForm()}
+      {showPaymentForm && renderPaymentForm()}
+      
+      {/* Loading */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const SystemSettingsModule = () => (
   <div className="text-center py-12 text-white">
