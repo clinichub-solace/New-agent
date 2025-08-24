@@ -25,6 +25,7 @@ const Dashboard = () => {
   // UI state
   const [showAddPatient, setShowAddPatient] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState(null);
+  const [stats, setStats] = useState(null);
 
   useEffect(() => {
     fetchSynologyStatus();
