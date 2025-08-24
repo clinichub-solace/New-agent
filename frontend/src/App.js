@@ -5311,12 +5311,596 @@ const ClinicalTemplatesModule = ({ setActiveModule }) => {
 
 
 
-const DocumentManagementModule = () => (
-  <div className="text-center py-12 text-white">
-    <h2 className="text-2xl font-bold mb-4">📄 Documents Module</h2>
-    <p className="text-blue-200">Document Storage and Management</p>
-  </div>
-);
+// ✅ PHASE 5: HIGH-IMPACT MODULES - Document Management System (Administrative Support)
+// ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
+const DocumentManagementModule = ({ setActiveModule }) => {
+  const { user } = useAuth();
+  const [documents, setDocuments] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  
+  // View and form states
+  const [activeView, setActiveView] = useState('dashboard'); // dashboard, documents, upload
+  const [showDocumentForm, setShowDocumentForm] = useState(false);
+  const [showUploadForm, setShowUploadForm] = useState(false);
+  const [editingDocument, setEditingDocument] = useState(null);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  
+  // Form data
+  const [documentFormData, setDocumentFormData] = useState({
+    title: '',
+    description: '',
+    category: '',
+    patient_id: '',
+    document_type: 'clinical_note',
+    content: '',
+    is_confidential: false,
+    tags: []
+  });
+
+  const [uploadFormData, setUploadFormData] = useState({
+    title: '',
+    category: '',
+    patient_id: '',
+    description: '',
+    file: null
+  });
+
+  // Document statistics
+  const [documentStats, setDocumentStats] = useState({
+    totalDocuments: 0,
+    clinicalNotes: 0,
+    labReports: 0,
+    imagingStudies: 0,
+    confidentialDocs: 0
+  });
+
+  const documentCategories = [
+    'Clinical Notes',
+    'Lab Reports', 
+    'Imaging Studies',
+    'Insurance Documents',
+    'Consent Forms',
+    'Patient Education',
+    'Administrative',
+    'Legal Documents',
+    'Correspondence'
+  ];
+
+  const documentTypes = [
+    'clinical_note',
+    'lab_report',
+    'imaging_study',
+    'insurance_card',
+    'consent_form',
+    'patient_education',
+    'administrative',
+    'legal_document',
+    'correspondence'
+  ];
+
+  useEffect(() => {
+    fetchDocumentData();
+  }, [selectedCategory]);
+
+  // ✅ URL VETTING: Using configured 'api' instance
+  const fetchDocumentData = async () => {
+    try {
+      setLoading(true);
+      const [documentsRes, patientsRes] = await Promise.all([
+        api.get(`/documents${selectedCategory ? `?category=${encodeURIComponent(selectedCategory)}` : ''}`).catch(() => ({ data: [] })),
+        api.get('/patients').catch(() => ({ data: [] }))
+      ]);
+
+      setDocuments(documentsRes.data || []);
+      setPatients(patientsRes.data || []);
+
+      // Calculate stats
+      const docs = documentsRes.data || [];
+      setDocumentStats({
+        totalDocuments: docs.length,
+        clinicalNotes: docs.filter(d => d.document_type === 'clinical_note').length,
+        labReports: docs.filter(d => d.document_type === 'lab_report').length,
+        imagingStudies: docs.filter(d => d.document_type === 'imaging_study').length,
+        confidentialDocs: docs.filter(d => d.is_confidential).length
+      });
+
+    } catch (error) {
+      console.error('Error fetching document data:', error);
+      setError('Failed to fetch document data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const createDocument = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      const documentData = {
+        ...documentFormData,
+        created_by: user?.id,
+        created_at: new Date().toISOString(),
+        document_number: `DOC-${Date.now()}`
+      };
+
+      const response = editingDocument ? 
+        await api.put(`/documents/${editingDocument.id}`, documentData) :
+        await api.post('/documents', documentData);
+
+      if (editingDocument) {
+        setDocuments(documents.map(d => d.id === editingDocument.id ? response.data : d));
+        setSuccess('Document updated successfully!');
+      } else {
+        setDocuments([...documents, response.data]);
+        setSuccess('Document created successfully!');
+      }
+
+      setShowDocumentForm(false);
+      setEditingDocument(null);
+      resetDocumentForm();
+    } catch (error) {
+      console.error('Error saving document:', error);
+      setError(error.response?.data?.detail || 'Failed to save document');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const updateDocumentStatus = async (documentId, status) => {
+    try {
+      await api.put(`/documents/${documentId}/status`, { status });
+      
+      setDocuments(documents.map(doc => 
+        doc.id === documentId ? { ...doc, status } : doc
+      ));
+      
+      setSuccess(`Document status updated to ${status}!`);
+    } catch (error) {
+      console.error('Error updating document status:', error);
+      setError('Failed to update document status');
+    }
+  };
+
+  const resetDocumentForm = () => {
+    setDocumentFormData({
+      title: '',
+      description: '',
+      category: '',
+      patient_id: '',
+      document_type: 'clinical_note',
+      content: '',
+      is_confidential: false,
+      tags: []
+    });
+  };
+
+  const handleEditDocument = (document) => {
+    setEditingDocument(document);
+    setDocumentFormData({
+      title: document.title,
+      description: document.description,
+      category: document.category,
+      patient_id: document.patient_id,
+      document_type: document.document_type,
+      content: document.content,
+      is_confidential: document.is_confidential,
+      tags: document.tags || []
+    });
+    setShowDocumentForm(true);
+  };
+
+  const getStatusColor = (status) => {
+    const colors = {
+      'draft': 'bg-yellow-100 text-yellow-800',
+      'active': 'bg-green-100 text-green-800',
+      'archived': 'bg-gray-100 text-gray-800',
+      'expired': 'bg-red-100 text-red-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const renderDashboard = () => {
+    return (
+      <div className="space-y-6">
+        {/* Category Filter */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+          <label className="block text-sm font-medium text-gray-300 mb-2">Filter by Category</label>
+          <select
+            value={selectedCategory}
+            onChange={(e) => setSelectedCategory(e.target.value)}
+            className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+          >
+            <option value="">All Categories</option>
+            {documentCategories.map(category => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{documentStats.totalDocuments}</div>
+                <div className="text-sm text-gray-300">Total Documents</div>
+              </div>
+              <div className="text-2xl">📄</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{documentStats.clinicalNotes}</div>
+                <div className="text-sm text-gray-300">Clinical Notes</div>
+              </div>
+              <div className="text-2xl">📝</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{documentStats.labReports}</div>
+                <div className="text-sm text-gray-300">Lab Reports</div>
+              </div>
+              <div className="text-2xl">🧪</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{documentStats.confidentialDocs}</div>
+                <div className="text-sm text-gray-300">Confidential</div>
+              </div>
+              <div className="text-2xl">🔒</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Documents */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">📋 Recent Documents</h3>
+          {documents.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              <div className="text-6xl mb-4">📄</div>
+              <p>No documents found</p>
+              <button
+                onClick={() => setShowDocumentForm(true)}
+                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+              >
+                Create Document
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {documents.slice(0, 10).map(document => (
+                <div key={document.id} className="bg-white/5 border border-white/10 rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-white font-medium">{document.title}</div>
+                        <span className={`px-2 py-1 rounded text-xs ${getStatusColor(document.status)}`}>
+                          {document.status}
+                        </span>
+                        {document.is_confidential && (
+                          <span className="px-2 py-1 bg-red-600/20 text-red-300 rounded text-xs">
+                            🔒 Confidential
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        Category: {document.category} • Type: {document.document_type}
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1">
+                        Patient: {patients.find(p => p.id === document.patient_id)?.name?.[0]?.given?.[0]} {patients.find(p => p.id === document.patient_id)?.name?.[0]?.family}
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1">
+                        Created: {new Date(document.created_at).toLocaleDateString()}
+                      </div>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => handleEditDocument(document)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                      >
+                        Edit
+                      </button>
+                      {document.status === 'draft' && (
+                        <button
+                          onClick={() => updateDocumentStatus(document.id, 'active')}
+                          className="bg-green-600 hover:bg-green-700 text-white px-3 py-1 rounded text-sm"
+                        >
+                          Publish
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  const renderDocumentForm = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">
+              {editingDocument ? '✏️ Edit Document' : '📄 New Document'}
+            </h3>
+            <button
+              onClick={() => {
+                setShowDocumentForm(false);
+                setEditingDocument(null);
+                resetDocumentForm();
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={createDocument} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Document Title</label>
+              <input
+                type="text"
+                value={documentFormData.title}
+                onChange={(e) => setDocumentFormData({...documentFormData, title: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
+                <select
+                  value={documentFormData.category}
+                  onChange={(e) => setDocumentFormData({...documentFormData, category: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="">Select Category</option>
+                  {documentCategories.map(category => (
+                    <option key={category} value={category}>{category}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Document Type</label>
+                <select
+                  value={documentFormData.document_type}
+                  onChange={(e) => setDocumentFormData({...documentFormData, document_type: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  {documentTypes.map(type => (
+                    <option key={type} value={type}>
+                      {type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Associated Patient</label>
+              <select
+                value={documentFormData.patient_id}
+                onChange={(e) => setDocumentFormData({...documentFormData, patient_id: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+              >
+                <option value="">No patient association</option>
+                {patients.map(patient => (
+                  <option key={patient.id} value={patient.id}>
+                    {patient.name?.[0]?.given?.[0]} {patient.name?.[0]?.family}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+              <textarea
+                value={documentFormData.description}
+                onChange={(e) => setDocumentFormData({...documentFormData, description: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white h-20"
+                placeholder="Brief description of the document..."
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Content</label>
+              <textarea
+                value={documentFormData.content}
+                onChange={(e) => setDocumentFormData({...documentFormData, content: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white h-32"
+                placeholder="Document content or notes..."
+              />
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="is_confidential"
+                checked={documentFormData.is_confidential}
+                onChange={(e) => setDocumentFormData({...documentFormData, is_confidential: e.target.checked})}
+                className="rounded"
+              />
+              <label htmlFor="is_confidential" className="text-gray-300">Confidential Document</label>
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : (editingDocument ? 'Update Document' : 'Create Document')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDocumentForm(false);
+                  setEditingDocument(null);
+                  resetDocumentForm();
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">📄 Document Management</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowDocumentForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            📄 New Document
+          </button>
+          <button
+            onClick={() => setShowUploadForm(true)}
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+          >
+            📤 Upload File
+          </button>
+          <button
+            onClick={fetchDocumentData}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            🔄 Refresh
+          </button>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 mb-6">
+          <p className="text-green-300">✅ {success}</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mb-6">
+          <p className="text-red-300">❌ {error}</p>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'dashboard', name: 'Dashboard', icon: '📊' },
+            { id: 'documents', name: 'All Documents', icon: '📄' },
+            { id: 'upload', name: 'File Upload', icon: '📤' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeView === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Content based on active view */}
+      {activeView === 'dashboard' && renderDashboard()}
+      {activeView === 'documents' && (
+        <div className="space-y-4">
+          {documents.map(document => (
+            <div key={document.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-4">
+                    <div className="text-white font-medium">{document.title}</div>
+                    <span className={`px-2 py-1 rounded text-xs ${getStatusColor(document.status)}`}>
+                      {document.status}
+                    </span>
+                    {document.is_confidential && (
+                      <span className="px-2 py-1 bg-red-600/20 text-red-300 rounded text-xs">
+                        🔒 Confidential
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-300 mt-1">
+                    Category: {document.category} • Type: {document.document_type}
+                  </div>
+                  <div className="text-sm text-gray-300 mt-1">{document.description}</div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleEditDocument(document)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                  >
+                    Edit
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {activeView === 'upload' && (
+        <div className="text-white">
+          <h3 className="text-lg font-semibold mb-4">📤 File Upload</h3>
+          <p className="text-gray-300">File upload functionality coming soon...</p>
+        </div>
+      )}
+
+      {/* Forms */}
+      {showDocumentForm && renderDocumentForm()}
+      
+      {/* Loading */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const InvoicesModule = () => (
   <div className="text-center py-12 text-white">
