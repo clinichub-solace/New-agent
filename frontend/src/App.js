@@ -5,6 +5,114 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import LoginPage from './components/LoginPage';
 import api from './api/axios';
 
+// ✅ PHASE 6: FINAL ENHANCEMENT - Unified Notification System
+// ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
+const NotificationCenter = () => {
+  const [notifications, setNotifications] = useState([]);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    fetchNotifications();
+    // Auto-refresh notifications every 30 seconds
+    const interval = setInterval(fetchNotifications, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const fetchNotifications = async () => {
+    try {
+      const response = await api.get('/notifications?limit=10');
+      const notificationsData = response.data || [];
+      setNotifications(notificationsData);
+      setUnreadCount(notificationsData.filter(n => !n.acknowledged).length);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const markAsRead = async (notificationId) => {
+    try {
+      await api.post(`/notifications/${notificationId}/ack`);
+      setNotifications(notifications.map(n => 
+        n.id === notificationId ? { ...n, acknowledged: true } : n
+      ));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    } catch (error) {
+      console.error('Error marking notification as read:', error);
+    }
+  };
+
+  const getSeverityColor = (severity) => {
+    const colors = {
+      'info': 'bg-blue-500/20 text-blue-300 border-blue-500/50',
+      'success': 'bg-green-500/20 text-green-300 border-green-500/50',
+      'warning': 'bg-yellow-500/20 text-yellow-300 border-yellow-500/50',
+      'error': 'bg-red-500/20 text-red-300 border-red-500/50'
+    };
+    return colors[severity] || 'bg-gray-500/20 text-gray-300 border-gray-500/50';
+  };
+
+  return (
+    <div className="fixed top-4 right-4 z-50">
+      <button
+        onClick={() => setShowNotifications(!showNotifications)}
+        className="relative bg-white/10 backdrop-blur-md border border-white/20 p-3 rounded-lg hover:bg-white/20 transition-colors"
+      >
+        <span className="text-white text-xl">🔔</span>
+        {unreadCount > 0 && (
+          <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
+            {unreadCount > 9 ? '9+' : unreadCount}
+          </span>
+        )}
+      </button>
+
+      {showNotifications && (
+        <div className="absolute top-12 right-0 w-80 bg-gray-800 border border-gray-600 rounded-lg shadow-xl max-h-96 overflow-y-auto">
+          <div className="p-4 border-b border-gray-600">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-medium">Notifications</h3>
+              <button
+                onClick={() => setShowNotifications(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+          
+          <div className="max-h-64 overflow-y-auto">
+            {notifications.length === 0 ? (
+              <div className="p-4 text-center text-gray-400">
+                No notifications
+              </div>
+            ) : (
+              notifications.map(notification => (
+                <div
+                  key={notification.id}
+                  className={`p-4 border-b border-gray-600 last:border-b-0 cursor-pointer hover:bg-gray-700 ${
+                    !notification.acknowledged ? 'bg-blue-500/10' : ''
+                  }`}
+                  onClick={() => markAsRead(notification.id)}
+                >
+                  <div className={`text-sm p-2 rounded border ${getSeverityColor(notification.severity)}`}>
+                    <div className="font-medium">{notification.title}</div>
+                    <div className="mt-1">{notification.message}</div>
+                    <div className="text-xs mt-2 opacity-75">
+                      {new Date(notification.created_at).toLocaleString()}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 // ✅ ICD-10 Lookup Component - Reusable across all clinical modules
 // ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
 const ICD10Lookup = ({ onSelect, selectedCodes = [], placeholder = "Search ICD-10 codes..." }) => {
