@@ -450,6 +450,17 @@ def audit_phi_access(resource_type: str, event_type: str = "read"):
 # Create the main app without a prefix
 app = FastAPI(title="ClinicHub API", description="AI-Powered Practice Management System")
 
+# DEPLOYMENT DEBUG: Print environment status
+print(f"🔍 DEPLOYMENT DEBUG:")
+print(f"   MONGO_URL = {os.environ.get('MONGO_URL', 'NOT SET')}")
+print(f"   DB_NAME = {os.environ.get('DB_NAME', 'NOT SET')}")
+print(f"   Working Directory = {os.getcwd()}")
+
+# Ensure MongoDB is forced to localhost
+if 'mongodb.net' in os.environ.get('MONGO_URL', ''):
+    print("🚨 DETECTED EXTERNAL MONGODB - FORCING LOCALHOST OVERRIDE")
+    os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub'
+
 # Register error handlers
 from fastapi import HTTPException
 from fastapi.responses import JSONResponse
