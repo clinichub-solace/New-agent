@@ -12,7 +12,7 @@ import time
 import os
 
 # Configuration - Use production URL from frontend/.env
-BACKEND_URL = "https://med-platform-fix.preview.emergentagent.com"
+BACKEND_URL = "https://mongodb-fix.preview.emergentagent.com"
 API_BASE = f"{BACKEND_URL}/api"
 
 # Test credentials

@@ -11,7 +11,7 @@ from datetime import datetime, date
 import uuid
 
 # Configuration
-BACKEND_URL = "https://med-platform-fix.preview.emergentagent.com/api"
+BACKEND_URL = "https://mongodb-fix.preview.emergentagent.com/api"
 ADMIN_CREDENTIALS = {"username": "admin", "password": "admin123"}
 
 class LabInsuranceBackendTester:

@@ -17,7 +17,7 @@ from typing import Dict, Any, List
 import uuid
 
 # Configuration
-BASE_URL = "https://med-platform-fix.preview.emergentagent.com/api"
+BASE_URL = "https://mongodb-fix.preview.emergentagent.com/api"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "admin123"
 
