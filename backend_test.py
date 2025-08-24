@@ -1468,7 +1468,14 @@ class ClinicHubTester:
     
     def run_all_tests(self):
         """Run comprehensive backend tests"""
-        print("🏥 CLINICHUB COMPREHENSIVE BACKEND TESTING")
+        print("🏥 CLINICHUB HIGH-IMPACT MODULES BACKEND TESTING")
+        print("=" * 80)
+        print("🎯 PRIORITY TESTING AREAS:")
+        print("   1. Insurance Verification System")
+        print("   2. Telehealth Module") 
+        print("   3. Document Management System")
+        print("   4. Patient Portal Integration")
+        print("   5. Authentication & Security")
         print("=" * 80)
         print(f"Backend URL: {BACKEND_URL}")
         print(f"Testing Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
