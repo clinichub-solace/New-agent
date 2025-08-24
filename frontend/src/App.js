@@ -18,7 +18,7 @@ const Dashboard = () => {
 
   const fetchSynologyStatus = async () => {
     try {
-      const response = await axios.get(`${API}/auth/synology-status`);
+      const response = await api.get('/auth/synology-status');
       setSynologyStatus(response.data);
     } catch (error) {
       console.error('Failed to fetch Synology status:', error);
