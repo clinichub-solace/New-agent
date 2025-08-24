@@ -2377,6 +2377,7 @@ const PatientPortalModule = ({ setActiveModule }) => {
   const [activeView, setActiveView] = useState('dashboard');
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [patients, setPatients] = useState([]);
+  const [newMessage, setNewMessage] = useState('');
 
   // Portal statistics
   const [portalStats, setPortalStats] = useState({
@@ -2478,6 +2479,14 @@ const PatientPortalModule = ({ setActiveModule }) => {
     } catch (error) {
       console.error('Error sending message:', error);
       setError('Failed to send message');
+    }
+  };
+
+  const handleSendMessage = async (e) => {
+    e.preventDefault();
+    if (newMessage.trim() && selectedPatientId) {
+      await sendMessage(selectedPatientId, newMessage.trim());
+      setNewMessage('');
     }
   };
 
@@ -2600,16 +2609,6 @@ const PatientPortalModule = ({ setActiveModule }) => {
   };
 
   const renderMessages = () => {
-    const [newMessage, setNewMessage] = useState('');
-
-    const handleSendMessage = async (e) => {
-      e.preventDefault();
-      if (newMessage.trim() && selectedPatientId) {
-        await sendMessage(selectedPatientId, newMessage.trim());
-        setNewMessage('');
-      }
-    };
-
     return (
       <div className="space-y-6">
         {/* Send Message Form */}
