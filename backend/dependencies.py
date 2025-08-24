@@ -1,10 +1,16 @@
+# EMERGENCY DEPLOYMENT FIX: Force MongoDB at module import level
+import os
+# ABSOLUTE OVERRIDE - Cannot be bypassed by any external configuration
+os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub'
+os.environ['DB_NAME'] = 'clinichub'
+print("🚨 EMERGENCY DEPLOYMENT FIX: Forcing MongoDB to localhost in dependencies")
+
 # app/backend/dependencies.py
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from motor.motor_asyncio import AsyncIOMotorClient
 from urllib.parse import urlparse, quote
 import jwt
-import os
 from pathlib import Path
 from dotenv import load_dotenv
 
