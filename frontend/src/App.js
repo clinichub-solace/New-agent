@@ -4288,6 +4288,538 @@ const FinanceModule = ({ setActiveModule }) => {
   );
 };
 
+// ✅ PHASE 4: CLINICAL ENHANCEMENT - Quality Measures Module (534 lines)  
+// ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
+const QualityMeasuresModule = ({ setActiveModule }) => {
+  const { user } = useAuth();
+  const [measures, setMeasures] = useState([]);
+  const [measureResults, setMeasureResults] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  
+  // View and form states
+  const [activeView, setActiveView] = useState('dashboard'); // dashboard, measures, reports
+  const [showMeasureForm, setShowMeasureForm] = useState(false);
+  const [editingMeasure, setEditingMeasure] = useState(null);
+  
+  // Form data
+  const [measureFormData, setMeasureFormData] = useState({
+    name: '',
+    description: '',
+    category: '',
+    measure_type: 'outcome',
+    calculation_method: '',
+    target_value: '',
+    target_operator: 'gte',
+    is_active: true
+  });
+
+  useEffect(() => {
+    fetchMeasures();
+    fetchMeasureResults();
+  }, []);
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const fetchMeasures = async () => {
+    try {
+      setLoading(true);
+      const response = await api.get('/quality-measures');
+      setMeasures(response.data);
+    } catch (error) {
+      console.error('Failed to fetch quality measures:', error);
+      setError('Failed to fetch quality measures');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const fetchMeasureResults = async () => {
+    try {
+      const response = await api.get('/quality-measures/report');
+      setMeasureResults(response.data);
+    } catch (error) {
+      console.error('Failed to fetch measure results:', error);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const handleCalculateMeasures = async () => {
+    try {
+      setLoading(true);
+      setError('');
+      
+      const response = await api.post('/quality-measures/calculate', {});
+      
+      setSuccess('Quality measures calculated successfully!');
+      fetchMeasureResults();
+    } catch (error) {
+      console.error('Failed to calculate quality measures:', error);
+      setError(error.response?.data?.detail || 'Failed to calculate quality measures');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Uses configured 'api' instance
+  const handleCreateMeasure = async (e) => {
+    e.preventDefault();
+    try {
+      setLoading(true);
+      setError('');
+
+      const url = editingMeasure ? 
+        `/quality-measures/${editingMeasure.id}` : 
+        '/quality-measures';
+      
+      const response = editingMeasure ? 
+        await api.put(url, measureFormData) : 
+        await api.post(url, measureFormData);
+
+      if (editingMeasure) {
+        setMeasures(measures.map(m => m.id === editingMeasure.id ? response.data : m));
+        setSuccess('Quality measure updated successfully!');
+      } else {
+        setMeasures([...measures, response.data]);
+        setSuccess('Quality measure created successfully!');
+      }
+      
+      setShowMeasureForm(false);
+      setEditingMeasure(null);
+      resetMeasureForm();
+    } catch (error) {
+      console.error('Failed to save quality measure:', error);
+      setError(error.response?.data?.detail || 'Failed to save quality measure');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditMeasure = (measure) => {
+    setEditingMeasure(measure);
+    setMeasureFormData({
+      name: measure.name,
+      description: measure.description,
+      category: measure.category,
+      measure_type: measure.measure_type,
+      calculation_method: measure.calculation_method,
+      target_value: measure.target_value,
+      target_operator: measure.target_operator,
+      is_active: measure.is_active
+    });
+    setShowMeasureForm(true);
+  };
+
+  const resetMeasureForm = () => {
+    setMeasureFormData({
+      name: '',
+      description: '',
+      category: '',
+      measure_type: 'outcome',
+      calculation_method: '',
+      target_value: '',
+      target_operator: 'gte',
+      is_active: true
+    });
+  };
+
+  const getMeasureStatusColor = (status) => {
+    const colors = {
+      'met': 'bg-green-100 text-green-800',
+      'not_met': 'bg-red-100 text-red-800',
+      'improving': 'bg-yellow-100 text-yellow-800',
+      'declining': 'bg-orange-100 text-orange-800',
+      'stable': 'bg-blue-100 text-blue-800'
+    };
+    return colors[status] || 'bg-gray-100 text-gray-800';
+  };
+
+  const renderDashboard = () => {
+    const measuresByType = measures.reduce((acc, measure) => {
+      acc[measure.measure_type] = (acc[measure.measure_type] || 0) + 1;
+      return acc;
+    }, {});
+
+    const recentResults = measureResults.slice(0, 5);
+
+    return (
+      <div className="space-y-6">
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{measures.length}</div>
+                <div className="text-sm text-gray-300">Total Measures</div>
+              </div>
+              <div className="text-2xl">📈</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{measuresByType.outcome || 0}</div>
+                <div className="text-sm text-gray-300">Outcome Measures</div>
+              </div>
+              <div className="text-2xl">🎯</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{measuresByType.process || 0}</div>
+                <div className="text-sm text-gray-300">Process Measures</div>
+              </div>
+              <div className="text-2xl">⚙️</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{measuresByType.structure || 0}</div>
+                <div className="text-sm text-gray-300">Structure Measures</div>
+              </div>
+              <div className="text-2xl">🏗️</div>
+            </div>
+          </div>
+        </div>
+
+        {/* Recent Results */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white">📊 Recent Quality Measure Results</h3>
+            <button
+              onClick={handleCalculateMeasures}
+              className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              🔄 Calculate Measures
+            </button>
+          </div>
+          {recentResults.length === 0 ? (
+            <p className="text-gray-400">No quality measure results available. Click "Calculate Measures" to generate results.</p>
+          ) : (
+            <div className="space-y-3">
+              {recentResults.map(result => (
+                <div key={result.id} className="bg-white/5 border border-white/10 rounded p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-4">
+                        <div className="text-white font-medium">{result.measure_name}</div>
+                        <span className={`px-2 py-1 rounded text-xs ${getMeasureStatusColor(result.status)}`}>
+                          {result.status}
+                        </span>
+                      </div>
+                      <div className="text-sm text-gray-300 mt-1">
+                        Current Value: {result.current_value} | Target: {result.target_value}
+                      </div>
+                      {result.improvement_percentage && (
+                        <div className="text-sm text-gray-400 mt-1">
+                          Improvement: {result.improvement_percentage}%
+                        </div>
+                      )}
+                    </div>
+                    <div className="text-sm text-gray-400">
+                      {new Date(result.calculation_date).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Active Measures */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">📈 Active Quality Measures</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {measures.filter(m => m.is_active).slice(0, 6).map(measure => (
+              <div key={measure.id} className="bg-white/5 border border-white/10 rounded p-4">
+                <div className="text-white font-medium">{measure.name}</div>
+                <div className="text-sm text-gray-300 mt-1">{measure.description}</div>
+                <div className="text-sm text-gray-400 mt-1">Type: {measure.measure_type}</div>
+                <div className="text-sm text-gray-400 mt-1">Category: {measure.category}</div>
+                {measure.target_value && (
+                  <div className="text-xs text-blue-400 mt-1">Target: {measure.target_operator} {measure.target_value}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const renderMeasureForm = () => {
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-semibold text-white">
+              {editingMeasure ? '✏️ Edit Quality Measure' : '📈 New Quality Measure'}
+            </h3>
+            <button
+              onClick={() => {
+                setShowMeasureForm(false);
+                setEditingMeasure(null);
+                resetMeasureForm();
+              }}
+              className="text-gray-400 hover:text-white"
+            >
+              ✕
+            </button>
+          </div>
+
+          <form onSubmit={handleCreateMeasure} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Measure Name</label>
+              <input
+                type="text"
+                value={measureFormData.name}
+                onChange={(e) => setMeasureFormData({...measureFormData, name: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+              <textarea
+                value={measureFormData.description}
+                onChange={(e) => setMeasureFormData({...measureFormData, description: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white h-20"
+                placeholder="Describe what this measure evaluates"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Measure Type</label>
+                <select
+                  value={measureFormData.measure_type}
+                  onChange={(e) => setMeasureFormData({...measureFormData, measure_type: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  required
+                >
+                  <option value="outcome">Outcome</option>
+                  <option value="process">Process</option>
+                  <option value="structure">Structure</option>
+                  <option value="patient_experience">Patient Experience</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
+                <input
+                  type="text"
+                  value={measureFormData.category}
+                  onChange={(e) => setMeasureFormData({...measureFormData, category: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  placeholder="e.g., Diabetes Care, Preventive Care"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Calculation Method</label>
+              <textarea
+                value={measureFormData.calculation_method}
+                onChange={(e) => setMeasureFormData({...measureFormData, calculation_method: e.target.value})}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white h-20"
+                placeholder="Describe how this measure is calculated"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Target Operator</label>
+                <select
+                  value={measureFormData.target_operator}
+                  onChange={(e) => setMeasureFormData({...measureFormData, target_operator: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                >
+                  <option value="gte">Greater than or equal (≥)</option>
+                  <option value="lte">Less than or equal (≤)</option>
+                  <option value="eq">Equal to (=)</option>
+                  <option value="gt">Greater than (&gt;)</option>
+                  <option value="lt">Less than (&lt;)</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">Target Value</label>
+                <input
+                  type="text"
+                  value={measureFormData.target_value}
+                  onChange={(e) => setMeasureFormData({...measureFormData, target_value: e.target.value})}
+                  className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+                  placeholder="e.g., 85%, 120, 7.0"
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <input
+                type="checkbox"
+                id="is_active_measure"
+                checked={measureFormData.is_active}
+                onChange={(e) => setMeasureFormData({...measureFormData, is_active: e.target.checked})}
+                className="rounded"
+              />
+              <label htmlFor="is_active_measure" className="text-gray-300">Active Measure</label>
+            </div>
+
+            <div className="flex space-x-4 pt-4">
+              <button
+                type="submit"
+                disabled={loading}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded disabled:opacity-50"
+              >
+                {loading ? 'Saving...' : (editingMeasure ? 'Update Measure' : 'Create Measure')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowMeasureForm(false);
+                  setEditingMeasure(null);
+                  resetMeasureForm();
+                }}
+                className="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded"
+              >
+                Cancel
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">📈 Quality Measures</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setShowMeasureForm(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+          >
+            📈 New Measure
+          </button>
+          <button
+            onClick={() => fetchMeasures()}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            🔄 Refresh
+          </button>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 mb-6">
+          <p className="text-green-300">✅ {success}</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mb-6">
+          <p className="text-red-300">❌ {typeof error === 'object' ? JSON.stringify(error) : error}</p>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'dashboard', name: 'Dashboard', icon: '📊' },
+            { id: 'measures', name: 'All Measures', icon: '📈' },
+            { id: 'reports', name: 'Reports', icon: '📋' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeView === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Content based on active view */}
+      {activeView === 'dashboard' && renderDashboard()}
+      {activeView === 'measures' && (
+        <div className="space-y-4">
+          {measures.map(measure => (
+            <div key={measure.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <div className="flex items-center space-x-4">
+                    <div className="text-white font-medium">{measure.name}</div>
+                    <span className="px-2 py-1 bg-blue-600/20 text-blue-300 rounded text-xs">
+                      {measure.measure_type}
+                    </span>
+                    {measure.category && (
+                      <span className="px-2 py-1 bg-purple-600/20 text-purple-300 rounded text-xs">
+                        {measure.category}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-sm text-gray-300 mt-1">{measure.description}</div>
+                  <div className="text-sm text-gray-400 mt-1">
+                    Target: {measure.target_operator} {measure.target_value}
+                  </div>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handleEditMeasure(measure)}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-sm"
+                  >
+                    Edit
+                  </button>
+                  <div className={`w-2 h-2 rounded-full ${measure.is_active ? 'bg-green-400' : 'bg-gray-400'}`}></div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {activeView === 'reports' && (
+        <div className="text-white">Quality measure reports view coming soon...</div>
+      )}
+
+      {/* Measure Form Modal */}
+      {showMeasureForm && renderMeasureForm()}
+      
+      {/* Loading */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const CommunicationModule = () => (
   <div className="text-center py-12 text-white">
     <h2 className="text-2xl font-bold mb-4">💬 Communication Module</h2>
