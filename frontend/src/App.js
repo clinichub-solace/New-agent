@@ -232,20 +232,7 @@ const Dashboard = () => {
     </div>
   );
 
-  const renderContent = () => {
-    switch (activeModule) {
-      case 'patients':
-        return renderPatients();
-      case 'appointments':
-        return <div className="text-center py-12">Appointments module - Coming soon</div>;
-      case 'inventory':
-        return <div className="text-center py-12">Inventory module - Coming soon</div>;
-      case 'employees':
-        return <div className="text-center py-12">Employee module - Coming soon</div>;
-      default:
-        return renderOverview();
-    }
-  };
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900">
