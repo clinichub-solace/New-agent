@@ -25,10 +25,60 @@ const Dashboard = () => {
   // UI state
   const [showAddPatient, setShowAddPatient] = useState(false);
   const [selectedPatient, setSelectedPatient] = useState(null);
-  
+
   useEffect(() => {
-    fetchDashboardStats();
+    fetchSynologyStatus();
   }, []);
+
+  // ✅ URL VETTING: Uses configured 'api' instance with proper /api routing
+  const fetchSynologyStatus = async () => {
+    try {
+      const response = await api.get('/auth/synology-status');
+      setSynologyStatus(response.data);
+    } catch (error) {
+      console.error('Failed to fetch Synology status:', error);
+    }
+  };
+
+  // Enhanced Module Rendering System - All 16 Modules
+  const renderContent = () => {
+    switch (activeModule) {
+      case 'patients':
+        return <PatientsModule />;
+      case 'scheduling':
+        return <SchedulingModule setActiveModule={setActiveModule} />;
+      case 'telehealth':
+        return <TelehealthModule setActiveModule={setActiveModule} />;
+      case 'patient-portal':
+        return <PatientPortalModule setActiveModule={setActiveModule} />;
+      case 'lab-orders':
+        return <LabOrdersModule setActiveModule={setActiveModule} />;
+      case 'insurance':
+        return <InsuranceModule setActiveModule={setActiveModule} />;
+      case 'clinical-templates':
+        return <ClinicalTemplatesModule setActiveModule={setActiveModule} />;
+      case 'quality-measures':
+        return <QualityMeasuresModule setActiveModule={setActiveModule} />;
+      case 'documents':
+        return <DocumentManagementModule setActiveModule={setActiveModule} />;
+      case 'invoices':
+        return <InvoicesModule setActiveModule={setActiveModule} />;
+      case 'system-settings':
+        return <SystemSettingsModule onStatusUpdate={fetchSynologyStatus} />;
+      case 'employees':
+        return <EmployeesModule setActiveModule={setActiveModule} />;
+      case 'inventory':
+        return <InventoryModule setActiveModule={setActiveModule} />;
+      case 'finance':
+        return <FinanceModule setActiveModule={setActiveModule} />;
+      case 'communication':
+        return <CommunicationModule />;
+      case 'referrals':
+        return <ReferralsModule setActiveModule={setActiveModule} />;
+      default:
+        return <DashboardHome setActiveModule={setActiveModule} />;
+    }
+  };
 
   const fetchDashboardStats = async () => {
     try {
