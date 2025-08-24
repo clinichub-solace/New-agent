@@ -2327,6 +2327,40 @@ const LabOrdersModule = ({ setActiveModule }) => {
                   rows="3"
                   placeholder="Clinical indication for tests..."
                 />
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Clinical Information</label>
+                <textarea
+                  value={orderFormData.clinical_info}
+                  onChange={(e) => setOrderFormData(prev => ({...prev, clinical_info: e.target.value}))}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  rows="3"
+                  placeholder="Clinical indication for tests..."
+                />
+              </div>
+
+              {/* ICD-10 Diagnosis Codes for Lab Orders */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">ICD-10 Diagnosis Codes</label>
+                <ICD10Lookup
+                  selectedCodes={orderFormData.diagnosis_codes}
+                  onSelect={(code, updatedCodes) => {
+                    if (code) {
+                      const exists = orderFormData.diagnosis_codes.some(existingCode => existingCode.code === code.code);
+                      if (!exists) {
+                        setOrderFormData(prev => ({
+                          ...prev,
+                          diagnosis_codes: [...prev.diagnosis_codes, code]
+                        }));
+                      }
+                    } else if (updatedCodes) {
+                      setOrderFormData(prev => ({
+                        ...prev,
+                        diagnosis_codes: updatedCodes
+                      }));
+                    }
+                  }}
+                  placeholder="Search diagnostic codes for lab justification..."
+                />
               </div>
 
               <div className="flex justify-end space-x-3">
