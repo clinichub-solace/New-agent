@@ -2358,15 +2358,420 @@ const TelehealthModule = () => (
   </div>
 );
 
-const PatientPortalModule = () => (
-  <div className="text-center py-12 text-white">
-    <h2 className="text-2xl font-bold mb-4">🌐 Patient Portal Module</h2>
-    <p className="text-blue-200">Patient Self-Service and Communication</p>
-  </div>
-);
+// ✅ PHASE 5: HIGH-IMPACT MODULES - Patient Portal Module (High Patient Value)
+// ✅ URL VETTING: All API calls use configured 'api' instance with /api prefix
+const PatientPortalModule = ({ setActiveModule }) => {
+  const { user } = useAuth();
+  const [portalData, setPortalData] = useState({
+    appointments: [],
+    labResults: [],
+    prescriptions: [],
+    messages: [],
+    forms: []
+  });
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-// ✅ PHASE 4: CLINICAL ENHANCEMENT - Laboratory Orders Module (644 lines)
-// ✅ URL VETTING: All API calls use configured 'api' instance, no hardcoded URLs
+  // View states
+  const [activeView, setActiveView] = useState('dashboard');
+  const [selectedPatientId, setSelectedPatientId] = useState('');
+  const [patients, setPatients] = useState([]);
+
+  // Portal statistics
+  const [portalStats, setPortalStats] = useState({
+    activePortals: 0,
+    unreadMessages: 0,
+    pendingForms: 0,
+    upcomingAppointments: 0
+  });
+
+  useEffect(() => {
+    fetchPatients();
+    if (selectedPatientId) {
+      fetchPortalData(selectedPatientId);
+    }
+  }, [selectedPatientId]);
+
+  // ✅ URL VETTING: Using configured 'api' instance
+  const fetchPatients = async () => {
+    try {
+      const response = await api.get('/patients');
+      setPatients(response.data || []);
+    } catch (error) {
+      console.error('Error fetching patients:', error);
+    }
+  };
+
+  // ✅ URL VETTING: Using configured 'api' instance
+  const fetchPortalData = async (patientId) => {
+    setLoading(true);
+    try {
+      const [appointmentsRes, labResultsRes, prescriptionsRes, messagesRes] = await Promise.all([
+        api.get(`/appointments/patient/${patientId}`).catch(() => ({ data: [] })),
+        api.get(`/lab-results/patient/${patientId}`).catch(() => ({ data: [] })),
+        api.get(`/prescriptions/patient/${patientId}`).catch(() => ({ data: [] })),
+        api.get(`/patient-portal/${patientId}/messages`).catch(() => ({ data: [] }))
+      ]);
+
+      setPortalData({
+        appointments: appointmentsRes.data || [],
+        labResults: labResultsRes.data || [],
+        prescriptions: prescriptionsRes.data || [],
+        messages: messagesRes.data || [],
+        forms: []
+      });
+
+      // Update stats
+      setPortalStats({
+        activePortals: 1,
+        unreadMessages: (messagesRes.data || []).filter(msg => !msg.read).length,
+        pendingForms: 0,
+        upcomingAppointments: (appointmentsRes.data || []).filter(apt => 
+          new Date(apt.appointment_date) >= new Date() && apt.status !== 'cancelled'
+        ).length
+      });
+
+    } catch (error) {
+      console.error('Error fetching portal data:', error);
+      setError('Failed to fetch portal data');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Using configured 'api' instance
+  const createPortalAccess = async (patientId) => {
+    try {
+      setLoading(true);
+      const response = await api.post('/patient-portal/access', {
+        patient_id: patientId,
+        access_level: 'full',
+        expires_at: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString() // 90 days
+      });
+      
+      setSuccess(`Portal access created for patient. Access token: ${response.data.access_token}`);
+    } catch (error) {
+      console.error('Error creating portal access:', error);
+      setError('Failed to create portal access');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ✅ URL VETTING: Using configured 'api' instance
+  const sendMessage = async (patientId, message) => {
+    try {
+      const response = await api.post(`/patient-portal/${patientId}/messages`, {
+        message: message,
+        sender: 'staff',
+        sender_id: user?.id,
+        message_type: 'general'
+      });
+      
+      setPortalData(prev => ({
+        ...prev,
+        messages: [...prev.messages, response.data]
+      }));
+      
+      setSuccess('Message sent successfully!');
+    } catch (error) {
+      console.error('Error sending message:', error);
+      setError('Failed to send message');
+    }
+  };
+
+  const renderDashboard = () => {
+    return (
+      <div className="space-y-6">
+        {/* Patient Selector */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+          <label className="block text-sm font-medium text-gray-300 mb-2">Select Patient for Portal View</label>
+          <select
+            value={selectedPatientId}
+            onChange={(e) => setSelectedPatientId(e.target.value)}
+            className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white"
+          >
+            <option value="">Select a patient...</option>
+            {patients.map(patient => (
+              <option key={patient.id} value={patient.id}>
+                {patient.name?.[0]?.given?.[0]} {patient.name?.[0]?.family} - {patient.id}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Stats Cards */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{portalStats.activePortals}</div>
+                <div className="text-sm text-gray-300">Active Portals</div>
+              </div>
+              <div className="text-2xl">🌐</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{portalStats.unreadMessages}</div>
+                <div className="text-sm text-gray-300">Unread Messages</div>
+              </div>
+              <div className="text-2xl">📧</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{portalStats.upcomingAppointments}</div>
+                <div className="text-sm text-gray-300">Upcoming Appointments</div>
+              </div>
+              <div className="text-2xl">📅</div>
+            </div>
+          </div>
+          
+          <div className="bg-white/5 border border-white/10 rounded-lg p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-2xl font-bold text-white">{portalStats.pendingForms}</div>
+                <div className="text-sm text-gray-300">Pending Forms</div>
+              </div>
+              <div className="text-2xl">📋</div>
+            </div>
+          </div>
+        </div>
+
+        {selectedPatientId ? (
+          <>
+            {/* Portal Actions */}
+            <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">🚪 Portal Access Management</h3>
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => createPortalAccess(selectedPatientId)}
+                  disabled={loading}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+                >
+                  Create Portal Access
+                </button>
+                <button
+                  onClick={() => setActiveView('messages')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+                >
+                  Send Message
+                </button>
+              </div>
+            </div>
+
+            {/* Patient Information Summary */}
+            <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">👤 Patient Portal Summary</h3>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white/5 rounded-lg p-4">
+                  <h4 className="text-white font-medium mb-2">📅 Appointments</h4>
+                  <p className="text-2xl font-bold text-blue-400">{portalData.appointments.length}</p>
+                  <p className="text-sm text-gray-300">Total appointments</p>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4">
+                  <h4 className="text-white font-medium mb-2">🧪 Lab Results</h4>
+                  <p className="text-2xl font-bold text-green-400">{portalData.labResults.length}</p>
+                  <p className="text-sm text-gray-300">Available results</p>
+                </div>
+                <div className="bg-white/5 rounded-lg p-4">
+                  <h4 className="text-white font-medium mb-2">💊 Prescriptions</h4>
+                  <p className="text-2xl font-bold text-purple-400">{portalData.prescriptions.length}</p>
+                  <p className="text-sm text-gray-300">Active prescriptions</p>
+                </div>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-12 text-gray-400">
+            <div className="text-6xl mb-4">🌐</div>
+            <p className="text-xl mb-2">Patient Portal Management</p>
+            <p>Select a patient to view their portal information</p>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  const renderMessages = () => {
+    const [newMessage, setNewMessage] = useState('');
+
+    const handleSendMessage = async (e) => {
+      e.preventDefault();
+      if (newMessage.trim() && selectedPatientId) {
+        await sendMessage(selectedPatientId, newMessage.trim());
+        setNewMessage('');
+      }
+    };
+
+    return (
+      <div className="space-y-6">
+        {/* Send Message Form */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">📧 Send Message to Patient</h3>
+          <form onSubmit={handleSendMessage} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">Message</label>
+              <textarea
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                className="w-full bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white h-24"
+                placeholder="Type your message to the patient..."
+                required
+              />
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="submit"
+                disabled={loading || !newMessage.trim() || !selectedPatientId}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg disabled:opacity-50"
+              >
+                Send Message
+              </button>
+            </div>
+          </form>
+        </div>
+
+        {/* Message History */}
+        <div className="bg-white/5 border border-white/10 rounded-lg p-6">
+          <h3 className="text-lg font-semibold text-white mb-4">💬 Message History</h3>
+          {portalData.messages.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">
+              No messages yet
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {portalData.messages.map(message => (
+                <div key={message.id} className="bg-white/5 rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-white font-medium">
+                      {message.sender === 'staff' ? 'Staff' : 'Patient'}
+                    </span>
+                    <span className="text-gray-400 text-sm">
+                      {new Date(message.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="text-gray-300">{message.message}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold text-white">🌐 Patient Portal</h2>
+        <div className="flex space-x-2">
+          <button
+            onClick={() => fetchPortalData(selectedPatientId)}
+            disabled={!selectedPatientId}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg disabled:opacity-50"
+          >
+            🔄 Refresh
+          </button>
+          <button
+            onClick={() => setActiveModule('dashboard')}
+            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+
+      {/* Success/Error Messages */}
+      {success && (
+        <div className="bg-green-500/20 border border-green-400/50 rounded-lg p-4 mb-6">
+          <p className="text-green-300">✅ {success}</p>
+        </div>
+      )}
+      
+      {error && (
+        <div className="bg-red-500/20 border border-red-400/50 rounded-lg p-4 mb-6">
+          <p className="text-red-300">❌ {error}</p>
+        </div>
+      )}
+
+      {/* Navigation Tabs */}
+      <div className="border-b border-white/20 mb-6">
+        <nav className="flex space-x-8">
+          {[
+            { id: 'dashboard', name: 'Dashboard', icon: '🏠' },
+            { id: 'messages', name: 'Messages', icon: '📧' },
+            { id: 'appointments', name: 'Appointments', icon: '📅' },
+            { id: 'records', name: 'Records', icon: '📋' }
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveView(tab.id)}
+              className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center space-x-2 ${
+                activeView === tab.id
+                  ? 'border-blue-400 text-blue-400'
+                  : 'border-transparent text-gray-300 hover:text-white'
+              }`}
+            >
+              <span>{tab.icon}</span>
+              <span>{tab.name}</span>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {/* Content based on active view */}
+      {activeView === 'dashboard' && renderDashboard()}
+      {activeView === 'messages' && renderMessages()}
+      {activeView === 'appointments' && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold text-white">📅 Patient Appointments</h3>
+          {portalData.appointments.length === 0 ? (
+            <div className="text-center py-8 text-gray-400">No appointments found</div>
+          ) : (
+            portalData.appointments.map(appointment => (
+              <div key={appointment.id} className="bg-white/5 border border-white/10 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-white font-medium">
+                      {new Date(appointment.appointment_date).toLocaleDateString()} at {appointment.appointment_time}
+                    </div>
+                    <div className="text-gray-300 text-sm">Type: {appointment.appointment_type}</div>
+                    <div className="text-gray-300 text-sm">Status: {appointment.status}</div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+      {activeView === 'records' && (
+        <div className="text-white">
+          <h3 className="text-lg font-semibold mb-4">📋 Medical Records Access</h3>
+          <p className="text-gray-300">Patient record sharing functionality coming soon...</p>
+        </div>
+      )}
+
+      {/* Loading */}
+      {loading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-40">
+          <div className="bg-gray-800 rounded-lg p-6 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-4"></div>
+            <p className="text-white">Loading...</p>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const LabOrdersModule = ({ setActiveModule }) => {
   const { user } = useAuth();
   const [labOrders, setLabOrders] = useState([]);
