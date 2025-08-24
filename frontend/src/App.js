@@ -169,7 +169,8 @@ const PatientsModule = () => {
     objective: '',
     assessment: '',
     plan: '',
-    provider: user?.username || 'Dr. Provider'
+    provider: user?.username || 'Dr. Provider',
+    diagnosis_codes: []  // ICD-10 codes for this SOAP note
   });
 
   const [vitalsFormData, setVitalsFormData] = useState({
