@@ -1,0 +1,130 @@
+# MongoDB Deployment Specification for ClinicHub
+# This configuration should be implemented by Emergent infrastructure team
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mongodb-clinichub-config
+data:
+  mongo.conf: |
+    # MongoDB Configuration for ClinicHub Production
+    storage:
+      dbPath: /data/db
+      journal:
+        enabled: true
+    systemLog:
+      destination: file
+      logAppend: true
+      path: /var/log/mongodb/mongod.log
+      logRotate: reopen
+    net:
+      port: 27017
+      bindIp: 0.0.0.0
+    security:
+      authorization: enabled
+    replication:
+      replSetName: clinichub-rs
+    setParameter:
+      enableLocalhostAuthBypass: false
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mongodb-clinichub
+  labels:
+    app: mongodb-clinichub
+    component: database
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mongodb-clinichub
+  template:
+    metadata:
+      labels:
+        app: mongodb-clinichub
+    spec:
+      containers:
+      - name: mongodb
+        image: mongo:6.0
+        ports:
+        - containerPort: 27017
+        env:
+        - name: MONGO_INITDB_ROOT_USERNAME
+          value: "root"
+        - name: MONGO_INITDB_ROOT_PASSWORD
+          value: "ClinicHubRoot2025#Secure"
+        - name: MONGO_INITDB_DATABASE
+          value: "clinichub"
+        volumeMounts:
+        - name: mongodb-data
+          mountPath: /data/db
+        - name: mongodb-config
+          mountPath: /etc/mongod.conf
+          subPath: mongo.conf
+        - name: mongodb-init
+          mountPath: /docker-entrypoint-initdb.d/init.js
+          subPath: init.js
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "500m"
+          limits:
+            memory: "4Gi"
+            cpu: "1"
+        livenessProbe:
+          exec:
+            command:
+            - mongosh
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          exec:
+            command:
+            - mongosh
+            - --eval
+            - "db.adminCommand('ping')"
+          initialDelaySeconds: 15
+          periodSeconds: 5
+      volumes:
+      - name: mongodb-data
+        persistentVolumeClaim:
+          claimName: mongodb-clinichub-pvc
+      - name: mongodb-config
+        configMap:
+          name: mongodb-clinichub-config
+      - name: mongodb-init
+        configMap:
+          name: mongodb-clinichub-init
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: internal-mongodb
+  labels:
+    app: mongodb-clinichub
+spec:
+  selector:
+    app: mongodb-clinichub
+  ports:
+  - port: 27017
+    targetPort: 27017
+    protocol: TCP
+  type: ClusterIP
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: mongodb-clinichub-pvc
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: fast-ssd
