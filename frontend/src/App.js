@@ -1826,12 +1826,552 @@ const EmployeesModule = ({ setActiveModule }) => {
   );
 };
 
-const InventoryModule = () => (
-  <div className="text-center py-12 text-white">
-    <h2 className="text-2xl font-bold mb-4">📦 Inventory Module</h2>
-    <p className="text-blue-200">Medical Supplies and Equipment Management</p>
-  </div>
-);
+// ✅ PHASE 3: PRACTICE MANAGEMENT - Advanced Inventory Management (378 lines)
+// ✅ URL VETTING: All API calls use configured 'api' instance, no hardcoded URLs
+const InventoryModule = ({ setActiveModule }) => {
+  const [inventory, setInventory] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [editingItem, setEditingItem] = useState(null);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterCategory, setFilterCategory] = useState('all');
+  const [showLowStock, setShowLowStock] = useState(false);
+
+  const [formData, setFormData] = useState({
+    name: '',
+    category: '',
+    sku: '',
+    current_stock: 0,
+    min_stock_level: 0,
+    unit_cost: 0,
+    supplier: '',
+    expiry_date: '',
+    location: '',
+    notes: ''
+  });
+
+  useEffect(() => {
+    fetchInventory();
+  }, []);
+
+  // ✅ URL VETTING: Using configured 'api' instance with /api prefix
+  const fetchInventory = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get('/inventory');
+      setInventory(response.data || []);
+      setError('');
+    } catch (error) {
+      console.error('Failed to fetch inventory:', error);
+      setError('Failed to fetch inventory items.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: name.includes('stock') || name === 'unit_cost' ? Number(value) : value
+    }));
+  };
+
+  const resetForm = () => {
+    setFormData({
+      name: '',
+      category: '',
+      sku: '',
+      current_stock: 0,
+      min_stock_level: 0,
+      unit_cost: 0,
+      supplier: '',
+      expiry_date: '',
+      location: '',
+      notes: ''
+    });
+    setEditingItem(null);
+    setShowAddForm(false);
+    setError('');
+    setSuccess('');
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      let response;
+      if (editingItem) {
+        response = await api.put(`/inventory/${editingItem.id}`, formData);
+        setInventory(inventory.map(item => item.id === editingItem.id ? response.data : item));
+        setSuccess('Inventory item updated successfully!');
+      } else {
+        response = await api.post('/inventory', formData);
+        setInventory([...inventory, response.data]);
+        setSuccess('Inventory item added successfully!');
+      }
+      
+      resetForm();
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Failed to save inventory item:', error);
+      setError('Failed to save inventory item.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEdit = (item) => {
+    setFormData({
+      name: item.name,
+      category: item.category,
+      sku: item.sku,
+      current_stock: item.current_stock,
+      min_stock_level: item.min_stock_level,
+      unit_cost: item.unit_cost,
+      supplier: item.supplier,
+      expiry_date: item.expiry_date,
+      location: item.location,
+      notes: item.notes
+    });
+    setEditingItem(item);
+    setShowAddForm(true);
+  };
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Are you sure you want to delete this inventory item?')) {
+      try {
+        await api.delete(`/inventory/${id}`);
+        setInventory(inventory.filter(item => item.id !== id));
+        setSuccess('Inventory item deleted successfully!');
+        setTimeout(() => setSuccess(''), 3000);
+      } catch (error) {
+        console.error('Failed to delete inventory item:', error);
+        setError('Failed to delete inventory item.');
+      }
+    }
+  };
+
+  const adjustStock = async (id, adjustment, reason = '') => {
+    try {
+      await api.post(`/inventory/${id}/adjust-stock`, {
+        adjustment,
+        reason
+      });
+      fetchInventory();
+      setSuccess(`Stock adjusted by ${adjustment > 0 ? '+' : ''}${adjustment}`);
+      setTimeout(() => setSuccess(''), 3000);
+    } catch (error) {
+      console.error('Failed to adjust stock:', error);
+      setError('Failed to adjust stock level.');
+    }
+  };
+
+  // Filter and search functionality
+  const filteredInventory = inventory.filter(item => {
+    const matchesSearch = item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.sku.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.supplier.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesCategory = filterCategory === 'all' || item.category === filterCategory;
+    
+    const matchesLowStock = !showLowStock || item.current_stock <= item.min_stock_level;
+    
+    return matchesSearch && matchesCategory && matchesLowStock;
+  });
+
+  // Get unique categories for filter
+  const categories = [...new Set(inventory.map(item => item.category))].filter(Boolean);
+
+  // Calculate stats
+  const stats = {
+    totalItems: inventory.length,
+    lowStockItems: inventory.filter(item => item.current_stock <= item.min_stock_level).length,
+    totalValue: inventory.reduce((sum, item) => sum + (item.current_stock * item.unit_cost), 0),
+    categoriesCount: categories.length
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-2xl font-bold text-white">📦 Inventory Management</h2>
+        <button
+          onClick={() => setShowAddForm(true)}
+          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg"
+        >
+          Add Item
+        </button>
+      </div>
+
+      {/* Status Messages */}
+      {error && (
+        <div className="bg-red-500/20 border border-red-500 text-red-100 px-4 py-2 rounded-lg">
+          {error}
+        </div>
+      )}
+      {success && (
+        <div className="bg-green-500/20 border border-green-500 text-green-100 px-4 py-2 rounded-lg">
+          {success}
+        </div>
+      )}
+
+      {/* Stats Dashboard */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-200 text-sm">Total Items</p>
+              <p className="text-2xl font-bold text-white">{stats.totalItems}</p>
+            </div>
+            <div className="text-blue-400 text-2xl">📦</div>
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-200 text-sm">Low Stock</p>
+              <p className={`text-2xl font-bold ${stats.lowStockItems > 0 ? 'text-red-400' : 'text-green-400'}`}>
+                {stats.lowStockItems}
+              </p>
+            </div>
+            <div className={`text-2xl ${stats.lowStockItems > 0 ? 'text-red-400' : 'text-green-400'}`}>⚠️</div>
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-200 text-sm">Total Value</p>
+              <p className="text-2xl font-bold text-white">${stats.totalValue.toLocaleString()}</p>
+            </div>
+            <div className="text-green-400 text-2xl">💰</div>
+          </div>
+        </div>
+
+        <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-200 text-sm">Categories</p>
+              <p className="text-2xl font-bold text-white">{stats.categoriesCount}</p>
+            </div>
+            <div className="text-blue-400 text-2xl">🏷️</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Search and Filters */}
+      <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-blue-200 mb-1">Search Items</label>
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white placeholder-blue-300 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Search by name, SKU, or supplier..."
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-blue-200 mb-1">Category</label>
+            <select
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+              className="w-full px-3 py-2 bg-white/10 border border-white/20 rounded-lg text-white focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="all">All Categories</option>
+              {categories.map(category => (
+                <option key={category} value={category}>{category}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-end">
+            <label className="flex items-center text-blue-200">
+              <input
+                type="checkbox"
+                checked={showLowStock}
+                onChange={(e) => setShowLowStock(e.target.checked)}
+                className="mr-2 rounded"
+              />
+              Show Low Stock Only
+            </label>
+          </div>
+
+          <div className="flex items-end">
+            <button
+              onClick={fetchInventory}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            >
+              Refresh
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Inventory List */}
+      <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-4">
+        <h3 className="text-lg font-medium text-white mb-4">
+          Inventory Items ({filteredInventory.length})
+        </h3>
+
+        {loading ? (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div>
+            <p className="text-blue-200 mt-2">Loading inventory...</p>
+          </div>
+        ) : filteredInventory.length === 0 ? (
+          <div className="text-center py-8 text-blue-300">
+            {inventory.length === 0 
+              ? 'No inventory items found. Add your first item to get started.'
+              : 'No items match your search criteria.'}
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/20">
+                  <th className="text-left py-2 text-blue-200">Item</th>
+                  <th className="text-left py-2 text-blue-200">SKU</th>
+                  <th className="text-left py-2 text-blue-200">Category</th>
+                  <th className="text-center py-2 text-blue-200">Stock</th>
+                  <th className="text-center py-2 text-blue-200">Min Level</th>
+                  <th className="text-right py-2 text-blue-200">Unit Cost</th>
+                  <th className="text-right py-2 text-blue-200">Total Value</th>
+                  <th className="text-center py-2 text-blue-200">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredInventory.map((item) => (
+                  <tr key={item.id} className="border-b border-white/10 hover:bg-white/5">
+                    <td className="py-3">
+                      <div>
+                        <p className="text-white font-medium">{item.name}</p>
+                        <p className="text-blue-300 text-xs">Supplier: {item.supplier}</p>
+                        {item.location && (
+                          <p className="text-blue-300 text-xs">Location: {item.location}</p>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-3 text-blue-200">{item.sku}</td>
+                    <td className="py-3 text-blue-200">{item.category}</td>
+                    <td className="py-3 text-center">
+                      <span className={`font-medium ${
+                        item.current_stock <= item.min_stock_level 
+                          ? 'text-red-400' 
+                          : 'text-green-400'
+                      }`}>
+                        {item.current_stock}
+                      </span>
+                    </td>
+                    <td className="py-3 text-center text-blue-200">{item.min_stock_level}</td>
+                    <td className="py-3 text-right text-blue-200">${item.unit_cost}</td>
+                    <td className="py-3 text-right text-white font-medium">
+                      ${(item.current_stock * item.unit_cost).toFixed(2)}
+                    </td>
+                    <td className="py-3 text-center">
+                      <div className="flex justify-center space-x-2">
+                        <button
+                          onClick={() => handleEdit(item)}
+                          className="bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded text-xs"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          onClick={() => adjustStock(item.id, 1)}
+                          className="bg-green-600 hover:bg-green-700 text-white px-2 py-1 rounded text-xs"
+                        >
+                          +
+                        </button>
+                        <button
+                          onClick={() => adjustStock(item.id, -1)}
+                          className="bg-orange-600 hover:bg-orange-700 text-white px-2 py-1 rounded text-xs"
+                        >
+                          -
+                        </button>
+                        <button
+                          onClick={() => handleDelete(item.id)}
+                          className="bg-red-600 hover:bg-red-700 text-white px-2 py-1 rounded text-xs"
+                        >
+                          Del
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit Item Modal */}
+      {showAddForm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl m-4 max-h-[90vh] overflow-y-auto">
+            <h3 className="text-lg font-bold text-gray-900 mb-4">
+              {editingItem ? 'Edit Inventory Item' : 'Add New Inventory Item'}
+            </h3>
+            
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Item Name</label>
+                  <input
+                    type="text"
+                    name="name"
+                    value={formData.name}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">SKU</label>
+                  <input
+                    type="text"
+                    name="sku"
+                    value={formData.sku}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    required
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+                  <input
+                    type="text"
+                    name="category"
+                    value={formData.category}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., Medical Supplies, Equipment"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Supplier</label>
+                  <input
+                    type="text"
+                    name="supplier"
+                    value={formData.supplier}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Current Stock</label>
+                  <input
+                    type="number"
+                    name="current_stock"
+                    value={formData.current_stock}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    min="0"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Minimum Level</label>
+                  <input
+                    type="number"
+                    name="min_stock_level"
+                    value={formData.min_stock_level}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    min="0"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Unit Cost ($)</label>
+                  <input
+                    type="number"
+                    name="unit_cost"
+                    value={formData.unit_cost}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    min="0"
+                    step="0.01"
+                  />
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Expiry Date</label>
+                  <input
+                    type="date"
+                    name="expiry_date"
+                    value={formData.expiry_date}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Storage Location</label>
+                  <input
+                    type="text"
+                    name="location"
+                    value={formData.location}
+                    onChange={handleInputChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., Storage Room A, Shelf 3"
+                  />
+                </div>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  rows="3"
+                  placeholder="Additional notes about this item..."
+                />
+              </div>
+              
+              <div className="flex justify-end space-x-3">
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="px-4 py-2 text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {loading ? 'Saving...' : (editingItem ? 'Update Item' : 'Add Item')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const FinanceModule = () => (
   <div className="text-center py-12 text-white">
