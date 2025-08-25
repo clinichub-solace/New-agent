@@ -48,8 +48,8 @@ def read_secret(secret_name: str, fallback_env: str = None) -> str:
 
 # Enhanced MongoDB connection with deployment environment detection
 def get_mongo_url():
-    """Get MongoDB URL with Atlas connection for production deployment"""
-    # PRODUCTION: Always use MongoDB Atlas for deployment stability
+    """Get MongoDB URL - Use Atlas for production deployment"""
+    # PRODUCTION: Always use MongoDB Atlas 
     atlas_url = 'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&appName=Cluster0'
     
     print(f"🔧 Using MongoDB Atlas for production deployment")
