@@ -508,12 +508,12 @@ async def all_exception_handler(request, exc: Exception):
 # Include additive routers
 # from .routers import receipts, time_tracking  # Disabled for clean deployment
 # from .payroll_enhancements import payroll_router, ensure_indexes  # Disabled for clean deployment
-from .routes import payroll_config, payroll_bank, payroll_ach_config, payroll_exports, audit, notifications, forms
+# ALL ROUTERS DISABLED FOR CLEAN DEPLOYMENT
+# from .routes import payroll_config, payroll_bank, payroll_ach_config, payroll_exports, audit, notifications, forms
 # app.include_router(receipts.router)  # Disabled for clean deployment
 # app.include_router(time_tracking.router)  # Disabled for clean deployment
 
-# Clean authentication only for deployment
-print("🔧 [SERVER] Loading clean authentication-only configuration for deployment")
+print("🔧 [SERVER] MINIMAL CLEAN DEPLOYMENT - Authentication only")
 
 # Startup: ensure indexes for payroll, audit, notifications, and forms
 @app.on_event("startup")
@@ -538,18 +538,18 @@ async def on_startup():
         print(f"[startup] index creation failed: {e}")
 
 # app.include_router(payroll_router)  # Disabled for clean deployment
-app.include_router(payroll_config.router)
-app.include_router(payroll_bank.router)
-app.include_router(payroll_ach_config.router)
-app.include_router(payroll_exports.router)
-app.include_router(audit.router)
-app.include_router(notifications.router)
-app.include_router(forms.router)
+# app.include_router(payroll_config.router)  # Disabled for clean deployment
+# app.include_router(payroll_bank.router)  # Disabled for clean deployment
+# app.include_router(payroll_ach_config.router)  # Disabled for clean deployment
+# app.include_router(payroll_exports.router)  # Disabled for clean deployment
+# app.include_router(audit.router)  # Disabled for clean deployment
+# app.include_router(notifications.router)  # Disabled for clean deployment
+# app.include_router(forms.router)  # Disabled for clean deployment
 
 # Gate the test-only seeder by ENV
 if os.getenv("ENV", "TEST") in {"TEST", "DEV", "DEVELOPMENT"}:
     from .routes import payroll_test_helpers
-    app.include_router(payroll_test_helpers.router)
+    # app.include_router(payroll_test_helpers.router)  # Disabled for clean deployment
 
 
 # Add root route for health verification
