@@ -1736,25 +1736,34 @@ const QualityMeasuresModule = ({ setActiveModule }) => {
     <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold text-white">📈 Quality Measures</h2>
+        <div>
+          <h2 className="text-3xl font-bold text-white flex items-center space-x-3">
+            <span>📈</span>
+            <span>AI Quality Measures</span>
+            <span className="px-3 py-1 bg-gradient-to-r from-green-600 to-blue-600 text-white text-sm rounded-full">
+              Real-Time Analytics
+            </span>
+          </h2>
+          <p className="text-blue-200 mt-2">Clinical Excellence Tracking • Automated Quality Reporting • CMS Compliance</p>
+        </div>
         <div className="flex space-x-2">
           <button
             onClick={() => setShowMeasureForm(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
+            className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg shadow-xl transition-all transform hover:scale-105"
           >
-            📈 New Measure
+            ✨ New Measure
           </button>
           <button
             onClick={() => fetchMeasures()}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+            className="bg-gradient-to-r from-green-600 to-teal-600 hover:from-green-700 hover:to-teal-700 text-white px-6 py-3 rounded-lg shadow-xl transition-all transform hover:scale-105"
           >
             🔄 Refresh
           </button>
           <button
             onClick={() => setActiveModule('dashboard')}
-            className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg"
+            className="bg-gradient-to-r from-gray-600 to-slate-600 hover:from-gray-700 hover:to-slate-700 text-white px-6 py-3 rounded-lg shadow-xl transition-all transform hover:scale-105"
           >
-            Back to Dashboard
+            ← Dashboard
           </button>
         </div>
       </div>
