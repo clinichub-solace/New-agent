@@ -534,7 +534,7 @@ async def on_startup():
     except Exception as e:
         print(f"[startup] index creation failed: {e}")
 
-app.include_router(payroll_router)
+# app.include_router(payroll_router)  # Disabled for clean deployment
 app.include_router(payroll_config.router)
 app.include_router(payroll_bank.router)
 app.include_router(payroll_ach_config.router)
