@@ -512,6 +512,9 @@ from .routes import payroll_config, payroll_bank, payroll_ach_config, payroll_ex
 # app.include_router(receipts.router)  # Disabled for clean deployment
 # app.include_router(time_tracking.router)  # Disabled for clean deployment
 
+# Clean authentication only for deployment
+print("🔧 [SERVER] Loading clean authentication-only configuration for deployment")
+
 # Startup: ensure indexes for payroll, audit, notifications, and forms
 @app.on_event("startup")
 async def on_startup():
