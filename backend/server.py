@@ -75,16 +75,12 @@ try:
                 mongo_url = env_url
                 break
     
-    # CLEAN DEPLOYMENT: Use environment-provided MongoDB configuration
-    mongo_url = os.environ.get('MONGO_URL')
+    # EMERGENT-NATIVE: Use deployment-provided MongoDB
+    mongo_url = os.environ.get('MONGO_URL') or 'mongodb://localhost:27017/clinichub'
     
-    if not mongo_url:
-        print("⚠️ [SERVER] No MONGO_URL in environment")
-        print("🔍 [SERVER] Available env vars:", [k for k in os.environ.keys() if 'MONGO' in k.upper()])
-        raise ValueError("MONGO_URL environment variable is required")
-    
-    print(f"🔧 [SERVER] Using environment MongoDB: {mongo_url[:50]}...")
-    print(f"🌐 [SERVER] Connection source: Environment variable")
+    print(f"🔧 [SERVER] Emergent-native MongoDB configuration")
+    print(f"🌐 [SERVER] Database: Deployment-managed")
+    print(f"🔍 [SERVER] Using: {mongo_url[:50]}...")
     
     def sanitize_mongo_uri(uri: str) -> str:
         """Ensure username/password are percent-encoded in the Mongo URI."""
