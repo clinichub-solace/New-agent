@@ -74,21 +74,11 @@ try:
                 mongo_url = env_url
                 break
     
-    # PRODUCTION: Use MongoDB Atlas standard format for deployment reliability
-    # Multiple connection formats for maximum compatibility
-    connection_attempts = [
-        # Standard format (most reliable in Docker)
-        'mongodb://vizantana:U9TeV2xRMtkW7Pqg@cluster0-shard-00-00.oniyqht.mongodb.net:27017,cluster0-shard-00-01.oniyqht.mongodb.net:27017,cluster0-shard-00-02.oniyqht.mongodb.net:27017/clinichub?ssl=true&replicaSet=atlas-default-shard-0&authSource=admin&retryWrites=true&w=majority',
-        # SRV format (fallback)
-        'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&authSource=admin',
-        # Single node format (last resort)
-        'mongodb://vizantana:U9TeV2xRMtkW7Pqg@cluster0-shard-00-00.oniyqht.mongodb.net:27017/clinichub?ssl=true&authSource=admin'
-    ]
+    # CLEAN DEPLOYMENT: Use environment-provided MongoDB configuration
+    mongo_url = read_secret('mongo_connection_string', 'MONGO_URL')
     
-    atlas_url = connection_attempts[0]  # Use standard format first
-    print(f"🔧 [SERVER] Using MongoDB Atlas standard format for reliable deployment")
-    print(f"🌐 [SERVER] Atlas cluster: cluster0.oniyqht.mongodb.net (standard format)")
-    mongo_url = atlas_url
+    print(f"🔧 [SERVER] Using environment-provided MongoDB configuration")
+    print(f"🌐 [SERVER] Connection source: Environment variables")
     
     def sanitize_mongo_uri(uri: str) -> str:
         """Ensure username/password are percent-encoded in the Mongo URI."""
