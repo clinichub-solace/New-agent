@@ -75,11 +75,20 @@ try:
                 mongo_url = env_url
                 break
     
-    # EMERGENT: Use environment variable for MongoDB  
-    mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017/clinichub')
+    # ABSOLUTE DEPLOYMENT OVERRIDE - Block external MongoDB injection
+    deployment_mongo_url = os.environ.get('MONGO_URL', '')
     
-    print(f"🔧 [SERVER] Using environment MongoDB configuration")
-    print(f"🌐 [SERVER] URL: {mongo_url[:50]}...")
+    # CRITICAL: Block any external MongoDB URLs injected by deployment
+    if deployment_mongo_url and ('customer-apps' in deployment_mongo_url or 'mongodb.net' in deployment_mongo_url or 'swlgfd' in deployment_mongo_url):
+        print(f"🚨 [SERVER] BLOCKING external MongoDB injection: {deployment_mongo_url[:50]}...")
+        print(f"🔒 [SERVER] FORCING localhost for deployment stability")
+        mongo_url = 'mongodb://localhost:27017/clinichub'
+    else:
+        # Use localhost as default for clean deployment
+        mongo_url = 'mongodb://localhost:27017/clinichub'
+    
+    print(f"🔧 [SERVER] Final MongoDB URL: {mongo_url[:50]}...")
+    print(f"🌐 [SERVER] Connection: Local deployment database")
     
     def sanitize_mongo_uri(uri: str) -> str:
         """Ensure username/password are percent-encoded in the Mongo URI."""
