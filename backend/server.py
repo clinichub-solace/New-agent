@@ -81,23 +81,11 @@ try:
                 mongo_url = env_url
                 break
     
-    # BULLETPROOF: Handle external URLs and missing services
-    if not mongo_url or mongo_url == "" or "mongodb.net" in mongo_url or "atlas" in mongo_url.lower() or "customer-apps" in mongo_url:
-        print(f"🔒 [SERVER] Detected external/invalid MongoDB URL")
-        print(f"🔍 [SERVER] Original URL was: {mongo_url if mongo_url else 'None'}")
-        
-        # Try deployment-appropriate MongoDB configurations
-        possible_urls = [
-            "mongodb://mongodb:27017/clinichub",    # Docker service name (most common)
-            "mongodb://db:27017/clinichub",         # Alternative service name  
-            "mongodb://localhost:27017/clinichub",  # Localhost fallback
-            "mongodb://127.0.0.1:27017/clinichub"   # IP fallback
-        ]
-        
-        mongo_url = possible_urls[0]  # Prefer Docker service name
-        print(f"🔧 [SERVER] Using fallback MongoDB URL: {mongo_url}")
-    else:
-        print(f"🔧 [SERVER] Using MongoDB URL: {mongo_url}")
+    # PRODUCTION: Use MongoDB Atlas for deployment  
+    atlas_url = 'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&appName=Cluster0'
+    print(f"🔧 [SERVER] Using MongoDB Atlas for production deployment")
+    print(f"🌐 [SERVER] Atlas cluster: cluster0.oniyqht.mongodb.net")
+    mongo_url = atlas_url
     
     def sanitize_mongo_uri(uri: str) -> str:
         """Ensure username/password are percent-encoded in the Mongo URI."""
