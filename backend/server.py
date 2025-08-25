@@ -463,18 +463,14 @@ def audit_phi_access(resource_type: str, event_type: str = "read"):
 # Create the main app without a prefix
 app = FastAPI(title="ClinicHub API", description="AI-Powered Practice Management System")
 
-# DEPLOYMENT DEBUG: Print environment status
+# Debug: Show environment configuration
 print(f"🔍 DEPLOYMENT DEBUG:")
-print(f"   MONGO_URL = {os.environ.get('MONGO_URL', 'NOT SET')}")
+print(f"   MONGO_URL = {os.environ.get('MONGO_URL', 'NOT SET')[:50]}...")
 print(f"   DB_NAME = {os.environ.get('DB_NAME', 'NOT SET')}")
 print(f"   Working Directory = {os.getcwd()}")
 
-# Ensure MongoDB Atlas standard format connection is maintained
-atlas_url = 'mongodb://vizantana:U9TeV2xRMtkW7Pqg@cluster0-shard-00-00.oniyqht.mongodb.net:27017,cluster0-shard-00-01.oniyqht.mongodb.net:27017,cluster0-shard-00-02.oniyqht.mongodb.net:27017/clinichub?ssl=true&replicaSet=atlas-default-shard-0&authSource=admin&retryWrites=true&w=majority'
-current_mongo_url = os.environ.get('MONGO_URL', '')
-if atlas_url not in current_mongo_url:
-    print("🚨 ENFORCING MONGODB ATLAS STANDARD FORMAT FOR PRODUCTION")
-    os.environ['MONGO_URL'] = atlas_url
+# Clean deployment - let environment variables control everything
+print("🔧 Using environment-provided MongoDB configuration for deployment")
 
 # Register error handlers
 from fastapi import HTTPException
