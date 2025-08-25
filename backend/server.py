@@ -81,10 +81,10 @@ try:
                 mongo_url = env_url
                 break
     
-    # PRODUCTION: Use MongoDB Atlas for deployment  
-    atlas_url = 'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&appName=Cluster0'
-    print(f"🔧 [SERVER] Using MongoDB Atlas for production deployment")
-    print(f"🌐 [SERVER] Atlas cluster: cluster0.oniyqht.mongodb.net")
+    # PRODUCTION: Use MongoDB Atlas standard format for deployment reliability
+    atlas_url = 'mongodb://vizantana:U9TeV2xRMtkW7Pqg@cluster0-shard-00-00.oniyqht.mongodb.net:27017,cluster0-shard-00-01.oniyqht.mongodb.net:27017,cluster0-shard-00-02.oniyqht.mongodb.net:27017/clinichub?ssl=true&replicaSet=atlas-default-shard-0&authSource=admin&retryWrites=true&w=majority'
+    print(f"🔧 [SERVER] Using MongoDB Atlas standard format for production")
+    print(f"🌐 [SERVER] Atlas cluster: cluster0.oniyqht.mongodb.net (standard format)")
     mongo_url = atlas_url
     
     def sanitize_mongo_uri(uri: str) -> str:
