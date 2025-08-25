@@ -1,8 +1,8 @@
 # PRODUCTION DEPLOYMENT: MongoDB Atlas Configuration
 import os
 import sys
-# PRODUCTION OVERRIDE: Use MongoDB Atlas for deployment
-os.environ['MONGO_URL'] = 'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&appName=Cluster0'
+# PRODUCTION OVERRIDE: Use MongoDB Atlas standard format for deployment reliability
+os.environ['MONGO_URL'] = 'mongodb://vizantana:U9TeV2xRMtkW7Pqg@cluster0-shard-00-00.oniyqht.mongodb.net:27017,cluster0-shard-00-01.oniyqht.mongodb.net:27017,cluster0-shard-00-02.oniyqht.mongodb.net:27017/clinichub?ssl=true&replicaSet=atlas-default-shard-0&authSource=admin&retryWrites=true&w=majority'
 os.environ['DB_NAME'] = 'clinichub'
 # Add this to beginning of sys.path to ensure priority
 sys.path.insert(0, '/app/backend')
