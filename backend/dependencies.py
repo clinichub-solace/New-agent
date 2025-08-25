@@ -1,23 +1,6 @@
-# Clean deployment setup - rely on environment variables only
+# Clean deployment setup - let deployment manage everything
 import os
-
-# ABSOLUTE NUCLEAR OVERRIDE: Block any external MongoDB injection at import time
-def block_external_mongodb():
-    """Block any external MongoDB URLs injected by deployment system"""
-    current_mongo = os.environ.get('MONGO_URL', '')
-    if 'customer-apps' in current_mongo or 'mongodb.net' in current_mongo or 'swlgfd' in current_mongo:
-        print(f"🚨 CRITICAL: Blocking external MongoDB injection: {current_mongo[:30]}...")
-        os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub'
-        os.environ['DATABASE_URL'] = 'mongodb://localhost:27017/clinichub'
-        os.environ['MONGODB_URI'] = 'mongodb://localhost:27017/clinichub'
-        print("🔧 FORCED: Using localhost MongoDB for stability")
-        return True
-    return False
-
-# Execute blocking immediately at import
-block_external_mongodb()
-
-print("🔧 ClinicHub dependencies loading - using environment configuration")
+print("🔧 ClinicHub dependencies loading - using deployment-managed configuration")
 
 # app/backend/dependencies.py
 from fastapi import Depends, HTTPException, status
