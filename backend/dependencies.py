@@ -37,17 +37,11 @@ def read_secret(secret_name: str, fallback_env: str = None) -> str:
     
     return ''
 
-# MongoDB connection - Emergent-native approach
+# MongoDB connection - Emergent defaults only
 def get_mongo_url():
-    """Get MongoDB URL - Emergent deployment native"""
-    # Let Emergent deployment manage MongoDB completely
-    # Use whatever the deployment environment provides
-    mongo_url = os.environ.get('MONGO_URL') or 'mongodb://localhost:27017/clinichub'
-    
-    print(f"🔧 Emergent-native MongoDB configuration")
-    print(f"🌐 Database: Deployment-managed")
-    
-    return mongo_url
+    """Get MongoDB URL - Use Emergent defaults"""
+    # Simple default approach - whatever Emergent provides
+    return 'mongodb://localhost:27017/clinichub'
 
 # Database connection - FORCE local MongoDB for deployment stability
 mongo_url = get_mongo_url()
