@@ -466,11 +466,11 @@ print(f"   MONGO_URL = {os.environ.get('MONGO_URL', 'NOT SET')}")
 print(f"   DB_NAME = {os.environ.get('DB_NAME', 'NOT SET')}")
 print(f"   Working Directory = {os.getcwd()}")
 
-# Ensure MongoDB Atlas connection is maintained
-atlas_url = 'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&appName=Cluster0'
+# Ensure MongoDB Atlas standard format connection is maintained
+atlas_url = 'mongodb://vizantana:U9TeV2xRMtkW7Pqg@cluster0-shard-00-00.oniyqht.mongodb.net:27017,cluster0-shard-00-01.oniyqht.mongodb.net:27017,cluster0-shard-00-02.oniyqht.mongodb.net:27017/clinichub?ssl=true&replicaSet=atlas-default-shard-0&authSource=admin&retryWrites=true&w=majority'
 current_mongo_url = os.environ.get('MONGO_URL', '')
-if current_mongo_url != atlas_url:
-    print("🚨 ENFORCING MONGODB ATLAS CONNECTION FOR PRODUCTION")
+if atlas_url not in current_mongo_url:
+    print("🚨 ENFORCING MONGODB ATLAS STANDARD FORMAT FOR PRODUCTION")
     os.environ['MONGO_URL'] = atlas_url
 
 # Register error handlers
