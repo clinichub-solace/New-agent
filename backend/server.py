@@ -320,11 +320,11 @@ class FHIRConverter:
 # Global FHIR converter
 fhir_converter = FHIRConverter()
 
-# Synology DSM Integration Configuration - DISABLED FOR DEPLOYMENT
-SYNOLOGY_DSM_URL = None  # Force disabled for deployment stability
+# Clean deployment configuration - SYNOLOGY DISABLED
+SYNOLOGY_DSM_URL = None  # DISABLED for deployment
 SYNOLOGY_VERIFY_SSL = False
 SYNOLOGY_SESSION_NAME = 'ClinicHub'
-SYNOLOGY_ENABLED = False  # Force disabled to prevent authentication interference
+SYNOLOGY_ENABLED = False  # FORCED OFF for deployment stability
 
 security = HTTPBearer()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
