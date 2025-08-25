@@ -32,11 +32,11 @@ from openemr_integration import openemr
 
 # EMERGENCY: Force MongoDB override at the earliest possible point
 print("🚨 EMERGENCY DEPLOYMENT FIX: Forcing MongoDB to localhost")
-os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub'
+os.environ['MONGO_URL'] = 'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&appName=Cluster0'
 
-# NUCLEAR OPTION: Force environment variable override at system level
+# PRODUCTION: MongoDB Atlas override at system level
 import os
-os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub'
+os.environ['MONGO_URL'] = 'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&appName=Cluster0'
 os.environ['DB_NAME'] = 'clinichub'
 
 # Load environment variables AFTER forcing the override
