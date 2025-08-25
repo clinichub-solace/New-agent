@@ -17,12 +17,14 @@ const LoginPage = () => {
   // Check Synology integration status on component mount
   useEffect(() => {
     const checkSynologyStatus = async () => {
-      try {
-        const response = await axios.get(`${API}/auth/synology-status`);
-        setSynologyStatus(response.data);
-      } catch (error) {
-        console.error('Error checking Synology status:', error);
-      }
+      // DISABLED: Synology integration disabled for deployment stability
+      // try {
+      //   const response = await axios.get(`${API}/auth/synology-status`);
+      //   setSynologyStatus(response.data);
+      // } catch (error) {
+      //   console.error('Error checking Synology status:', error);
+      // }
+      setSynologyStatus({ enabled: false, configured: false });
     };
     
     checkSynologyStatus();
