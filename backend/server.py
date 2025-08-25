@@ -546,10 +546,12 @@ async def on_startup():
 # app.include_router(notifications.router)  # Disabled for clean deployment
 # app.include_router(forms.router)  # Disabled for clean deployment
 
-# Gate the test-only seeder by ENV
-if os.getenv("ENV", "TEST") in {"TEST", "DEV", "DEVELOPMENT"}:
-    from .routes import payroll_test_helpers
-    # app.include_router(payroll_test_helpers.router)  # Disabled for clean deployment
+# Gate the test-only seeder by ENV - DISABLED FOR DEPLOYMENT
+# if os.getenv("ENV", "TEST") in {"TEST", "DEV", "DEVELOPMENT"}:
+#     from .routes import payroll_test_helpers
+#     app.include_router(payroll_test_helpers.router)
+
+print("🔧 [SERVER] All external imports completely disabled")
 
 
 # Add root route for health verification
