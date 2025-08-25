@@ -1,8 +1,8 @@
-# EMERGENCY DEPLOYMENT FIX: Force MongoDB at module import level
+# PRODUCTION DEPLOYMENT: MongoDB Atlas Configuration
 import os
 import sys
-# ABSOLUTE OVERRIDE - Cannot be bypassed by any external configuration
-os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub'
+# PRODUCTION OVERRIDE: Use MongoDB Atlas for deployment
+os.environ['MONGO_URL'] = 'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&appName=Cluster0'
 os.environ['DB_NAME'] = 'clinichub'
 # Add this to beginning of sys.path to ensure priority
 sys.path.insert(0, '/app/backend')
