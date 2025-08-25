@@ -506,8 +506,8 @@ async def all_exception_handler(request, exc: Exception):
     return await generic_exception_handler(request, exc)
 
 # Include additive routers
-from .routers import receipts, time_tracking
-from .payroll_enhancements import payroll_router, ensure_indexes
+# from .routers import receipts, time_tracking  # Disabled for clean deployment
+# from .payroll_enhancements import payroll_router, ensure_indexes  # Disabled for clean deployment
 from .routes import payroll_config, payroll_bank, payroll_ach_config, payroll_exports, audit, notifications, forms
 # app.include_router(receipts.router)  # Disabled for clean deployment
 # app.include_router(time_tracking.router)  # Disabled for clean deployment
