@@ -3358,19 +3358,20 @@ async def get_or_create_synology_user(synology_data: Dict) -> User:
         return new_user
 
 async def authenticate_user(username: str, password: str):
-    """Authenticate user with both local and Synology authentication support"""
+    """Authenticate user - LOCAL ONLY for deployment"""
     
-    # First, try Synology authentication if enabled
-    if SYNOLOGY_ENABLED:
-        try:
-            synology_data = await synology_auth.authenticate_with_synology(username, password)
-            if synology_data:
-                # Get or create user from Synology data
-                user = await get_or_create_synology_user(synology_data)
-                return user
-        except Exception as e:
-            logging.error(f"Synology authentication failed for {username}: {str(e)}")
-            # Continue to local authentication as fallback
+    # DEPLOYMENT: Skip ALL Synology authentication for deployment stability
+    # if SYNOLOGY_ENABLED:
+    #     try:
+    #         synology_data = await synology_auth.authenticate_with_synology(username, password)
+    #         if synology_data:
+    #             # Get or create user from Synology data
+    #             user = await get_or_create_synology_user(synology_data)
+    #             return user
+    #     except Exception as e:
+    #         logging.error(f"Synology authentication failed: {str(e)}")
+    
+    print(f"🔧 [AUTH] Using LOCAL authentication only for deployment")
     
     # Fallback to local authentication
     user = await db.users.find_one({"username": username})
