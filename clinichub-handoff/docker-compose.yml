@@ -1,0 +1,79 @@
+# ClinicHub Docker Compose - Production Ready
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:6.0
+    container_name: clinichub-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: ClinicHubSecure2025
+      MONGO_INITDB_DATABASE: clinichub
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./database/init_mongodb.js:/docker-entrypoint-initdb.d/init.js:ro
+    networks:
+      - clinichub-network
+
+  backend:
+    build: ./backend
+    container_name: clinichub-backend
+    restart: unless-stopped
+    environment:
+      MONGO_URL: mongodb://root:ClinicHubSecure2025@mongodb:27017/clinichub?authSource=admin
+      DB_NAME: clinichub
+      ENV: PRODUCTION
+      DEBUG: "false"
+      HOST: 0.0.0.0
+      PORT: 8001
+      SECRET_KEY: clinichub-production-secret-key-2025
+      JWT_SECRET_KEY: clinichub-jwt-secret-key-2025
+      FRONTEND_ORIGIN: http://localhost:3000
+    ports:
+      - "8001:8001"
+    depends_on:
+      - mongodb
+    volumes:
+      - ./backend:/app
+    networks:
+      - clinichub-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  frontend:
+    build: ./frontend
+    container_name: clinichub-frontend
+    restart: unless-stopped
+    environment:
+      REACT_APP_BACKEND_URL: /api
+      REACT_APP_APP_NAME: ClinicHub
+      REACT_APP_VERSION: 2.0.0
+      GENERATE_SOURCEMAP: "false"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - clinichub-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mongodb_data:
+    driver: local
+
+networks:
+  clinichub-network:
+    driver: bridge
