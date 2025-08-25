@@ -11164,14 +11164,16 @@ const Dashboard = () => {
     fetchSynologyStatus();
   }, []);
 
-  // ✅ URL VETTING: Uses configured 'api' instance with proper /api routing
+  // ✅ URL VETTING: Uses configured 'api' instance with proper /api routing  
   const fetchSynologyStatus = async () => {
-    try {
-      const response = await api.get('/auth/synology-status');
-      setSynologyStatus(response.data);
-    } catch (error) {
-      console.error('Failed to fetch Synology status:', error);
-    }
+    // DISABLED: Synology integration disabled for deployment stability
+    // try {
+    //   const response = await api.get('/auth/synology-status');
+    //   setSynologyStatus(response.data);
+    // } catch (error) {
+    //   console.error('Failed to fetch Synology status:', error);
+    // }
+    setSynologyStatus({ enabled: false, configured: false });
   };
 
   // Enhanced Module Rendering System - All 16 Modules
