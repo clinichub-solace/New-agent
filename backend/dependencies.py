@@ -40,14 +40,15 @@ def read_secret(secret_name: str, fallback_env: str = None) -> str:
 # MongoDB connection - use environment configuration
 def get_mongo_url():
     """Get MongoDB URL from environment variables for deployment"""
-    mongo_url = read_secret('mongo_connection_string', 'MONGO_URL')
+    # Direct environment variable access for deployment
+    mongo_url = os.environ.get('MONGO_URL')
     
     if not mongo_url:
-        print("⚠️ No MongoDB URL found in environment variables")
+        print("⚠️ No MONGO_URL found in environment variables")
+        print("🔍 Available env vars:", [k for k in os.environ.keys() if 'MONGO' in k.upper()])
         return None
     
-    print(f"🔧 Using MongoDB from environment configuration")
-    print(f"🌐 Database connection: Environment-provided")
+    print(f"🔧 Using MongoDB from environment: {mongo_url[:50]}...")
     
     return mongo_url
 
