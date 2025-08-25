@@ -41,16 +41,19 @@ def read_secret(secret_name: str, fallback_env: str = None) -> str:
     
     return ''
 
-# Enhanced MongoDB connection with deployment environment detection
+# MongoDB connection - use environment configuration
 def get_mongo_url():
-    """Get MongoDB URL - Use Atlas with connection optimization for deployment"""
-    # PRODUCTION: MongoDB Atlas with optimized connection settings for deployment
-    atlas_url = 'mongodb://vizantana:U9TeV2xRMtkW7Pqg@cluster0-shard-00-00.oniyqht.mongodb.net:27017,cluster0-shard-00-01.oniyqht.mongodb.net:27017,cluster0-shard-00-02.oniyqht.mongodb.net:27017/clinichub?ssl=true&replicaSet=atlas-default-shard-0&authSource=admin&retryWrites=true&w=majority&connectTimeoutMS=5000&serverSelectionTimeoutMS=5000&heartbeatFrequencyMS=10000'
+    """Get MongoDB URL from environment variables for deployment"""
+    mongo_url = read_secret('mongo_connection_string', 'MONGO_URL')
     
-    print(f"🔧 Using MongoDB Atlas with deployment-optimized timeouts")
-    print(f"🌐 Atlas cluster: cluster0.oniyqht.mongodb.net (optimized)")
+    if not mongo_url:
+        print("⚠️ No MongoDB URL found in environment variables")
+        return None
     
-    return atlas_url
+    print(f"🔧 Using MongoDB from environment configuration")
+    print(f"🌐 Database connection: Environment-provided")
+    
+    return mongo_url
 
 # Database connection - FORCE local MongoDB for deployment stability
 mongo_url = get_mongo_url()
