@@ -37,10 +37,19 @@ def read_secret(secret_name: str, fallback_env: str = None) -> str:
     
     return ''
 
-# MongoDB connection - use environment variables only
+# MongoDB connection - ABSOLUTE DEPLOYMENT PROTECTION
 def get_mongo_url():
-    """Get MongoDB URL - from environment variables"""
-    return os.environ.get('MONGO_URL', 'mongodb://localhost:27017/clinichub')
+    """Get MongoDB URL - Block external injection, force localhost"""
+    # CRITICAL: Check for deployment-injected external MongoDB
+    deployment_mongo_url = os.environ.get('MONGO_URL', '')
+    
+    if deployment_mongo_url and ('customer-apps' in deployment_mongo_url or 'mongodb.net' in deployment_mongo_url or 'swlgfd' in deployment_mongo_url):
+        print(f"🚨 [DEPS] BLOCKING external MongoDB injection: {deployment_mongo_url[:50]}...")
+        print(f"🔒 [DEPS] FORCING localhost for deployment stability")
+        return 'mongodb://localhost:27017/clinichub'
+    else:
+        print(f"🔧 [DEPS] Using localhost MongoDB for deployment")
+        return 'mongodb://localhost:27017/clinichub'
 
 # Database connection - FORCE local MongoDB for deployment stability
 mongo_url = get_mongo_url()
