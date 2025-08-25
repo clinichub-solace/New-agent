@@ -28,9 +28,10 @@ import ssl
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from openemr_integration import openemr
 
-# MongoDB Atlas configuration for deployment
-print("🔧 DEPLOYMENT: Using MongoDB Atlas from environment")
-os.environ['MONGO_URL'] = 'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&appName=Cluster0'
+# Clean deployment configuration - use deployment-provided MongoDB
+print("🔧 DEPLOYMENT: Using deployment-provided MongoDB service")
+# Let deployment environment provide MongoDB - don't override
+# os.environ['MONGO_URL'] = ... # Removed - let deployment manage this
 
 # Load environment variables - clean deployment
 ROOT_DIR = Path(__file__).parent
