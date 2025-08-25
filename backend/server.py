@@ -518,7 +518,7 @@ async def on_startup():
     try:
         # We have a global db via dependencies; import here to avoid cycles
         from .dependencies import db as _db
-        await ensure_indexes(_db)
+        # await ensure_indexes(_db)  # Disabled for clean deployment
         
         # Ensure audit indexes
         from .utils.audit import ensure_audit_indexes
