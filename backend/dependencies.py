@@ -1,7 +1,13 @@
 # Clean deployment setup - let deployment manage everything
 import os
+from pathlib import Path
+from dotenv import load_dotenv
 
-# NUCLEAR OPTION: Check and override external MongoDB at import time
+# Load environment variables FIRST
+ROOT_DIR = Path(__file__).parent
+load_dotenv(ROOT_DIR / '.env')
+
+# NUCLEAR OPTION: Check and override external MongoDB AFTER dotenv loading
 if os.environ.get('MONGO_URL') and ('customer-apps' in os.environ.get('MONGO_URL', '') or 'swlgfd' in os.environ.get('MONGO_URL', '')):
     print(f"🚨 NUCLEAR: Deployment injected external MongoDB - overriding immediately")
     os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub'
@@ -15,13 +21,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from motor.motor_asyncio import AsyncIOMotorClient
 from urllib.parse import urlparse, quote
 import jwt
-from pathlib import Path
-from dotenv import load_dotenv
 
 # Clean deployment - use environment variables only
-# Load environment variables
-ROOT_DIR = Path(__file__).parent
-load_dotenv(ROOT_DIR / '.env')
 
 def read_secret(secret_name: str, fallback_env: str = None) -> str:
     """Read secret from file or environment - clean deployment"""
