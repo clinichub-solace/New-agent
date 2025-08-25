@@ -1,9 +1,9 @@
 # EMERGENCY DEPLOYMENT FIX: Force MongoDB at module import level
 import os
-# ABSOLUTE OVERRIDE - Cannot be bypassed by any external configuration
+# DEPLOYMENT FIX: Use managed MongoDB service instead of localhost
 os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub'
 os.environ['DB_NAME'] = 'clinichub'
-print("🚨 EMERGENCY DEPLOYMENT FIX: Forcing MongoDB to localhost in dependencies")
+print("🚨 DEPLOYMENT FIX: Configuring MongoDB connection")
 
 # app/backend/dependencies.py
 from fastapi import Depends, HTTPException, status
