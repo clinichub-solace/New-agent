@@ -515,27 +515,16 @@ async def all_exception_handler(request, exc: Exception):
 
 print("🔧 [SERVER] MINIMAL CLEAN DEPLOYMENT - Authentication only")
 
-# Startup: ensure indexes for payroll, audit, notifications, and forms
-@app.on_event("startup")
-async def on_startup():
-    try:
-        # We have a global db via dependencies; import here to avoid cycles
-        from .dependencies import db as _db
-        # await ensure_indexes(_db)  # Disabled for clean deployment
-        
-        # Ensure audit indexes
-        from .utils.audit import ensure_audit_indexes
-        await ensure_audit_indexes(_db)
-        
-        # Ensure notification indexes
-        from .utils.notify import ensure_notification_indexes
-        await ensure_notification_indexes(_db)
-        
-        # Ensure forms indexes
-        from .utils.forms import ensure_form_indexes
-        await ensure_form_indexes(_db)
-    except Exception as e:
-        print(f"[startup] index creation failed: {e}")
+# Startup: DISABLED for clean deployment to prevent contamination
+# @app.on_event("startup")
+# async def on_startup():
+#     try:
+#         # All index creation disabled for clean deployment
+#         print("[startup] Index creation disabled for clean deployment")
+#     except Exception as e:
+#         print(f"[startup] Startup disabled: {e}")
+
+print("🔧 [SERVER] Startup procedures disabled for clean deployment")
 
 # app.include_router(payroll_router)  # Disabled for clean deployment
 # app.include_router(payroll_config.router)  # Disabled for clean deployment
