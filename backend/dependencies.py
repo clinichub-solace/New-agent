@@ -46,25 +46,40 @@ def read_secret(secret_name: str, fallback_env: str = None) -> str:
 
 # Enhanced MongoDB connection with deployment environment detection
 def get_mongo_url():
-    """Get MongoDB URL with deployment environment detection"""
+    """Get MongoDB URL with deployment environment detection and fallback options"""
     mongo_url = read_secret('mongo_connection_string', 'MONGO_URL')
     
-    # BULLETPROOF: Check for external URLs and force local connection
+    # DEPLOYMENT ENVIRONMENT DETECTION
+    # Check if we're in a deployment environment that provides managed MongoDB
+    deployment_mongo_patterns = [
+        "MONGO_URL", "DATABASE_URL", "MONGODB_URI", "DB_CONNECTION_STRING"
+    ]
+    
+    # First, try to detect if deployment provides MongoDB service
+    for pattern in deployment_mongo_patterns:
+        env_url = os.environ.get(pattern)
+        if env_url and env_url != "" and "localhost" not in env_url and "127.0.0.1" not in env_url:
+            # Deployment environment provided MongoDB - use it
+            if "mongodb.net" not in env_url and "atlas" not in env_url.lower():
+                print(f"🔧 Using deployment-provided MongoDB: {env_url}")
+                return env_url
+    
+    # BULLETPROOF: Check for external URLs and handle appropriately  
     if not mongo_url or mongo_url == "" or "mongodb.net" in mongo_url or "atlas" in mongo_url.lower() or "customer-apps" in mongo_url:
-        print(f"🔒 FORCING local MongoDB connection for deployment stability")
+        print(f"🔒 Detected external/invalid MongoDB URL")
         print(f"🔍 Original URL was: {mongo_url if mongo_url else 'None'}")
         
-        # Try different local MongoDB configurations for deployment
+        # Try different local/deployment MongoDB configurations
         possible_urls = [
-            "mongodb://localhost:27017/clinichub",
-            "mongodb://127.0.0.1:27017/clinichub", 
-            "mongodb://mongodb:27017/clinichub",  # Docker service name
-            "mongodb://db:27017/clinichub"        # Alternative service name
+            "mongodb://mongodb:27017/clinichub",    # Docker service name (most common in deployments)
+            "mongodb://db:27017/clinichub",         # Alternative Docker service name
+            "mongodb://localhost:27017/clinichub",  # Localhost fallback
+            "mongodb://127.0.0.1:27017/clinichub"   # IP fallback
         ]
         
-        # Use the first one (localhost) as default
+        # Use the first one (Docker service name) for deployment
         mongo_url = possible_urls[0]
-        print(f"🔧 Using MongoDB URL: {mongo_url}")
+        print(f"🔧 Using fallback MongoDB URL: {mongo_url}")
     else:
         print(f"🔧 Using configured MongoDB URL: {mongo_url}")
     
