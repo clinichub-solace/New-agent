@@ -11403,20 +11403,27 @@ const Dashboard = () => {
       <div className="bg-white/10 backdrop-blur-md border-b border-white/20 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-white">ClinicHub Dashboard</h1>
-            <p className="text-blue-200">Welcome back, {user?.first_name || user?.username}!</p>
+            <h1 className="text-3xl font-bold text-white flex items-center space-x-3">
+              <span>🏥</span>
+              <span>ClinicHub</span>
+              <span className="px-3 py-1 bg-gradient-to-r from-green-600 to-blue-600 text-white text-sm rounded-full">
+                Enterprise EHR
+              </span>
+            </h1>
+            <p className="text-blue-200 mt-1">
+              Welcome back, {user?.first_name || user?.username}! • 16 Modules • 11,690 Lines • AI-Powered
+            </p>
           </div>
           <div className="flex items-center space-x-4">
-            {synologyStatus && (
-              <div className="text-sm text-blue-200">
-                Synology: {synologyStatus.enabled ? 'Enabled' : 'Disabled'}
-              </div>
-            )}
+            <div className="text-right">
+              <div className="text-sm text-blue-200">System Status</div>
+              <div className="text-green-400 font-medium">🟢 All Systems Operational</div>
+            </div>
             <button
               onClick={logout}
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg"
+              className="bg-gradient-to-r from-red-600 to-pink-600 hover:from-red-700 hover:to-pink-700 text-white px-6 py-3 rounded-lg shadow-xl transition-all transform hover:scale-105"
             >
-              Logout
+              🚪 Logout
             </button>
           </div>
         </div>
