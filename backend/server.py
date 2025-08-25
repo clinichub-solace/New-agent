@@ -122,5 +122,9 @@ async def get_patients():
     except:
         return []
 
-# Include router
-app.include_router(api_router)
+@api_router.get("/auth/synology-status")
+async def synology_status():
+    return {"enabled": False, "configured": False}
+
+# Include router with /api prefix - CRITICAL FOR ROUTING
+app.include_router(api_router, prefix="/api")
