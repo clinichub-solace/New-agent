@@ -28,8 +28,8 @@ import ssl
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from openemr_integration import openemr
 
-# EMERGENCY: Force MongoDB override at the earliest possible point
-print("🚨 EMERGENCY DEPLOYMENT FIX: Forcing MongoDB to localhost")
+# MongoDB Atlas configuration for deployment
+print("🔧 DEPLOYMENT: Using MongoDB Atlas from environment")
 os.environ['MONGO_URL'] = 'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&appName=Cluster0'
 
 # Load environment variables - clean deployment
