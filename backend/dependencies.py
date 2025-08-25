@@ -48,12 +48,13 @@ def read_secret(secret_name: str, fallback_env: str = None) -> str:
 
 # Enhanced MongoDB connection with deployment environment detection
 def get_mongo_url():
-    """Get MongoDB URL - Use Atlas for production deployment"""
-    # PRODUCTION: Always use MongoDB Atlas 
-    atlas_url = 'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&appName=Cluster0'
+    """Get MongoDB URL - Use Atlas standard format for deployment reliability"""
+    # PRODUCTION: Use standard MongoDB Atlas format (not SRV) for deployment stability
+    # SRV records can fail in Docker containers - use standard connection format
+    atlas_url = 'mongodb://vizantana:U9TeV2xRMtkW7Pqg@cluster0-shard-00-00.oniyqht.mongodb.net:27017,cluster0-shard-00-01.oniyqht.mongodb.net:27017,cluster0-shard-00-02.oniyqht.mongodb.net:27017/clinichub?ssl=true&replicaSet=atlas-default-shard-0&authSource=admin&retryWrites=true&w=majority'
     
-    print(f"🔧 Using MongoDB Atlas for production deployment")
-    print(f"🌐 Atlas cluster: cluster0.oniyqht.mongodb.net")
+    print(f"🔧 Using MongoDB Atlas standard format for reliable deployment")
+    print(f"🌐 Atlas cluster: cluster0.oniyqht.mongodb.net (standard format)")
     
     return atlas_url
 
