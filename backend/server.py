@@ -78,11 +78,17 @@ async def authenticate_user(username: str, password: str):
     print(f"🔧 [AUTH] Authenticating user: {username}")
     try:
         user = await db.users.find_one({"username": username})
-        if user and pwd_context.verify(password, user["hashed_password"]):
-            print(f"✅ [AUTH] User authenticated successfully")
-            return user
+        if user:
+            # Handle both password_hash and hashed_password fields
+            password_field = user.get("password_hash") or user.get("hashed_password")
+            if password_field and pwd_context.verify(password, password_field):
+                print(f"✅ [AUTH] User authenticated successfully")
+                return user
+            else:
+                print(f"❌ [AUTH] Password verification failed")
+                return None
         else:
-            print(f"❌ [AUTH] Authentication failed")
+            print(f"❌ [AUTH] User not found")
             return None
     except Exception as e:
         print(f"❌ [AUTH] Database error: {e}")
