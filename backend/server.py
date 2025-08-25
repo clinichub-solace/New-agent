@@ -478,10 +478,12 @@ print(f"   MONGO_URL = {os.environ.get('MONGO_URL', 'NOT SET')}")
 print(f"   DB_NAME = {os.environ.get('DB_NAME', 'NOT SET')}")
 print(f"   Working Directory = {os.getcwd()}")
 
-# Ensure MongoDB is forced to localhost
-if 'mongodb.net' in os.environ.get('MONGO_URL', ''):
-    print("🚨 DETECTED EXTERNAL MONGODB - FORCING LOCALHOST OVERRIDE")
-    os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub'
+# Ensure MongoDB Atlas connection is maintained
+atlas_url = 'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&appName=Cluster0'
+current_mongo_url = os.environ.get('MONGO_URL', '')
+if current_mongo_url != atlas_url:
+    print("🚨 ENFORCING MONGODB ATLAS CONNECTION FOR PRODUCTION")
+    os.environ['MONGO_URL'] = atlas_url
 
 # Register error handlers
 from fastapi import HTTPException
