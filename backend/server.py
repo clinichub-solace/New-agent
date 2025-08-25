@@ -1,6 +1,13 @@
 # Clean deployment setup - let deployment manage everything
 import os
 import sys
+
+# NUCLEAR OPTION: Check and override external MongoDB at the earliest possible point
+if os.environ.get('MONGO_URL') and ('customer-apps' in os.environ.get('MONGO_URL', '') or 'swlgfd' in os.environ.get('MONGO_URL', '')):
+    print(f"🚨 NUCLEAR: Deployment injected external MongoDB - overriding immediately")
+    os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub'
+    print(f"🔒 NUCLEAR: Forced localhost MongoDB connection")
+
 print("🔧 ClinicHub starting - using deployment-managed configuration")
 # Add this to beginning of sys.path to ensure priority
 sys.path.insert(0, '/app/backend')
