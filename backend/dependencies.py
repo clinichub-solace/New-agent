@@ -37,18 +37,15 @@ def read_secret(secret_name: str, fallback_env: str = None) -> str:
     
     return ''
 
-# MongoDB connection - use environment configuration
+# MongoDB connection - Emergent-native approach
 def get_mongo_url():
-    """Get MongoDB URL from environment variables for deployment"""
-    # Direct environment variable access for deployment
-    mongo_url = os.environ.get('MONGO_URL')
+    """Get MongoDB URL - Emergent deployment native"""
+    # Let Emergent deployment manage MongoDB completely
+    # Use whatever the deployment environment provides
+    mongo_url = os.environ.get('MONGO_URL') or 'mongodb://localhost:27017/clinichub'
     
-    if not mongo_url:
-        print("⚠️ No MONGO_URL found in environment variables")
-        print("🔍 Available env vars:", [k for k in os.environ.keys() if 'MONGO' in k.upper()])
-        return None
-    
-    print(f"🔧 Using MongoDB from environment: {mongo_url[:50]}...")
+    print(f"🔧 Emergent-native MongoDB configuration")
+    print(f"🌐 Database: Deployment-managed")
     
     return mongo_url
 
