@@ -11161,7 +11161,8 @@ const Dashboard = () => {
   const [stats, setStats] = useState(null);
 
   useEffect(() => {
-    fetchSynologyStatus();
+    // DISABLED: Synology status check disabled for deployment stability
+    // fetchSynologyStatus();
   }, []);
 
   // ✅ URL VETTING: Uses configured 'api' instance with proper /api routing  
