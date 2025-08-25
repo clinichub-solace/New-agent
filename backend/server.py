@@ -76,10 +76,15 @@ try:
                 break
     
     # CLEAN DEPLOYMENT: Use environment-provided MongoDB configuration
-    mongo_url = read_secret('mongo_connection_string', 'MONGO_URL')
+    mongo_url = os.environ.get('MONGO_URL')
     
-    print(f"🔧 [SERVER] Using environment-provided MongoDB configuration")
-    print(f"🌐 [SERVER] Connection source: Environment variables")
+    if not mongo_url:
+        print("⚠️ [SERVER] No MONGO_URL in environment")
+        print("🔍 [SERVER] Available env vars:", [k for k in os.environ.keys() if 'MONGO' in k.upper()])
+        raise ValueError("MONGO_URL environment variable is required")
+    
+    print(f"🔧 [SERVER] Using environment MongoDB: {mongo_url[:50]}...")
+    print(f"🌐 [SERVER] Connection source: Environment variable")
     
     def sanitize_mongo_uri(uri: str) -> str:
         """Ensure username/password are percent-encoded in the Mongo URI."""
