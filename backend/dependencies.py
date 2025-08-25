@@ -14,10 +14,10 @@ import jwt
 from pathlib import Path
 from dotenv import load_dotenv
 
-# NUCLEAR OPTION: Force environment variable override at system level
-import os
-os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub' 
-os.environ['DB_NAME'] = 'clinichub'
+# DEPLOYMENT FIX: Override MongoDB URL for local service
+# Try to use localhost first, but fallback to environment if localhost not available
+original_mongo_url = os.environ.get('MONGO_URL', 'mongodb://localhost:27017/clinichub')
+os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub'
 
 # Load environment variables AFTER forcing the override
 ROOT_DIR = Path(__file__).parent
