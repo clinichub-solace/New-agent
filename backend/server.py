@@ -75,12 +75,11 @@ try:
                 mongo_url = env_url
                 break
     
-    # EMERGENT-NATIVE: Use deployment-provided MongoDB
-    mongo_url = os.environ.get('MONGO_URL') or 'mongodb://localhost:27017/clinichub'
+    # EMERGENT DEFAULT: Use simple localhost MongoDB
+    mongo_url = 'mongodb://localhost:27017/clinichub'
     
-    print(f"🔧 [SERVER] Emergent-native MongoDB configuration")
-    print(f"🌐 [SERVER] Database: Deployment-managed")
-    print(f"🔍 [SERVER] Using: {mongo_url[:50]}...")
+    print(f"🔧 [SERVER] Using Emergent default MongoDB")
+    print(f"🌐 [SERVER] Connection: localhost:27017/clinichub")
     
     def sanitize_mongo_uri(uri: str) -> str:
         """Ensure username/password are percent-encoded in the Mongo URI."""
