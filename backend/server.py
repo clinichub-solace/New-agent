@@ -108,6 +108,14 @@ try:
 
     mongo_url = sanitize_mongo_uri(mongo_url)
     
+    # FINAL SAFETY CHECK: Absolutely ensure localhost before client creation
+    if 'customer-apps' in mongo_url or 'mongodb.net' in mongo_url or 'swlgfd' in mongo_url:
+        print(f"🚨 [SERVER] FINAL BLOCK: Detected external MongoDB: {mongo_url[:50]}...")
+        mongo_url = 'mongodb://localhost:27017/clinichub'
+        print(f"🔒 [SERVER] FINAL OVERRIDE: Using localhost")
+    
+    print(f"🔧 [SERVER] FINAL CONNECTION URL: {mongo_url}")
+    
     # Configure MongoDB client with proper timeouts for production
     client = AsyncIOMotorClient(
         mongo_url,
