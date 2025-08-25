@@ -39,21 +39,7 @@ load_dotenv(ROOT_DIR / '.env')
 
 # SECURITY: Helper function to read Docker secrets
 def read_secret(secret_name: str, fallback_env: str = None) -> str:
-    """Read Docker secret or fall back to environment variable - DEPLOYMENT OVERRIDE"""
-    
-    # CRITICAL: Override any deployment-injected MongoDB URLs
-    if secret_name == 'mongo_connection_string' or fallback_env == 'MONGO_URL':
-        deployment_override = os.environ.get('MONGO_URL')
-        if deployment_override and ('customer-apps' in deployment_override or 'swlgfd.mongodb.net' in deployment_override):
-            print(f"🚨 [SERVER] BLOCKING deployment MongoDB injection: {deployment_override[:50]}...")
-            # Force localhost for deployment stability
-            override_url = 'mongodb://localhost:27017/clinichub'
-            print(f"🔧 [SERVER] Using localhost MongoDB: {override_url}")
-            return override_url
-        elif deployment_override:
-            print(f"🔧 [SERVER] Using environment MongoDB: {deployment_override[:50]}...")
-            return deployment_override
-    
+    """Read Docker secret or fall back to environment variable - clean deployment"""
     secret_file = f"/run/secrets/{secret_name}"
     env_file = os.environ.get(f"{fallback_env}_FILE") if fallback_env else None
     
