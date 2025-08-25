@@ -44,16 +44,34 @@ def read_secret(secret_name: str, fallback_env: str = None) -> str:
     
     return ''
 
-# Database connection - FORCE local MongoDB for deployment stability
-mongo_url = read_secret('mongo_connection_string', 'MONGO_URL')
+# Enhanced MongoDB connection with deployment environment detection
+def get_mongo_url():
+    """Get MongoDB URL with deployment environment detection"""
+    mongo_url = read_secret('mongo_connection_string', 'MONGO_URL')
+    
+    # BULLETPROOF: Check for external URLs and force local connection
+    if not mongo_url or mongo_url == "" or "mongodb.net" in mongo_url or "atlas" in mongo_url.lower() or "customer-apps" in mongo_url:
+        print(f"🔒 FORCING local MongoDB connection for deployment stability")
+        print(f"🔍 Original URL was: {mongo_url if mongo_url else 'None'}")
+        
+        # Try different local MongoDB configurations for deployment
+        possible_urls = [
+            "mongodb://localhost:27017/clinichub",
+            "mongodb://127.0.0.1:27017/clinichub", 
+            "mongodb://mongodb:27017/clinichub",  # Docker service name
+            "mongodb://db:27017/clinichub"        # Alternative service name
+        ]
+        
+        # Use the first one (localhost) as default
+        mongo_url = possible_urls[0]
+        print(f"🔧 Using MongoDB URL: {mongo_url}")
+    else:
+        print(f"🔧 Using configured MongoDB URL: {mongo_url}")
+    
+    return mongo_url
 
-# BULLETPROOF: Always use local MongoDB regardless of external configuration
-if not mongo_url or mongo_url == "" or "mongodb.net" in mongo_url or "atlas" in mongo_url.lower() or "customer-apps" in mongo_url:
-    print(f"🔒 FORCING local MongoDB connection for deployment stability")
-    print(f"🔍 Original URL was: {mongo_url if mongo_url else 'None'}")
-    mongo_url = "mongodb://localhost:27017/clinichub"
-else:
-    print(f"🔧 Using MongoDB URL: {mongo_url}")
+# Database connection - FORCE local MongoDB for deployment stability
+mongo_url = get_mongo_url()
 
 def sanitize_mongo_uri(uri: str) -> str:
     """Ensure username/password are percent-encoded in the Mongo URI."""
