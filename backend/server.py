@@ -67,13 +67,35 @@ def read_secret(secret_name: str, fallback_env: str = None) -> str:
 
 # MongoDB connection with secure secret handling
 try:
+    # DEPLOYMENT ENVIRONMENT DETECTION - Enhanced MongoDB connection
     mongo_url = read_secret('mongo_connection_string', 'MONGO_URL')
     
-    # BULLETPROOF: Always use local MongoDB regardless of external configuration
+    # Check if deployment environment provides managed MongoDB service
+    deployment_mongo_patterns = ["MONGO_URL", "DATABASE_URL", "MONGODB_URI", "DB_CONNECTION_STRING"]
+    
+    for pattern in deployment_mongo_patterns:
+        env_url = os.environ.get(pattern)
+        if env_url and env_url != "" and "localhost" not in env_url and "127.0.0.1" not in env_url:
+            if "mongodb.net" not in env_url and "atlas" not in env_url.lower():
+                print(f"🔧 [SERVER] Using deployment-provided MongoDB: {env_url}")
+                mongo_url = env_url
+                break
+    
+    # BULLETPROOF: Handle external URLs and missing services
     if not mongo_url or mongo_url == "" or "mongodb.net" in mongo_url or "atlas" in mongo_url.lower() or "customer-apps" in mongo_url:
-        print(f"🔒 [SERVER] FORCING local MongoDB connection for deployment stability")
+        print(f"🔒 [SERVER] Detected external/invalid MongoDB URL")
         print(f"🔍 [SERVER] Original URL was: {mongo_url if mongo_url else 'None'}")
-        mongo_url = "mongodb://localhost:27017/clinichub"
+        
+        # Try deployment-appropriate MongoDB configurations
+        possible_urls = [
+            "mongodb://mongodb:27017/clinichub",    # Docker service name (most common)
+            "mongodb://db:27017/clinichub",         # Alternative service name  
+            "mongodb://localhost:27017/clinichub",  # Localhost fallback
+            "mongodb://127.0.0.1:27017/clinichub"   # IP fallback
+        ]
+        
+        mongo_url = possible_urls[0]  # Prefer Docker service name
+        print(f"🔧 [SERVER] Using fallback MongoDB URL: {mongo_url}")
     else:
         print(f"🔧 [SERVER] Using MongoDB URL: {mongo_url}")
     
