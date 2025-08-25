@@ -1,11 +1,11 @@
 # EMERGENCY DEPLOYMENT FIX: Force MongoDB at module import level
 import os
-# DEPLOYMENT FIX: Use MongoDB Atlas for production deployment
-atlas_url = 'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&appName=Cluster0'
+# DEPLOYMENT FIX: Use MongoDB Atlas standard format for deployment reliability
+atlas_url = 'mongodb://vizantana:U9TeV2xRMtkW7Pqg@cluster0-shard-00-00.oniyqht.mongodb.net:27017,cluster0-shard-00-01.oniyqht.mongodb.net:27017,cluster0-shard-00-02.oniyqht.mongodb.net:27017/clinichub?ssl=true&replicaSet=atlas-default-shard-0&authSource=admin&retryWrites=true&w=majority'
 os.environ['MONGO_URL'] = atlas_url
 os.environ['DB_NAME'] = 'clinichub'
-print("🚨 DEPLOYMENT FIX: Configuring MongoDB Atlas connection")
-print(f"🌐 Atlas URL: {atlas_url[:50]}...")
+print("🚨 DEPLOYMENT FIX: Configuring MongoDB Atlas standard format")
+print(f"🌐 Atlas URL: {atlas_url[:80]}...")
 
 # app/backend/dependencies.py
 from fastapi import Depends, HTTPException, status
