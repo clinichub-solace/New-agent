@@ -325,11 +325,11 @@ class FHIRConverter:
 # Global FHIR converter
 fhir_converter = FHIRConverter()
 
-# Synology DSM Integration Configuration
-SYNOLOGY_DSM_URL = os.environ.get('SYNOLOGY_DSM_URL', None)  # e.g., "https://your-nas:5001"
-SYNOLOGY_VERIFY_SSL = os.environ.get('SYNOLOGY_VERIFY_SSL', 'true').lower() == 'true'
-SYNOLOGY_SESSION_NAME = os.environ.get('SYNOLOGY_SESSION_NAME', 'ClinicHub')
-SYNOLOGY_ENABLED = SYNOLOGY_DSM_URL is not None
+# Synology DSM Integration Configuration - DISABLED FOR DEPLOYMENT
+SYNOLOGY_DSM_URL = None  # Force disabled for deployment stability
+SYNOLOGY_VERIFY_SSL = False
+SYNOLOGY_SESSION_NAME = 'ClinicHub'
+SYNOLOGY_ENABLED = False  # Force disabled to prevent authentication interference
 
 security = HTTPBearer()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
