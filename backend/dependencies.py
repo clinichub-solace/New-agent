@@ -1,9 +1,9 @@
 # EMERGENCY DEPLOYMENT FIX: Force MongoDB at module import level
 import os
-# DEPLOYMENT FIX: Use managed MongoDB service instead of localhost
-os.environ['MONGO_URL'] = 'mongodb://localhost:27017/clinichub'
+# DEPLOYMENT FIX: Use MongoDB Atlas for production deployment
+os.environ['MONGO_URL'] = 'mongodb+srv://vizantana:U9TeV2xRMtkW7Pqg@cluster0.oniyqht.mongodb.net/clinichub?retryWrites=true&w=majority&appName=Cluster0'
 os.environ['DB_NAME'] = 'clinichub'
-print("🚨 DEPLOYMENT FIX: Configuring MongoDB connection")
+print("🚨 DEPLOYMENT FIX: Configuring MongoDB Atlas connection")
 
 # app/backend/dependencies.py
 from fastapi import Depends, HTTPException, status
