@@ -509,8 +509,8 @@ async def all_exception_handler(request, exc: Exception):
 from .routers import receipts, time_tracking
 from .payroll_enhancements import payroll_router, ensure_indexes
 from .routes import payroll_config, payroll_bank, payroll_ach_config, payroll_exports, audit, notifications, forms
-app.include_router(receipts.router)
-app.include_router(time_tracking.router)
+# app.include_router(receipts.router)  # Disabled for clean deployment
+# app.include_router(time_tracking.router)  # Disabled for clean deployment
 
 # Startup: ensure indexes for payroll, audit, notifications, and forms
 @app.on_event("startup")
