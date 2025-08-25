@@ -51,8 +51,15 @@ def get_mongo_url():
         print(f"🔧 [DEPS] Using localhost MongoDB for deployment")
         return 'mongodb://localhost:27017/clinichub'
 
-# Database connection - FORCE local MongoDB for deployment stability
 mongo_url = get_mongo_url()
+
+# FINAL SAFETY CHECK: Absolutely ensure localhost before client creation
+if 'customer-apps' in mongo_url or 'mongodb.net' in mongo_url or 'swlgfd' in mongo_url:
+    print(f"🚨 [DEPS] FINAL BLOCK: Detected external MongoDB: {mongo_url[:50]}...")
+    mongo_url = 'mongodb://localhost:27017/clinichub'
+    print(f"🔒 [DEPS] FINAL OVERRIDE: Using localhost")
+
+print(f"🔧 [DEPS] FINAL CONNECTION URL: {mongo_url}")
 
 def sanitize_mongo_uri(uri: str) -> str:
     """Ensure username/password are percent-encoded in the Mongo URI."""
