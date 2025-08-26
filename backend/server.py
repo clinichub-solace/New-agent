@@ -181,6 +181,37 @@ async def get_notifications():
         }
     ]
 
+@app.get("/api/soap-notes/patient/{patient_id}")
+async def get_patient_soap_notes(patient_id: str):
+    return [
+        {
+            "id": "soap-001",
+            "patient_id": patient_id,
+            "encounter_date": "2025-01-15T10:00:00Z",
+            "provider": "Dr. Sarah Johnson",
+            "subjective": "Patient reports feeling well. No new complaints. Medication compliance good.",
+            "objective": "Vital signs stable. BP 120/80, HR 72, Temp 98.6°F. Physical exam unremarkable.",
+            "assessment": "Hypertension well controlled on current medications. Patient stable.",
+            "plan": "Continue current antihypertensive therapy. Follow-up in 3 months. Lab work due.",
+            "diagnosis_codes": [
+                {"code": "I10", "description": "Essential hypertension"}
+            ]
+        },
+        {
+            "id": "soap-002",
+            "patient_id": patient_id,
+            "encounter_date": "2025-01-10T14:30:00Z", 
+            "provider": "Dr. Sarah Johnson",
+            "subjective": "Patient here for routine wellness visit. No acute concerns.",
+            "objective": "General appearance well. Vital signs within normal limits.",
+            "assessment": "Annual wellness visit. Patient in good overall health.",
+            "plan": "Routine preventive care counseling provided. Schedule mammogram.",
+            "diagnosis_codes": [
+                {"code": "Z00.00", "description": "Encounter for general adult medical examination"}
+            ]
+        }
+    ]
+
 # Root route
 @app.get("/")
 async def root():
