@@ -119,6 +119,7 @@ async def get_inventory():
     return [
         {
             "id": "inv-001",
+            "name": "Digital Thermometer",  # Frontend expects 'name' not 'item_name'
             "item_name": "Digital Thermometer",
             "category": "Medical Equipment",
             "current_stock": 25,
@@ -128,6 +129,7 @@ async def get_inventory():
         },
         {
             "id": "inv-002",
+            "name": "Disposable Gloves",  # Frontend expects 'name' not 'item_name'
             "item_name": "Disposable Gloves",
             "category": "Medical Supplies", 
             "current_stock": 150,
