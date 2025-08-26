@@ -168,6 +168,19 @@ async def get_quality_measures():
 async def synology_status():
     return {"enabled": False, "configured": False}
 
+@app.get("/api/notifications")
+async def get_notifications():
+    return [
+        {
+            "id": "notif-001", 
+            "title": "System Alert",
+            "message": "ClinicHub demo system operational",
+            "severity": "info",
+            "acknowledged": False,
+            "created_at": "2025-01-17T12:00:00Z"
+        }
+    ]
+
 # Root route
 @app.get("/")
 async def root():
